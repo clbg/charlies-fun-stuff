@@ -1,0 +1,35 @@
+# Virtual environment
+gre_env/
+venv/
+env/
+
+# Output files
+output/
+
+# API keys and environment files
+.env
+.env.local
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Audio files (if not needed in repo)
+*.mp3
+*.wav
