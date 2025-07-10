@@ -6,6 +6,7 @@ import argparse
 import requests
 import json
 import base64
+import glob
 
 # Constants
 OUTPUT_DIR = "output"
@@ -257,37 +258,156 @@ class CSVExporter(VocabularyProcessor):
         print(f"Exported {len(items)} new cards to {self.output_path}")
         return items
 
+def select_vocabulary_file() -> str:
+    """Interactive file selection from vocabulary directory"""
+    vocabulary_dir = "vocabulary"
+    
+    # Check if vocabulary directory exists
+    if not os.path.exists(vocabulary_dir):
+        print(f"Error: '{vocabulary_dir}' directory not found.")
+        return None
+    
+    # Get all CSV files in vocabulary directory
+    csv_files = glob.glob(os.path.join(vocabulary_dir, "*.csv"))
+    
+    if not csv_files:
+        print(f"No CSV files found in '{vocabulary_dir}' directory.")
+        return None
+    
+    # Sort files for consistent ordering
+    csv_files.sort()
+    
+    print("\n=== Available Vocabulary Files ===")
+    print("Please select a file to process:")
+    
+    for i, file_path in enumerate(csv_files, 1):
+        filename = os.path.basename(file_path)
+        # Try to get file size for additional info
+        try:
+            file_size = os.path.getsize(file_path)
+            size_kb = file_size / 1024
+            print(f"{i:2d}. {filename} ({size_kb:.1f} KB)")
+        except:
+            print(f"{i:2d}. {filename}")
+    
+    print(f"{len(csv_files) + 1:2d}. Process ALL files (combine all vocabulary)")
+    print(" 0. Exit")
+    
+    while True:
+        try:
+            choice = input(f"\nEnter your choice (0-{len(csv_files) + 1}): ").strip()
+            
+            if choice == "0":
+                print("Exiting...")
+                return None
+            
+            choice_num = int(choice)
+            
+            if choice_num == len(csv_files) + 1:
+                # Process all files
+                return "ALL"
+            elif 1 <= choice_num <= len(csv_files):
+                selected_file = csv_files[choice_num - 1]
+                print(f"Selected: {os.path.basename(selected_file)}")
+                return selected_file
+            else:
+                print(f"Invalid choice. Please enter a number between 0 and {len(csv_files) + 1}.")
+        
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+        except KeyboardInterrupt:
+            print("\nExiting...")
+            return None
+
 def load_vocabulary(csv_path: str) -> List[VocabularyItem]:
-    """Load vocabulary from CSV file"""
+    """Load vocabulary from CSV file or multiple files"""
     items = []
-    with open(csv_path, newline='', encoding='utf-8') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            items.append(VocabularyItem(
-                word=row['Word'],
-                definition=row.get('Definition', ''),
-                category=row.get('Category', ''),
-                difficulty=row.get('Difficulty', '')
-            ))
-    print(f"{len(items)} words loaded from {csv_path}")
+    
+    if csv_path == "ALL":
+        # Load from all CSV files in vocabulary directory
+        vocabulary_dir = "vocabulary"
+        csv_files = glob.glob(os.path.join(vocabulary_dir, "*.csv"))
+        csv_files.sort()
+        
+        print(f"Loading vocabulary from {len(csv_files)} files...")
+        
+        for file_path in csv_files:
+            filename = os.path.basename(file_path)
+            print(f"Loading from {filename}...")
+            
+            try:
+                with open(file_path, newline='', encoding='utf-8') as csvfile:
+                    reader = csv.DictReader(csvfile)
+                    file_items = []
+                    for row in reader:
+                        # Handle different possible column names
+                        word = row.get('Word') or row.get('word') or row.get('WORD', '')
+                        definition = row.get('Definition') or row.get('definition') or row.get('DEFINITION', '')
+                        category = row.get('Category') or row.get('category') or row.get('CATEGORY', '')
+                        difficulty = row.get('Difficulty') or row.get('difficulty') or row.get('DIFFICULTY', '')
+                        
+                        if word:  # Only add if word is not empty
+                            file_items.append(VocabularyItem(
+                                word=word,
+                                definition=definition,
+                                category=category,
+                                difficulty=difficulty
+                            ))
+                    
+                    items.extend(file_items)
+                    print(f"  -> {len(file_items)} words loaded from {filename}")
+            
+            except Exception as e:
+                print(f"  -> Error loading {filename}: {str(e)}")
+        
+        print(f"Total: {len(items)} words loaded from all files")
+    
+    else:
+        # Load from single file
+        with open(csv_path, newline='', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                # Handle different possible column names
+                word = row.get('Word') or row.get('word') or row.get('WORD', '')
+                definition = row.get('Definition') or row.get('definition') or row.get('DEFINITION', '')
+                category = row.get('Category') or row.get('category') or row.get('CATEGORY', '')
+                difficulty = row.get('Difficulty') or row.get('difficulty') or row.get('DIFFICULTY', '')
+                
+                if word:  # Only add if word is not empty
+                    items.append(VocabularyItem(
+                        word=word,
+                        definition=definition,
+                        category=category,
+                        difficulty=difficulty
+                    ))
+        
+        print(f"{len(items)} words loaded from {csv_path}")
+    
     return items
 
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--debug', type=int, default=0, help='Enable debug mode with a limit on number of rows to process (0 for no limit)')
-    parser.add_argument('--csv', type=str, default=INPUT_CSV_PATH, help='Path to input CSV file')
+    parser.add_argument('--csv', type=str, default=None, help='Path to input CSV file (if not provided, interactive selection will be used)')
     args = parser.parse_args()
     
-    # Check if input CSV exists
-    if not os.path.exists(args.csv):
-        print(f"Error: Input CSV file '{args.csv}' not found.")
-        print("Please place your GRE vocabulary CSV file in the project directory.")
-        print("Expected format: Word,Definition,Category,Difficulty")
-        return
+    # Determine input file
+    if args.csv:
+        # Use provided CSV file
+        if not os.path.exists(args.csv):
+            print(f"Error: Input CSV file '{args.csv}' not found.")
+            print("Please check the file path and try again.")
+            return
+        selected_file = args.csv
+    else:
+        # Use interactive file selection
+        selected_file = select_vocabulary_file()
+        if not selected_file:
+            return
     
     # Load vocabulary
-    vocab_items = load_vocabulary(args.csv)
+    vocab_items = load_vocabulary(selected_file)
     
     # Determine output path
     output_path = DEFAULT_CSV_PATH if not args.debug else DEBUG_CSV_PATH
