@@ -52,7 +52,7 @@ class ExampleGenerator(VocabularyProcessor):
         if not self.api_key:
             raise ValueError("OPENAI_API_KEY environment variable not set. Please set it before running the script.")
         self.endpoint = "https://api.openai.com/v1/chat/completions"
-        self.model = "gpt-4.1"
+        self.model = "gpt-4.1-mini"
 
     def process(self, items: List[VocabularyItem]) -> List[VocabularyItem]:
         headers = {
@@ -93,9 +93,10 @@ class ExampleGenerator(VocabularyProcessor):
    - 不要加入额外字段或多层嵌套。
 
 3. **grammar_html**  
-   - 必须以 `<ol>` 开头、`</ol>` 结尾；内部只允许 `<li>`、`<ruby>`、`<rt>`。  
-   - 说明句子的语法点，并给出极简示例。  
-   - 全部使用中文解释，必要日语词汇可加 `<ruby>` 注音。  
+   - 详细的解释这个句子的所有单词，使用以`<ol>` 开头、`</ol>` 结尾；内部用 `<li>`的表格的形式
+   - 详细解释这个句子设计到的语法知识
+   - 如果有需要可以解释一下文化背景
+   - 全部使用中文解释，必要日语词汇可加括号注音。  
 
 4. **通用**  
    - 返回的 JSON **必须能通过 `json.loads()` 解析**（双引号、转义正确）。  
