@@ -60,3 +60,33 @@ This project helps beginners learn Japanese vocabulary by generating Anki cards 
 ## Notes
 - Output files are saved in the `output/` directory.
 - Debug mode can be enabled with the `--debug` flag to limit output to 5 rows.
+
+### Manage Environment Variables with direnv
+
+`direnv` is a tool that loads/unloads environment variables automatically per directory. This is useful for managing project-specific configurations like `PYTHONPATH`.
+
+**Installation:**
+
+*   **macOS (using Homebrew):**
+    ```bash
+    brew install direnv
+    ```
+*   **Other Systems:** Refer to the official `direnv` installation guide: [https://direnv.net/docs/installation.html](https://direnv.net/docs/installation.html)
+
+**Enable direnv:**
+
+After installing `direnv`, you need to hook it into your shell. Add the following line to your shell's configuration file (e.g., `~/.zshrc` for zsh, `~/.bashrc` for bash):
+
+```bash
+eval "$(direnv hook zsh)" # Or 'eval "$(direnv hook bash)"' for bash
+```
+Then, restart your shell or source your configuration file (e.g., `source ~/.zshrc`).
+
+**Usage:**
+
+Create a `.envrc` file in your project's root directory and add your environment variables. For example, to set `PYTHONPATH` to include `common_modules`:
+
+```bash
+export PYTHONPATH=$PYTHONPATH:./common_modules
+```
+After creating or modifying `.envrc`, run `direnv allow` in the terminal within that directory to load the variables.

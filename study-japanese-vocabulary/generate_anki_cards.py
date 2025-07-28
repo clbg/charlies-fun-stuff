@@ -20,7 +20,7 @@ CSV_HEADERS = [
     "Japanese", "Chinese", "Example_JP", "Example_CN", "Example_Furigana",
     "Grammar_Notes", "Audio_Path"
 ]
-INPUT_CSV_PATH = "study-japanese-vocabulary/jlpt_vocab.csv"
+INPUT_CSV_PATH = "jlpt_vocab.csv"
 JLPT_INPUT_PROMPT = "输入要筛选的JLPT等级(用逗号分隔，例如4,5): "
 CHINESE_COMMA = '，'
 
