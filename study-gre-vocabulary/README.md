@@ -34,20 +34,20 @@ This project helps students learn GRE vocabulary by generating Anki cards with G
    ```
 
 3. **Install Required Packages**:
-   Install necessary packages:
+   Install necessary packages using the requirements.txt file:
    ```
-   pip install requests beautifulsoup4 pandas
+   pip install -r requirements.txt
    ```
 
-4. **Set Environment Variables**:
-   Set your OpenAI API key for example generation:
+4. **Configure API Keys**:
+   Copy the .env.example file to .env and add your API keys:
    ```
-   export OPENAI_API_KEY="your-api-key-here"
+   cp .env.example .env
    ```
-   
-   Optionally, set Google Cloud API key for audio generation:
+   Then edit the .env file to add your API keys:
    ```
-   export GOOGLE_ACCESS_TOKEN="your-google-api-key-here"
+   OPENAI_API_KEY=your-openai-api-key-here
+   GOOGLE_ACCESS_TOKEN=your-google-api-key-here
    ```
 
 ## CSV Format

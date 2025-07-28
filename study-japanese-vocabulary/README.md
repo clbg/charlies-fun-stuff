@@ -26,9 +26,21 @@ This project helps beginners learn Japanese vocabulary by generating Anki cards 
    ```
 
 3. **Install Required Packages**:
-   Install necessary packages:
+   Install necessary packages using the requirements.txt file:
    ```
-   pip install requests beautifulsoup4 pandas
+   pip install -r requirements.txt
+   ```
+
+4. **Configure API Keys**:
+   Copy the .env.example file to .env and add your API keys:
+   ```
+   cp .env.example .env
+   ```
+   Then edit the .env file to add your API keys:
+   ```
+   OPENAI_API_KEY=your-openai-api-key-here
+   ANTHROPIC_API_KEY=your-anthropic-api-key-here
+   GOOGLE_ACCESS_TOKEN=your-google-api-key-here
    ```
 
 ## Operation Steps

@@ -1,11 +1,17 @@
 import csv
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import os
 import argparse
 import requests
 import json
 import base64
+import boto3
+from abc import ABC, abstractmethod
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Constants
 OUTPUT_DIR = "output"
@@ -37,6 +43,131 @@ class VocabularyProcessor:
     def process(self, items: List[VocabularyItem]) -> List[VocabularyItem]:
         raise NotImplementedError
 
+class LLMProvider(ABC):
+    """Abstract base class for LLM providers"""
+    
+    @abstractmethod
+    def generate_completion(self, prompt: str, max_tokens: int = 800) -> str:
+        """Generate completion from the LLM provider"""
+        pass
+
+class OpenAIProvider(LLMProvider):
+    """OpenAI API provider"""
+    
+    def __init__(self, api_key: str = None, model: str = "gpt-4.1", endpoint: str = "https://api.openai.com/v1/chat/completions"):
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+        if not self.api_key:
+            raise ValueError("OPENAI_API_KEY environment variable not set or api_key parameter not provided.")
+        self.model = model
+        self.endpoint = endpoint
+    
+    def generate_completion(self, prompt: str, max_tokens: int = 800) -> str:
+        """Generate completion using OpenAI API"""
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": self.model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "max_tokens": max_tokens
+        }
+        
+        response = requests.post(self.endpoint, json=payload, headers=headers)
+        if response.status_code == 200:
+            response_data = response.json()
+            return response_data['choices'][0]['message']['content'].strip()
+        else:
+            raise Exception(f"API error: Status code {response.status_code}")
+
+class AnthropicProvider(LLMProvider):
+    """Anthropic Claude API provider"""
+    
+    def __init__(self, api_key: str = None, model: str = "claude-3-sonnet-20240229", endpoint: str = "https://api.anthropic.com/v1/messages"):
+        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+        if not self.api_key:
+            raise ValueError("ANTHROPIC_API_KEY environment variable not set or api_key parameter not provided.")
+        self.model = model
+        self.endpoint = endpoint
+    
+    def generate_completion(self, prompt: str, max_tokens: int = 800) -> str:
+        """Generate completion using Anthropic API"""
+        headers = {
+            "x-api-key": self.api_key,
+            "Content-Type": "application/json",
+            "anthropic-version": "2023-06-01"
+        }
+        
+        payload = {
+            "model": self.model,
+            "max_tokens": max_tokens,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        }
+        
+        response = requests.post(self.endpoint, json=payload, headers=headers)
+        if response.status_code == 200:
+            response_data = response.json()
+            return response_data['content'][0]['text'].strip()
+        else:
+            raise Exception(f"API error: Status code {response.status_code}")
+
+class BedrockProvider(LLMProvider):
+    """AWS Bedrock API provider for Claude models using boto3 with API key"""
+    
+    def __init__(self, api_key: str = None, model: str = "us.anthropic.claude-sonnet-4-20250514-v1:0", region: str = "us-west-2"):
+        self.api_key = api_key or os.getenv("AWS_BEARER_TOKEN_BEDROCK")
+        if not self.api_key:
+            raise ValueError("AWS_BEARER_TOKEN_BEDROCK environment variable not set or api_key parameter not provided.")
+        self.model = model
+        self.region = region
+        
+        # Ensure model is a Claude model
+        if not "anthropic.claude" in self.model:
+            raise ValueError(f"BedrockProvider only supports Claude models. Provided model: {self.model}")
+        
+        # Set the API key as an environment variable for boto3
+        os.environ['AWS_BEARER_TOKEN_BEDROCK'] = self.api_key
+        
+        # Create boto3 client for Bedrock
+        self.bedrock_client = boto3.client(
+            service_name='bedrock-runtime',
+            region_name=self.region
+        )
+    
+    def generate_completion(self, prompt: str, max_tokens: int = 800) -> str:
+        """Generate completion using AWS Bedrock API with Claude models via boto3"""
+        try:
+            # For newer Claude models, use converse API
+                # Prepare messages for converse API
+                messages = [
+                    {
+                        "role": "user", 
+                        "content": [{"text": prompt}]
+                    }
+                ]
+                
+                # Call the converse API
+                response = self.bedrock_client.converse(
+                    modelId=self.model,
+                    messages=messages,
+                )
+                
+                # Extract the completion text from converse response
+                return response['output']['message']['content'][0]['text'].strip()
+        except Exception as e:
+            raise Exception(f"AWS Bedrock API error: {str(e)}")
+
 class JLPTFilter(VocabularyProcessor):
     """Filter vocabulary by JLPT level"""
     def __init__(self, levels: List[int]):
@@ -46,26 +177,11 @@ class JLPTFilter(VocabularyProcessor):
         return [item for item in items if item.jlpt_level in self.levels]
 
 class ExampleGenerator(VocabularyProcessor):
-    """Generate example sentences using OpenAI API"""
-    def __init__(self):
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
-            raise ValueError("OPENAI_API_KEY environment variable not set. Please set it before running the script.")
-        self.endpoint = "https://api.openai.com/v1/chat/completions"
-        self.model = "gpt-4.1-mini"
+    def __init__(self, llm_provider: LLMProvider = None):
+        self.llm_provider = llm_provider or OpenAIProvider()
 
-    def process(self, items: List[VocabularyItem]) -> List[VocabularyItem]:
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
-        
-        total_items = len(items)
-        for i, item in enumerate(items, 1):
-            if not item.example_sentence_jp:
-                print(f"Processing item {i}/{total_items}: Generating example for '{item.japanese}'")
-                prompt = (
- f"""
+    def _create_prompt(self, japanese_word: str) -> str:
+        return f"""
 你是日语教学助手。  
 请仅返回 **有效 JSON**，不得输出多余文本或 Markdown 代码块标记。  
 返回内容必须满足以下 schema 与约束：
@@ -88,6 +204,7 @@ class ExampleGenerator(VocabularyProcessor):
    - 必须是 JSON 数组，每个元素包含 "text" 和 "kana" 字段。
    - "text"：词块原文（含汉字或假名，不要拆开固定词块）。
    - "kana"：假名读音。对于纯假名或标点，kana 设为空字符串 ""。读音写成平假名，不要再分解或加空格。
+   - 如果内部文本有引号，注意转义以符合 json 的格式
    - 字段顺序固定为 text → kana。
    - 各词块保持原句顺序。
    - 不要加入额外字段或多层嵌套。
@@ -109,65 +226,52 @@ class ExampleGenerator(VocabularyProcessor):
 - [ ] 成功通过才输出；否则**重新生成**直到所有检查通过。  
 
 ### 📝 任务输入
-目标单词: 「{item.japanese}」
+目标单词: 「{japanese_word}」
 """
 
-
-                                )
-                payload = {
-                    "model": self.model,
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    "max_tokens": 800
-                }
+    def process(self, items: List[VocabularyItem]) -> List[VocabularyItem]:
+        total_items = len(items)
+        for i, item in enumerate(items, 1):
+            if not item.example_sentence_jp:
+                print(f"Processing item {i}/{total_items}: Generating example for '{item.japanese}'")
+                prompt = self._create_prompt(item.japanese)
                 
                 try:
-                    response = requests.post(self.endpoint, json=payload, headers=headers)
-                    if response.status_code == 200:
-                        response_data = response.json()
-                        content = response_data['choices'][0]['message']['content'].strip()
-                        print(f"Received response for '{item.japanese}': {content}")
-                        try:
-                            json_data = json.loads(content)
-                            item.chinese = json_data.get('cn_gloss', f"Failed to parse translation for {item.japanese}")
-                            item.example_sentence_jp = json_data.get('jp_sentence', f"Failed to parse example for {item.japanese}")
-                            item.example_sentence_cn = json_data.get('cn_sentence', f"Failed to parse translation for {item.chinese}")
-                            
-                            furigana_data = json_data.get('jp_sentence_furigana')
-                            if isinstance(furigana_data, list):
-                                furigana_parts = []
-                                for part in furigana_data:
-                                    text = part.get('text', '')
-                                    kana = part.get('kana', '')
-                                    if kana:
-                                        furigana_parts.append(f"<ruby>{text}<rt>{kana}</rt></ruby>")
-                                    else:
-                                        furigana_parts.append(text)
-                                item.example_furigana = "".join(furigana_parts)
-                            else:
-                                item.example_furigana = f"Failed to parse furigana (expected list) for {item.japanese}: {furigana_data}"
+                    content = self.llm_provider.generate_completion(prompt, max_tokens=800)
+                    print(f"Received response for '{item.japanese}': {content}")
+                    try:
+                        json_data = json.loads(content)
+                        item.chinese = json_data.get('cn_gloss', f"Failed to parse translation for {item.japanese}")
+                        item.example_sentence_jp = json_data.get('jp_sentence', f"Failed to parse example for {item.japanese}")
+                        item.example_sentence_cn = json_data.get('cn_sentence', f"Failed to parse translation for {item.chinese}")
+                        
+                        furigana_data = json_data.get('jp_sentence_furigana')
+                        if isinstance(furigana_data, list):
+                            furigana_parts = []
+                            for part in furigana_data:
+                                text = part.get('text', '')
+                                kana = part.get('kana', '')
+                                if kana:
+                                    furigana_parts.append(f"<ruby>{text}<rt>{kana}</rt></ruby>")
+                                else:
+                                    furigana_parts.append(text)
+                            item.example_furigana = "".join(furigana_parts)
+                        else:
+                            item.example_furigana = f"Failed to parse furigana (expected list) for {item.japanese}: {furigana_data}"
 
-                            item.grammar_notes = json_data.get('grammar_html', f"Failed to parse grammar notes for {item.japanese}")
-                            print(f"Set Chinese translation for '{item.japanese}': {item.chinese if item.chinese is not None else 'None'}")
-                            print(f"Set example for '{item.japanese}': JP: {item.example_sentence_jp if item.example_sentence_jp is not None else 'None'}")
-                            print(f"Set translation for '{item.japanese}': CN: {item.example_sentence_cn if item.example_sentence_cn is not None else 'None'}")
-                            print(f"Set furigana for '{item.japanese}': {item.example_furigana if item.example_furigana is not None else 'None'}")
-                            print(f"Set grammar notes for '{item.japanese}': {item.grammar_notes[:50] if item.grammar_notes is not None else 'None'}...")
-                        except json.JSONDecodeError as jde:
-                            item.chinese = f"Failed to parse JSON for translation of {item.japanese}"
-                            item.example_sentence_jp = f"Failed to parse JSON for example of {item.japanese}"
-                            item.example_sentence_cn = f"Failed to parse JSON for translation"
-                            item.example_furigana = f"Failed to parse JSON for furigana of {item.japanese}"
-                            item.grammar_notes = f"Failed to parse JSON for grammar notes of {item.japanese}"
-                            print(f"JSON parsing error for '{item.japanese}': {str(jde)}")
-                    else:
-                        item.example_sentence_jp = f"API error for {item.japanese} (status {response.status_code})"
-                        item.example_sentence_cn = f"API error for translation (status {response.status_code})"
-                        print(f"API error for '{item.japanese}': Status code {response.status_code}")
+                        item.grammar_notes = json_data.get('grammar_html', f"Failed to parse grammar notes for {item.japanese}")
+                        print(f"Set Chinese translation for '{item.japanese}': {item.chinese if item.chinese is not None else 'None'}")
+                        print(f"Set example for '{item.japanese}': JP: {item.example_sentence_jp if item.example_sentence_jp is not None else 'None'}")
+                        print(f"Set translation for '{item.japanese}': CN: {item.example_sentence_cn if item.example_sentence_cn is not None else 'None'}")
+                        print(f"Set furigana for '{item.japanese}': {item.example_furigana if item.example_furigana is not None else 'None'}")
+                        print(f"Set grammar notes for '{item.japanese}': {item.grammar_notes[:50] if item.grammar_notes is not None else 'None'}...")
+                    except json.JSONDecodeError as jde:
+                        item.chinese = f"Failed to parse JSON for translation of {item.japanese}"
+                        item.example_sentence_jp = f"Failed to parse JSON for example of {item.japanese}"
+                        item.example_sentence_cn = f"Failed to parse JSON for translation"
+                        item.example_furigana = f"Failed to parse JSON for furigana of {item.japanese}"
+                        item.grammar_notes = f"Failed to parse JSON for grammar notes of {item.japanese}"
+                        print(f"JSON parsing error for '{item.japanese}': {str(jde)}")
                 except Exception as e:
                     item.example_sentence_jp = f"Error generating example for {item.japanese}: {str(e)}"
                     item.example_sentence_cn = f"Error generating translation: {str(e)}"
@@ -276,6 +380,25 @@ class CSVExporter(VocabularyProcessor):
         print(f"Exported {len(items)} new cards to {self.output_path}")
         return items
 
+def create_llm_provider(provider_type: str = "openai", **kwargs) -> LLMProvider:
+    """Factory function to create LLM providers
+    
+    Args:
+        provider_type: Type of provider ("openai", "anthropic", or "bedrock")
+        **kwargs: Additional parameters for the provider (api_key, model, endpoint)
+    
+    Returns:
+        LLMProvider instance
+    """
+    if provider_type.lower() == "openai":
+        return OpenAIProvider(**kwargs)
+    elif provider_type.lower() == "anthropic":
+        return AnthropicProvider(**kwargs)
+    elif provider_type.lower() == "bedrock":
+        return BedrockProvider(**kwargs)
+    else:
+        raise ValueError(f"Unsupported provider type: {provider_type}")
+
 def load_vocabulary(csv_path: str) -> List[VocabularyItem]:
     """Load vocabulary from CSV file"""
     items = []
@@ -294,6 +417,10 @@ def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--debug', type=int, default=0, help='Enable debug mode with a limit on number of rows to process (0 for no limit)')
+    parser.add_argument('--llm-provider', type=str, default='openai', choices=['openai', 'anthropic', 'bedrock'], help='LLM provider to use (default: openai)')
+    parser.add_argument('--model', type=str, help='Model name to use (overrides default for provider)')
+    parser.add_argument('--api-key', type=str, help='API key to use (overrides environment variable)')
+    parser.add_argument('--endpoint', type=str, help='API endpoint to use (overrides default for provider)')
     args = parser.parse_args()
     
     # Load vocabulary
@@ -346,10 +473,26 @@ def main():
         if debug_skipped_count > 0:
             print(f"Limited processing to {args.debug} items, skipped {debug_skipped_count} items due to debug mode")
     
+    # Create LLM provider based on arguments
+    llm_kwargs = {}
+    if args.api_key:
+        llm_kwargs['api_key'] = args.api_key
+    if args.model:
+        llm_kwargs['model'] = args.model
+    if args.endpoint:
+        llm_kwargs['endpoint'] = args.endpoint
+    
+    try:
+        llm_provider = create_llm_provider(args.llm_provider, **llm_kwargs)
+        print(f"Using {args.llm_provider} provider with model: {getattr(llm_provider, 'model', 'default')}")
+    except Exception as e:
+        print(f"Error creating LLM provider: {e}")
+        return
+    
     # Create processing pipeline
     processors = []
     processors.extend([
-        ExampleGenerator(),
+        ExampleGenerator(llm_provider=llm_provider),
         AudioGenerator(),
         CSVExporter(output_path)
     ])

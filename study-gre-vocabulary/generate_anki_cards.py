@@ -7,6 +7,10 @@ import requests
 import json
 import base64
 import glob
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Constants
 OUTPUT_DIR = "output"
