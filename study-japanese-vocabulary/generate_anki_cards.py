@@ -6,7 +6,7 @@ import argparse
 import json
 from dotenv import load_dotenv
 from common_modules.llm_providers import LLMProvider, create_llm_provider
-from common_modules.audio_providers import AudioProvider, create_audio_provider
+from common_modules.audio_providers import AudioProvider, Language, create_audio_provider
 
 # Load environment variables from .env file
 load_dotenv()
@@ -158,7 +158,7 @@ class ExampleGenerator(VocabularyProcessor):
 class AudioGenerator(VocabularyProcessor):
     """Generate audio files using a chosen AudioProvider"""
     def __init__(self, audio_provider: Optional[AudioProvider] = None):
-        self.audio_provider = audio_provider or create_audio_provider("google_tts")
+        self.audio_provider = audio_provider or create_audio_provider(language=Language.JA,provider_type="google_tts")
 
     def process(self, items: List[VocabularyItem]) -> List[VocabularyItem]:
         os.makedirs(AUDIO_DIR, exist_ok=True)
