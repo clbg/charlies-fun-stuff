@@ -96,7 +96,8 @@ class ExampleGenerator(VocabularyProcessor):
 - [ ] 确认只有一个顶层 JSON 对象。  
 - [ ] 用正则 `"<|>"` 检查 jp_sentence ➜ 不得命中。  
 - [ ] 用正则 `^<ol>` 和 `</ol>$` 检查 grammar_html ➜ 必须同时命中。  
-- [ ] 成功通过才输出；否则**重新生成**直到所有检查通过。  
+- [ ] 成功通过才输出；否则**重新生成**直到所有检查通过。 
+- [ ] 确认json对象里面字符串格式合法性
 
 ### 📝 任务输入
 目标单词: 「{japanese_word}」
