@@ -1,0 +1,312 @@
+.trumpet-helper {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.header {
+  width: 100%;
+  background-color: #f8f9fa;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease-in-out;
+  position: relative;
+}
+
+.toggle-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  padding: 0.5rem 1rem;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.toggle-button:hover {
+  background-color: #2980b9;
+}
+
+.controls-hidden .header {
+  height: 50px;
+  overflow: hidden;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.controls-hidden .toggle-button {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background-color: #3498db;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 1rem;
+  margin-top: 1rem;
+  transition: all 0.3s ease-in-out;
+}
+
+.main-content .sheet-music-display-container {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  background-color: white;
+  box-shadow: none;
+  border: none;
+}
+
+.controls-hidden .main-content {
+  flex: 1;
+  height: calc(100vh - 60px);
+  padding: 0;
+  margin: 0;
+}
+
+.controls-hidden .main-content .sheet-music-display-container {
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+.controls-hidden .osmd-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 60px;
+  left: 0;
+}
+
+.main-content.fullscreen {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  width: 100%;
+  height: calc(100% - 60px);
+  padding: 0;
+  margin: 0;
+  z-index: 999;
+}
+
+.trumpet-helper h1 {
+  color: #2c3e50;
+  margin-bottom: 2rem;
+}
+
+.trumpet-helper h2 {
+  color: #3498db;
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 0.5rem;
+  margin-top: 2rem;
+}
+
+.section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.button-mapping {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  margin: 1rem 0;
+}
+
+.mapping-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.mapping-item label {
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+}
+
+.mapping-item input {
+  width: 60px;
+  height: 60px;
+  text-align: center;
+  font-size: 1.5rem;
+  border: 2px solid #3498db;
+  border-radius: 8px;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+}
+
+.mapping-item input:focus {
+  outline: none;
+  border-color: #2980b9;
+  box-shadow: 0 0 8px rgba(52, 152, 219, 0.6);
+}
+
+.mapping-item input.pressed {
+  background-color: #3498db;
+  color: white;
+  transform: scale(0.95);
+}
+
+.practice-area {
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.note-display {
+  margin: 1rem 0;
+}
+
+.note-display h3 {
+  font-size: 2rem;
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+}
+
+.valve-indicator {
+  margin: 1.5rem 0;
+}
+
+.valve-indicator h4 {
+  margin-bottom: 1rem;
+}
+
+.valves {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.valve {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background-color: #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  border: 3px solid #b0b0b0;
+}
+
+.valve.active {
+  background-color: #3498db;
+  color: white;
+  border-color: #1f618d;
+  box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+}
+
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.controls button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.controls button:hover:not(:disabled) {
+  background-color: #2980b9;
+}
+
+.controls button:disabled {
+  background-color: #bdc3c7;
+  cursor: not-allowed;
+}
+
+.feedback {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin: 1rem 0;
+  padding: 1rem;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+}
+
+.feedback.correct {
+  color: #27ae60;
+  background-color: #d5f5e3;
+}
+
+.feedback.incorrect {
+  color: #e74c3c;
+  background-color: #fadbd8;
+}
+
+.instructions {
+  color: #7f8c8d;
+  font-style: italic;
+  margin-top: 0.5rem;
+}
+
+.instructions-list {
+  text-align: left;
+  max-width: 600px;
+  margin: 0 auto;
+  padding-left: 1.5rem;
+}
+
+.instructions-list li {
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 600px) {
+  .trumpet-helper {
+    padding: 1rem;
+  }
+  
+  .button-mapping {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .controls {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .controls button {
+    width: 100%;
+    max-width: 200px;
+  }
+  
+  .valves {
+    flex-wrap: wrap;
+  }
+}
