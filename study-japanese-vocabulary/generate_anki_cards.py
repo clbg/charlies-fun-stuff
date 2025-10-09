@@ -55,8 +55,8 @@ class ExampleGenerator(VocabularyProcessor):
 
     def _create_prompt(self, japanese_word: str) -> str:
         return f"""
-你是日语教学助手。  
-请仅返回 **有效 JSON**，不得输出多余文本或 Markdown 代码块标记。  
+你是日语教学助手。
+请仅返回 **有效 JSON**，不得输出多余文本或 Markdown 代码块标记。
 返回内容必须满足以下 schema 与约束：
 
 ### 📐 JSON Schema
@@ -69,11 +69,11 @@ class ExampleGenerator(VocabularyProcessor):
 }}
 
 ### 🔒 约束
-1. **jp_sentence**  
-   - 不得包含字符 `<`、`>` 或任何 HTML／emoji。  
-   - 字数 7–20 个假名（含空格）之间，句末用「。」。  
+1. **jp_sentence**
+   - 不得包含字符 `<`、`>` 或任何 HTML／emoji。
+   - 字数 7–20 个假名（含空格）之间，句末用「。」。
 
-2. **jp_sentence_furigana**  
+2. **jp_sentence_furigana**
    - 必须是 JSON 数组，每个元素包含 "text" 和 "kana" 字段。
    - "text"：词块原文（含汉字或假名，不要拆开固定词块）。
    - "kana"：假名读音。对于纯假名或标点，kana 设为空字符串 ""。读音写成平假名，不要再分解或加空格。
@@ -82,21 +82,22 @@ class ExampleGenerator(VocabularyProcessor):
    - 各词块保持原句顺序。
    - 不要加入额外字段或多层嵌套。
 
-3. **grammar_html**  
+3. **grammar_html**
    - 详细的解释这个句子的所有单词，使用以`<ol>` 开头、`</ol>` 结尾；内部用 `<li>`的表格的形式
-   - 详细解释这个句子设计到的语法知识
-   - 如果有需要可以解释一下文化背景
-   - 全部使用中文解释，必要日语词汇可加括号注音。  
+   - 详细解释这个句子涉及到的语法知识
+   - 如果有需要可以解释一下外国人不太熟悉的文化背景。
+   - 全部使用中文解释，必要日语词汇可加括号注音。
+   - 如果有词语有多个发音，解释一下使用场景。
 
-4. **通用**  
-   - 返回的 JSON **必须能通过 `json.loads()` 解析**（双引号、转义正确）。  
+4. **通用**
+   - 返回的 JSON **必须能通过 `json.loads()` 解析**（双引号、转义正确）。
    - 不得出现空字段、额外字段或重复字段。
 
 ### ✅ 自检流程（生成后立刻执行）
-- [ ] 确认只有一个顶层 JSON 对象。  
-- [ ] 用正则 `"<|>"` 检查 jp_sentence ➜ 不得命中。  
-- [ ] 用正则 `^<ol>` 和 `</ol>$` 检查 grammar_html ➜ 必须同时命中。  
-- [ ] 成功通过才输出；否则**重新生成**直到所有检查通过。 
+- [ ] 确认只有一个顶层 JSON 对象。
+- [ ] 用正则 `"<|>"` 检查 jp_sentence ➜ 不得命中。
+- [ ] 用正则 `^<ol>` 和 `</ol>$` 检查 grammar_html ➜ 必须同时命中。
+- [ ] 成功通过才输出；否则**重新生成**直到所有检查通过。
 - [ ] 确认json对象里面字符串格式合法性
 
 ### 📝 任务输入
@@ -109,7 +110,7 @@ class ExampleGenerator(VocabularyProcessor):
             if not item.example_sentence_jp:
                 print(f"Processing item {i}/{total_items}: Generating example for '{item.japanese}'")
                 prompt = self._create_prompt(item.japanese)
-                
+
                 try:
                     content = self.llm_provider.generate_completion(prompt, max_tokens=800)
                     print(f"Received response for '{item.japanese}': {content}")
@@ -118,7 +119,7 @@ class ExampleGenerator(VocabularyProcessor):
                         item.chinese = json_data.get('cn_gloss', f"Failed to parse translation for {item.japanese}")
                         item.example_sentence_jp = json_data.get('jp_sentence', f"Failed to parse example for {item.japanese}")
                         item.example_sentence_cn = json_data.get('cn_sentence', f"Failed to parse translation for {item.chinese}")
-                        
+
                         furigana_data = json_data.get('jp_sentence_furigana')
                         if isinstance(furigana_data, list):
                             furigana_parts = []
@@ -163,16 +164,16 @@ class AudioGenerator(VocabularyProcessor):
 
     def process(self, items: List[VocabularyItem]) -> List[VocabularyItem]:
         os.makedirs(AUDIO_DIR, exist_ok=True)
-        
+
         total_items = len(items)
         for i, item in enumerate(items, 1):
             if not item.audio_path:
                 print(f"Processing audio {i}/{total_items}: Generating audio for '{item.japanese}'")
                 text_to_speak = item.example_sentence_jp if item.example_sentence_jp is not None and not item.example_sentence_jp.startswith("Failed") and not item.example_sentence_jp.startswith("API error") and not item.example_sentence_jp.startswith("Error generating") else item.japanese
-                
+
                 audio_filename = f"jlpt_vocabulary_in_sentence_{item.japanese}.mp3"
                 audio_path = os.path.join(AUDIO_DIR, audio_filename)
-                
+
                 try:
                     self.audio_provider.generate_audio(text_to_speak, audio_path)
                     item.audio_path = f"[sound:{audio_filename}]"
@@ -191,14 +192,14 @@ class CSVExporter(VocabularyProcessor):
 
     def process(self, items: List[VocabularyItem]) -> List[VocabularyItem]:
         headers = CSV_HEADERS
-        
+
         output_dir = os.path.dirname(self.output_path)
         if output_dir:
             os.makedirs(output_dir, exist_ok=True)
-            
+
         # Check if file exists to determine if headers are needed
         file_exists = os.path.exists(self.output_path)
-        
+
         # Append items to CSV
         with open(self.output_path, 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
@@ -241,14 +242,14 @@ def main():
     parser.add_argument('--api-key', type=str, help='API key to use (overrides environment variable)')
     parser.add_argument('--endpoint', type=str, help='API endpoint to use (overrides default for provider)')
     args = parser.parse_args()
-    
+
     # Load vocabulary
     csv_path = INPUT_CSV_PATH
     vocab_items = load_vocabulary(csv_path)
-    
+
     # Determine output path
     output_path = DEFAULT_CSV_PATH if not args.debug else DEBUG_CSV_PATH
-    
+
     # Check for existing entries in the output CSV to skip processing
     existing_items = set()
     if os.path.exists(output_path):
@@ -261,7 +262,7 @@ def main():
                         existing_items.add(row[0])  # Japanese word is the key
         except Exception as e:
             print(f"Error reading existing CSV: {str(e)}")
-    
+
     # Filter out items that already exist
     initial_count = len(vocab_items)
     vocab_items = [item for item in vocab_items if item.japanese not in existing_items]
@@ -269,12 +270,12 @@ def main():
     skipped_count = initial_count - len(vocab_items)
     if skipped_count > 0:
         print(f"Skipped {skipped_count} items already in {output_path} during loading")
-    
+
     # Get JLPT levels to filter
     level_input = input(JLPT_INPUT_PROMPT)
     level_input = level_input.replace(CHINESE_COMMA, ',')  # Handle Chinese commas
     levels = [int(l.strip()) for l in level_input.split(',')] if level_input else []
-    
+
     # Apply JLPT filter directly before debug limit
     if levels:
         initial_level_count = len(vocab_items)
@@ -283,7 +284,7 @@ def main():
         filtered_count = initial_level_count - len(vocab_items)
         if filtered_count > 0:
             print(f"Filtered out {filtered_count} items not in JLPT levels {levels}")
-    
+
     # Apply debug limit to control the number of items to process after JLPT filter
     if args.debug:
         initial_debug_count = len(vocab_items)
@@ -291,7 +292,7 @@ def main():
         debug_skipped_count = initial_debug_count - len(vocab_items)
         if debug_skipped_count > 0:
             print(f"Limited processing to {args.debug} items, skipped {debug_skipped_count} items due to debug mode")
-    
+
     # Create LLM provider based on arguments
     llm_kwargs = {}
     if args.api_key:
@@ -300,14 +301,14 @@ def main():
         llm_kwargs['model'] = args.model
     if args.endpoint:
         llm_kwargs['endpoint'] = args.endpoint
-    
+
     try:
         llm_provider = create_llm_provider(args.llm_provider, **llm_kwargs)
         print(f"Using {args.llm_provider} provider with model: {getattr(llm_provider, 'model', 'default')}")
     except Exception as e:
         print(f"Error creating LLM provider: {e}")
         return
-    
+
     # Create processing pipeline
     processors = []
     processors.extend([
@@ -315,7 +316,7 @@ def main():
         AudioGenerator(),
         CSVExporter(output_path)
     ])
-    
+
     # Process vocabulary through each step
     for processor in processors:
         vocab_items = processor.process(vocab_items)
