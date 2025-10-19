@@ -1,0 +1,30 @@
+{
+  "name": "ur-vacancy-monitor",
+  "version": "1.0.0",
+  "description": "UR Vacancy Monitor - TypeScript/Node.js version",
+  "main": "dist/ur_vacancy_monitor.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/ur_vacancy_monitor.js",
+    "dev": "ts-node src/ur_vacancy_monitor.ts",
+    "watch": "tsc --watch"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.8.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.2.0"
+  },
+  "keywords": [
+    "ur-net",
+    "vacancy",
+    "monitor",
+    "slack",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT"
+}

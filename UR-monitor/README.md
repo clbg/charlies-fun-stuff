@@ -1,79 +1,104 @@
 # UR Vacancy Monitor
 
-A Python script that monitors UR-NET (Urban Renaissance Agency) rental property vacancies and sends Slack notifications when rooms become available.
+A TypeScript/Node.js application that monitors UR-NET vacancy API and sends Slack notifications when rooms become available.
 
 ## Features
 
-- Monitors the UR-NET API every 60 seconds
-- Filters properties where `roomCount > 0` (available rooms)
-- Sends detailed Slack notifications with property details
-- Comprehensive logging to both console and log file
-- Error handling for network issues and API failures
-- Graceful shutdown with Ctrl+C
+- **State Tracking**: Maintains local state to track vacancy changes over time
+- **Smart Notifications**:
+  - Limits new vacancy alerts to 3 times maximum to prevent spam
+  - Notifies about newly added vacancies
+  - Notifies about disappeared vacancies
+  - Tracks room count increases/decreases
+- **TypeScript**: Full type safety and modern JavaScript features
+- **Environment Management**: Uses direnv for automatic environment setup
 
-## Quick Setup
+## Setup
 
-**Option 1: Automated Setup (Recommended)**
-```bash
-cd /Users/pencheng/projects/charlies-fun-stuff/UR-monitor
-./setup.sh
-```
-
-**Option 2: Manual Setup**
-1. **Create and activate virtual environment:**
+1. **Environment Setup**:
    ```bash
-   python3 -m venv ur_env
-   source ur_env/bin/activate
+   # Make sure you have direnv installed
+   # The .envrc file will automatically set up Node.js 18 environment
+   direnv allow
    ```
 
-2. **Install dependencies:**
+2. **Install Dependencies**:
    ```bash
-   pip install -r requirements.txt
+   npm install
    ```
 
-## Running the Monitor
+3. **Environment Variables**:
+   Create a `.env` file with:
+   ```
+   SLACK_WEBHOOK_URL=your_slack_webhook_url_here
+   ```
 
-**With virtual environment:**
-```bash
-source ur_env/bin/activate
-python ur_vacancy_monitor.py
-```
-
-**With direnv (if installed):**
-```bash
-direnv allow  # First time only
-python ur_vacancy_monitor.py
-```
-
-## Configuration
-
-The script is pre-configured with:
-- Slack webhook URL for notifications
-- UR-NET API endpoint and search parameters
-- Tokyo area coordinates (can be modified in the script)
-
-## Output
-
-**Slack notification format:**
-```json
-{
-  "msg": "🏠 UR Vacancy Alert! Found 3 properties with 5 available rooms at 2025-10-15 11:10:00",
-  "details": "• Property 40_3070: 1 rooms available\n• Property 40_3080: 1 rooms available\n• Property 40_3090: 1 rooms available"
-}
-```
-
-**Log file:** `ur_monitor.log` - Contains detailed monitoring activity
-
-## Files
-
-- `ur_vacancy_monitor.py` - Main monitoring script
-- `requirements.txt` - Python dependencies
-- `setup.sh` - Automated environment setup script
-- `.envrc` - Direnv configuration for automatic environment activation
-- `README.md` - This documentation
-- `ur_env/` - Virtual environment directory (created by setup)
-- `ur_monitor.log` - Generated log file (created when script runs)
+4. **Build the Project**:
+   ```bash
+   npm run build
+   ```
 
 ## Usage
 
-The script will run continuously until stopped with Ctrl+C, checking for vacancies every minute and only sending notifications when rooms are actually available.
+### Development Mode
+```bash
+npm run dev
+```
+
+### Production Mode
+```bash
+npm start
+```
+
+### Build Only
+```bash
+npm run build
+```
+
+### Watch Mode (for development)
+```bash
+npm run watch
+```
+
+## How It Works
+
+1. **State Persistence**: The application saves state to `vacancy_state.json` to track:
+   - Previous property states and room counts
+   - Alarm counts for each property (to limit notifications)
+   - Last check timestamp
+
+2. **Change Detection**: Compares current API results with saved state to detect:
+   - 🆕 **NEW**: Completely new properties with available rooms
+   - 📈 **INCREASED**: Existing properties with more available rooms
+   - ❌ **DISAPPEARED**: Properties that are no longer available
+   - 📉 **DECREASED**: Properties with fewer available rooms
+
+3. **Smart Alerting**:
+   - New/increased room notifications are limited to 3 times per property
+   - Disappeared/decreased notifications are always sent (no limit)
+   - Alarm counts reset when properties disappear
+
+4. **Monitoring Loop**: Checks the UR-NET API every 60 seconds
+
+## File Structure
+
+```
+├── src/
+│   └── ur_vacancy_monitor.ts    # Main TypeScript source
+├── dist/                        # Compiled JavaScript output
+├── .envrc                       # direnv configuration
+├── package.json                 # Node.js dependencies and scripts
+├── tsconfig.json               # TypeScript configuration
+└── vacancy_state.json          # Runtime state file (auto-generated)
+```
+
+## Migration from Python
+
+This project was migrated from Python to TypeScript/Node.js while maintaining all functionality:
+
+- **Python pickle** → **JSON state file**
+- **requests** → **axios**
+- **Python logging** → **Custom logging with timestamps**
+- **Python environment** → **Node.js with direnv**
+
+The original Python version (`ur_vacancy_monitor.py`) is preserved for reference.

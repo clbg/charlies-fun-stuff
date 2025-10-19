@@ -1,7 +1,22 @@
 # Environment variables
 .env
 
-# Python
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# TypeScript
+dist/
+*.tsbuildinfo
+
+# State files
+vacancy_state.json
+vacancy_state.pkl
+
+# Python (legacy)
 __pycache__/
 *.py[cod]
 *$py.class
@@ -9,7 +24,6 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -23,7 +37,7 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual environment
+# Virtual environment (legacy)
 ur_env/
 venv/
 env/
