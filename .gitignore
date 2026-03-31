@@ -88,6 +88,13 @@ ENV*/
 *.swp
 *.swo
 
+# Swift / SPM
+.build/
+.swiftpm/
+
+# Claude Code local settings
+.claude/settings.local.json
+
 # Project-specific
 output/
 audio/
