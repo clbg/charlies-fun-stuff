@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import Network
 
 @main
@@ -14,14 +15,7 @@ struct CharlieWidgetApp: App {
                     NSApp?.setActivationPolicy(.accessory)
                 }
         } label: {
-            let count = store.unreadCount
-            if count > 0, count <= 50 {
-                Image(systemName: "\(count).circle.fill")
-            } else if count > 50 {
-                Image(systemName: "bubble.left.fill")
-            } else {
-                Image(systemName: "bubble.left")
-            }
+            Image(nsImage: MenuBarIcon.make(badgeCount: store.unreadCount))
         }
         .menuBarExtraStyle(.window)
     }
