@@ -22,44 +22,40 @@ install: release icon
 	mkdir -p $(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/Resources
 	cp .build/release/CharlieWidgetApp $(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/MacOS/CharlieWidgetApp
 	cp /tmp/AppIcon.icns $(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/Resources/AppIcon.icns
-	@cat > $(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/Info.plist << 'PLIST'
-	<?xml version="1.0" encoding="UTF-8"?>
-	<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-	<plist version="1.0">
-	<dict>
-	    <key>CFBundleExecutable</key>
-	    <string>CharlieWidgetApp</string>
-	    <key>CFBundleIdentifier</key>
-	    <string>com.charlie.widget</string>
-	    <key>CFBundleName</key>
-	    <string>CharlieWidget</string>
-	    <key>CFBundleIconFile</key>
-	    <string>AppIcon</string>
-	    <key>LSUIElement</key>
-	    <true/>
-	</dict>
-	</plist>
-	PLIST
+	@printf "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+	<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n\
+	<plist version=\"1.0\">\n\
+	<dict>\n\
+	    <key>CFBundleExecutable</key>\n\
+	    <string>CharlieWidgetApp</string>\n\
+	    <key>CFBundleIdentifier</key>\n\
+	    <string>com.charlie.widget</string>\n\
+	    <key>CFBundleName</key>\n\
+	    <string>CharlieWidget</string>\n\
+	    <key>CFBundleIconFile</key>\n\
+	    <string>AppIcon</string>\n\
+	    <key>LSUIElement</key>\n\
+	    <true/>\n\
+	</dict>\n\
+	</plist>\n" > $(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/Info.plist
 	@echo "Installed to $(APP_INSTALL_DIR)/$(APP_BUNDLE)"
 	@# LaunchAgent for login startup
-	@cat > $(LAUNCHAGENT_PLIST) << 'PLIST'
-	<?xml version="1.0" encoding="UTF-8"?>
-	<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-	<plist version="1.0">
-	<dict>
-	    <key>Label</key>
-	    <string>com.charlie.widget</string>
-	    <key>ProgramArguments</key>
-	    <array>
-	        <string>$(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/MacOS/CharlieWidgetApp</string>
-	    </array>
-	    <key>RunAtLoad</key>
-	    <true/>
-	    <key>KeepAlive</key>
-	    <false/>
-	</dict>
-	</plist>
-	PLIST
+	@printf "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+	<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n\
+	<plist version=\"1.0\">\n\
+	<dict>\n\
+	    <key>Label</key>\n\
+	    <string>com.charlie.widget</string>\n\
+	    <key>ProgramArguments</key>\n\
+	    <array>\n\
+	        <string>$(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/MacOS/CharlieWidgetApp</string>\n\
+	    </array>\n\
+	    <key>RunAtLoad</key>\n\
+	    <true/>\n\
+	    <key>KeepAlive</key>\n\
+	    <false/>\n\
+	</dict>\n\
+	</plist>\n" > $(LAUNCHAGENT_PLIST)
 	launchctl load $(LAUNCHAGENT_PLIST) 2>/dev/null || true
 	@echo "LaunchAgent installed — will start on login"
 
