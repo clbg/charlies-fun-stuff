@@ -1,0 +1,150 @@
+{
+  "source_url": "http://www.okura-movie.co.jp/meguro_cinema/now_showing.html",
+  "timezone": "Asia/Tokyo",
+  "fetch_date": "2026-03-29",
+  "next_week_start": "2026-03-30",
+  "next_week_end": "2026-04-05",
+  "films": [
+    {
+      "title_ja": "愚か者の身分",
+      "title_en": "",
+      "title_zh": "",
+      "douban_rating": "",
+      "douban_url": "",
+      "screening_dates": ["2026-03-30", "2026-03-31"],
+      "program": "迷い込んだ世界が、この手を離さなかった"
+    },
+    {
+      "title_ja": "ミーツ・ザ・ワールド",
+      "title_en": "",
+      "title_zh": "",
+      "douban_rating": "",
+      "douban_url": "",
+      "screening_dates": ["2026-03-30", "2026-03-31"],
+      "program": "【迷い込んだ世界が、この手を離さなかった】"
+    },
+    {
+      "title_ja": "テレビの中に入りたい",
+      "title_en": "",
+      "title_zh": "",
+      "douban_rating": "",
+      "douban_url": "",
+      "screening_dates": ["2026-03-30", "2026-03-31"],
+      "program": "若者たちの自分探しメランコリック・スリラー"
+    },
+    {
+      "title_ja": "ジェイコブス・ラダー 4Kレストア",
+      "title_en": "Jacob's Ladder (4K Restoration)",
+      "title_zh": "",
+      "douban_rating": "",
+      "douban_url": "",
+      "screening_dates": ["2026-03-30", "2026-03-31"],
+      "program": "めぐり、めぐる、地獄",
+      "year": 1990
+    },
+    {
+      "title_ja": "レッド・ツェッペリン：ビカミング",
+      "title_en": "Becoming Led Zeppelin",
+      "title_zh": "",
+      "douban_rating": "",
+      "douban_url": "",
+      "screening_dates": ["2026-03-30", "2026-03-31"],
+      "program": "【時代の熱狂を追体験！没入型映画オデッセイ】",
+      "year": 2025
+    },
+    {
+      "title_ja": "バーフバリ エピック4K",
+      "title_en": "Baahubali: The Epic (4K)",
+      "title_zh": "巴霍巴利王：史诗",
+      "douban_rating": "",
+      "douban_url": "",
+      "screening_dates": ["2026-04-01", "2026-04-02", "2026-04-03", "2026-04-04", "2026-04-05"],
+      "program": "【創造神入魂の4K再編集 伝説が神話になる】",
+      "year": 2025
+    },
+    {
+      "title_ja": "フランケンシュタイン",
+      "title_en": "Frankenstein",
+      "title_zh": "科学怪人",
+      "douban_rating": "",
+      "douban_url": "",
+      "screening_dates": ["2026-04-01", "2026-04-02", "2026-04-03", "2026-04-04"],
+      "program": "【銀幕で出会う：古典の新生と現代の肖像】",
+      "year": 2025,
+      "director": "Guillermo del Toro"
+    },
+    {
+      "title_ja": "ジェイ・ケリー",
+      "title_en": "Jay Kelly",
+      "title_zh": "",
+      "douban_rating": "",
+      "douban_url": "",
+      "screening_dates": ["2026-04-01", "2026-04-02", "2026-04-03", "2026-04-04"],
+      "program": "【銀幕で出会う：古典の新生と現代の肖像】",
+      "year": 2025
+    },
+    {
+      "title_ja": "ファーゴ 4K",
+      "title_en": "Fargo (4K)",
+      "title_zh": "冰血暴",
+      "douban_rating": "",
+      "douban_url": "",
+      "screening_dates": ["2026-04-01", "2026-04-02", "2026-04-03", "2026-04-04"],
+      "program": "【公開30周年記念 傑作クライム・サスペンス リバイバル上映】",
+      "year": 1996
+    },
+    {
+      "title_ja": "ユージュアル・サスペクツ",
+      "title_en": "The Usual Suspects",
+      "title_zh": "非常嫌疑犯",
+      "douban_rating": "",
+      "douban_url": "",
+      "screening_dates": ["2026-04-01", "2026-04-02", "2026-04-03", "2026-04-04"],
+      "program": "【公開30周年記念 傑作クライム・サスペンス リバイバル上映】",
+      "year": 1995
+    },
+    {
+      "title_ja": "シン・ゴジラ",
+      "title_en": "Shin Godzilla",
+      "title_zh": "新哥斯拉",
+      "douban_rating": "",
+      "douban_url": "",
+      "screening_dates": ["2026-04-05"],
+      "program": "【還暦記念 野村萬斎映画祭】",
+      "year": 2016,
+      "note": "トークイベント付き上映"
+    },
+    {
+      "title_ja": "のぼうの城",
+      "title_en": "The Floating Castle",
+      "title_zh": "浮城",
+      "douban_rating": "",
+      "douban_url": "",
+      "screening_dates": ["2026-04-05"],
+      "program": "【還暦記念 野村萬斎映画祭】",
+      "year": 2012,
+      "note": "トークイベント付き上映"
+    },
+    {
+      "title_ja": "陰陽師",
+      "title_en": "Onmyoji",
+      "title_zh": "阴阳师",
+      "douban_rating": "",
+      "douban_url": "",
+      "screening_dates": ["2026-04-05"],
+      "program": "【還暦記念 野村萬斎映画祭】",
+      "year": 2001
+    },
+    {
+      "title_ja": "乱 4Kデジタル修復版",
+      "title_en": "Ran (4K Digital Restoration)",
+      "title_zh": "乱",
+      "douban_rating": "",
+      "douban_url": "",
+      "screening_dates": ["2026-04-05"],
+      "program": "【還暦記念 野村萬斎映画祭】",
+      "year": 1985,
+      "director": "Akira Kurosawa"
+    }
+  ]
+}

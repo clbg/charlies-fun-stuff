@@ -1,0 +1,418 @@
+{
+  "week": {
+    "slug": "2026-03-30_to_2026-04-05",
+    "title": "Meguro Cinema Weekly Schedule",
+    "startDate": "2026-03-30",
+    "endDate": "2026-04-05",
+    "timezone": "Asia/Tokyo",
+    "sourceUrl": "http://www.okura-movie.co.jp/meguro_cinema/now_showing.html"
+  },
+  "cards": [
+    {
+      "slug": "cover",
+      "kind": "cover",
+      "dateLabel": "WEEKLY EDIT",
+      "weekLabel": "2026-03-30 to 2026-04-05",
+      "title": "目黑电影院下周排片",
+      "subtitle": "每天一张，整理目黑电影院下周场次、重点电影和适合收藏的观影路线。",
+      "schedule": [
+        "3/30 Mon  独立片 + 类型片 + 音乐纪录片",
+        "3/31 Tue  周一镜像排法，下班后三场可连刷",
+        "4/01 Wed  服务日，艺术片 + 犯罪片 + 印度史诗",
+        "4/02 Thu  经典犯罪夜 + 巴霍巴利双段放映",
+        "4/03 Fri  夜场主推《冰血暴》《非常嫌疑犯》",
+        "4/04 Sat  周末全日 6 场，适合收藏转发",
+        "4/05 Sun  野村萬斎映画祭 + talk event"
+      ],
+      "highlights": [
+        "官方排片整理",
+        "按天出卡",
+        "含豆瓣信息",
+        "适合小红书连载"
+      ],
+      "footer": "Source: Meguro Cinema official schedule",
+      "palette": ["#F4EFE6", "#201A17", "#B85C38", "#6B8A7A"]
+    },
+    {
+      "slug": "2026-03-30",
+      "kind": "daily",
+      "dateLabel": "MONDAY",
+      "weekLabel": "2026-03-30",
+      "title": "目黑电影院 3/30 周一",
+      "subtitle": "独立片 + 类型片 + 音乐纪录片的一天",
+      "schedule": [
+        {
+          "time": "10:00-12:10",
+          "title": "ミーツ・ザ・ワールド",
+          "meta": "Meets the World",
+          "note": "开馆 9:30"
+        },
+        {
+          "time": "12:20-14:30",
+          "title": "愚か者の身分",
+          "meta": "愚者的身份 / Baka's Identity | 豆瓣 6.9",
+          "note": ""
+        },
+        {
+          "time": "14:40-16:50",
+          "title": "ミーツ・ザ・ワールド",
+          "meta": "Meets the World",
+          "note": "完全入替"
+        },
+        {
+          "time": "17:00-19:00",
+          "title": "ジェイコブス・ラダー 4K",
+          "meta": "异世浮生 / Jacob's Ladder | 豆瓣 7.6",
+          "note": "在线预约可"
+        },
+        {
+          "time": "19:10-20:50",
+          "title": "テレビの中に入りたい",
+          "meta": "荧屏在发光 / I Saw the TV Glow | 豆瓣 6.9",
+          "note": "在线预约可"
+        },
+        {
+          "time": "21:00-23:00",
+          "title": "レッド・ツェッペリン：ビカミング",
+          "meta": "成为齐柏林飞艇 / Becoming Led Zeppelin | 豆瓣 7.2",
+          "note": "在线预约可"
+        }
+      ],
+      "highlights": [
+        "异世浮生 7.6",
+        "荧屏在发光 6.9",
+        "开馆 9:30",
+        "晚场适合连看"
+      ],
+      "footer": "目黑电影院官方排片",
+      "palette": ["#EFE8DB", "#211C19", "#C46A3D", "#647C8A"]
+    },
+    {
+      "slug": "2026-03-31",
+      "kind": "daily",
+      "dateLabel": "TUESDAY",
+      "weekLabel": "2026-03-31",
+      "title": "目黑电影院 3/31 周二",
+      "subtitle": "周一镜像排法，顺序更适合单场挑片",
+      "schedule": [
+        {
+          "time": "10:00-12:10",
+          "title": "愚か者の身分",
+          "meta": "愚者的身份 / Baka's Identity | 豆瓣 6.9",
+          "note": "开馆 9:30"
+        },
+        {
+          "time": "12:20-14:30",
+          "title": "ミーツ・ザ・ワールド",
+          "meta": "Meets the World"
+        },
+        {
+          "time": "14:40-16:50",
+          "title": "愚か者の身分",
+          "meta": "愚者的身份 / Baka's Identity | 豆瓣 6.9",
+          "note": "完全入替"
+        },
+        {
+          "time": "17:00-18:40",
+          "title": "テレビの中に入りたい",
+          "meta": "荧屏在发光 / I Saw the TV Glow | 豆瓣 6.9",
+          "note": "在线预约可"
+        },
+        {
+          "time": "18:50-20:50",
+          "title": "レッド・ツェッペリン：ビカミング",
+          "meta": "成为齐柏林飞艇 / Becoming Led Zeppelin | 豆瓣 7.2",
+          "note": "在线预约可"
+        },
+        {
+          "time": "21:00-23:00",
+          "title": "ジェイコブス・ラダー 4K",
+          "meta": "异世浮生 / Jacob's Ladder | 豆瓣 7.6",
+          "note": "在线预约可"
+        }
+      ],
+      "highlights": [
+        "下班后三场路线",
+        "开馆 9:30",
+        "夜场密度高",
+        "周一镜像版"
+      ],
+      "footer": "目黑电影院官方排片",
+      "palette": ["#F0ECE5", "#1E1B18", "#8E6F3E", "#A94C4C"]
+    },
+    {
+      "slug": "2026-04-01",
+      "kind": "daily",
+      "dateLabel": "WEDNESDAY",
+      "weekLabel": "2026-04-01",
+      "title": "目黑电影院 4/1 周三",
+      "subtitle": "服务日，艺术片 + 犯罪片 + 印度史诗同天",
+      "schedule": [
+        {
+          "time": "10:00-12:30",
+          "title": "フランケンシュタイン",
+          "meta": "弗兰肯斯坦 / Frankenstein | 豆瓣 7.4",
+          "note": "开馆 9:30；服务日"
+        },
+        {
+          "time": "12:40-14:55",
+          "title": "ジェイ・ケリー",
+          "meta": "影星杰·凯利 / Jay Kelly | 豆瓣 6.2",
+          "note": "完全入替"
+        },
+        {
+          "time": "15:05-16:45",
+          "title": "バーフバリ エピック4K 前半",
+          "meta": "巴霍巴利王：史诗 / Baahubali: The Epic | 豆瓣 7.1",
+          "note": "中场休息 15 分钟"
+        },
+        {
+          "time": "17:00-19:10",
+          "title": "バーフバリ エピック4K 後半",
+          "meta": "巴霍巴利王：史诗 / Baahubali: The Epic | 豆瓣 7.1",
+          "note": "完全入替"
+        },
+        {
+          "time": "19:20-21:00",
+          "title": "ファーゴ 4K",
+          "meta": "冰血暴 / Fargo | 豆瓣 8.0",
+          "note": "在线预约可"
+        },
+        {
+          "time": "21:10-22:55",
+          "title": "ユージュアル・サスペクツ",
+          "meta": "非常嫌疑犯 / The Usual Suspects | 豆瓣 8.6",
+          "note": "在线预约可"
+        }
+      ],
+      "highlights": [
+        "Fargo 8.0",
+        "非常嫌疑犯 8.6",
+        "弗兰肯斯坦 7.4",
+        "一般/学生 1100 円"
+      ],
+      "footer": "目黑电影院官方排片",
+      "palette": ["#E7E1D8", "#1E1718", "#A63C2F", "#3E5F8C"]
+    },
+    {
+      "slug": "2026-04-02",
+      "kind": "daily",
+      "dateLabel": "THURSDAY",
+      "weekLabel": "2026-04-02",
+      "title": "目黑电影院 4/2 周四",
+      "subtitle": "经典犯罪夜 + 巴霍巴利双段放映",
+      "schedule": [
+        {
+          "time": "10:00-12:15",
+          "title": "ジェイ・ケリー",
+          "meta": "影星杰·凯利 / Jay Kelly | 豆瓣 6.2",
+          "note": "开馆 9:30"
+        },
+        {
+          "time": "12:25-14:55",
+          "title": "フランケンシュタイン",
+          "meta": "弗兰肯斯坦 / Frankenstein | 豆瓣 7.4",
+          "note": "完全入替"
+        },
+        {
+          "time": "15:05-16:50",
+          "title": "ユージュアル・サスペクツ",
+          "meta": "非常嫌疑犯 / The Usual Suspects | 豆瓣 8.6",
+          "note": "在线预约可"
+        },
+        {
+          "time": "17:00-18:40",
+          "title": "ファーゴ 4K",
+          "meta": "冰血暴 / Fargo | 豆瓣 8.0",
+          "note": "在线预约可"
+        },
+        {
+          "time": "18:50-20:30",
+          "title": "バーフバリ エピック4K 前半",
+          "meta": "巴霍巴利王：史诗 / Baahubali: The Epic | 豆瓣 7.1",
+          "note": "中场休息 15 分钟"
+        },
+        {
+          "time": "20:45-22:55",
+          "title": "バーフバリ エピック4K 後半",
+          "meta": "巴霍巴利王：史诗 / Baahubali: The Epic | 豆瓣 7.1"
+        }
+      ],
+      "highlights": [
+        "15:05-22:55 连刷路线",
+        "犯罪双片",
+        "巴霍巴利双段",
+        "中场休息 15 分钟"
+      ],
+      "footer": "目黑电影院官方排片",
+      "palette": ["#ECE5DF", "#1E1817", "#2F4858", "#B95F3A"]
+    },
+    {
+      "slug": "2026-04-03",
+      "kind": "daily",
+      "dateLabel": "FRIDAY",
+      "weekLabel": "2026-04-03",
+      "title": "目黑电影院 4/3 周五",
+      "subtitle": "下班后最适合连看的周五版",
+      "schedule": [
+        {
+          "time": "10:00-12:30",
+          "title": "フランケンシュタイン",
+          "meta": "弗兰肯斯坦 / Frankenstein | 豆瓣 7.4",
+          "note": "开馆 9:30"
+        },
+        {
+          "time": "12:40-14:55",
+          "title": "ジェイ・ケリー",
+          "meta": "影星杰·凯利 / Jay Kelly | 豆瓣 6.2",
+          "note": "完全入替"
+        },
+        {
+          "time": "15:05-16:45",
+          "title": "バーフバリ エピック4K 前半",
+          "meta": "巴霍巴利王：史诗 / Baahubali: The Epic | 豆瓣 7.1",
+          "note": "中场休息 15 分钟"
+        },
+        {
+          "time": "17:00-19:10",
+          "title": "バーフバリ エピック4K 後半",
+          "meta": "巴霍巴利王：史诗 / Baahubali: The Epic | 豆瓣 7.1",
+          "note": "完全入替"
+        },
+        {
+          "time": "19:20-21:00",
+          "title": "ファーゴ 4K",
+          "meta": "冰血暴 / Fargo | 豆瓣 8.0",
+          "note": "在线预约可"
+        },
+        {
+          "time": "21:10-22:55",
+          "title": "ユージュアル・サスペクツ",
+          "meta": "非常嫌疑犯 / The Usual Suspects | 豆瓣 8.6",
+          "note": "在线预约可"
+        }
+      ],
+      "highlights": [
+        "冰血暴 8.0",
+        "非常嫌疑犯 8.6",
+        "电影夜版式",
+        "下班后三连刷"
+      ],
+      "footer": "目黑电影院官方排片",
+      "palette": ["#E9E3D6", "#171514", "#8C6A43", "#5D6D7E"]
+    },
+    {
+      "slug": "2026-04-04",
+      "kind": "daily",
+      "dateLabel": "SATURDAY",
+      "weekLabel": "2026-04-04",
+      "title": "目黑电影院 4/4 周六",
+      "subtitle": "周末整日全览，适合收藏转发",
+      "schedule": [
+        {
+          "time": "10:00-12:15",
+          "title": "ジェイ・ケリー",
+          "meta": "影星杰·凯利 / Jay Kelly | 豆瓣 6.2",
+          "note": "开馆 9:30"
+        },
+        {
+          "time": "12:25-14:55",
+          "title": "フランケンシュタイン",
+          "meta": "弗兰肯斯坦 / Frankenstein | 豆瓣 7.4",
+          "note": "完全入替"
+        },
+        {
+          "time": "15:05-16:50",
+          "title": "ユージュアル・サスペクツ",
+          "meta": "非常嫌疑犯 / The Usual Suspects | 豆瓣 8.6",
+          "note": "在线预约可"
+        },
+        {
+          "time": "17:00-18:40",
+          "title": "ファーゴ 4K",
+          "meta": "冰血暴 / Fargo | 豆瓣 8.0",
+          "note": "在线预约可"
+        },
+        {
+          "time": "18:50-20:30",
+          "title": "バーフバリ エピック4K 前半",
+          "meta": "巴霍巴利王：史诗 / Baahubali: The Epic | 豆瓣 7.1",
+          "note": "中场休息 15 分钟"
+        },
+        {
+          "time": "20:45-22:55",
+          "title": "バーフバリ エピック4K 後半",
+          "meta": "巴霍巴利王：史诗 / Baahubali: The Epic | 豆瓣 7.1"
+        }
+      ],
+      "highlights": [
+        "全天 6 场",
+        "经典犯罪双片",
+        "史诗夜场",
+        "适合收藏卡"
+      ],
+      "footer": "目黑电影院官方排片",
+      "palette": ["#F3EEE5", "#211A16", "#D0873F", "#4C6A92"]
+    },
+    {
+      "slug": "2026-04-05",
+      "kind": "daily",
+      "dateLabel": "SUNDAY",
+      "weekLabel": "2026-04-05",
+      "title": "目黑电影院 4/5 周日",
+      "subtitle": "野村萬斎映画祭特别日",
+      "schedule": [
+        {
+          "time": "11:00-12:40",
+          "title": "バーフバリ エピック4K 前半",
+          "meta": "巴霍巴利王：史诗 / Baahubali: The Epic | 豆瓣 7.1",
+          "note": "开馆 10:30；中场休息 15 分钟"
+        },
+        {
+          "time": "12:55-15:05",
+          "title": "バーフバリ エピック4K 後半",
+          "meta": "巴霍巴利王：史诗 / Baahubali: The Epic | 豆瓣 7.1",
+          "note": "完全入替"
+        },
+        {
+          "time": "15:15-15:40",
+          "title": "虎の洞窟",
+          "meta": "",
+          "note": "映画祭特别场"
+        },
+        {
+          "time": "15:50-18:15",
+          "title": "のぼうの城",
+          "meta": "傀儡之城 / The Floating Castle | 豆瓣 7.2",
+          "note": "18:20-19:00 Talk Event"
+        },
+        {
+          "time": "18:20-19:00",
+          "title": "Talk Event",
+          "meta": "映后谈 / 野村萬斎映画祭",
+          "note": "票价 2000 円"
+        },
+        {
+          "time": "19:20-20:45",
+          "title": "六つの顔",
+          "meta": "",
+          "note": "在线预约可"
+        },
+        {
+          "time": "20:55-22:55",
+          "title": "シン・ゴジラ",
+          "meta": "新哥斯拉 / Shin Godzilla | 豆瓣 6.7",
+          "note": "在线预约可"
+        }
+      ],
+      "highlights": [
+        "のぼうの城 7.2",
+        "新哥斯拉 6.7",
+        "Talk Event",
+        "映画祭特别日"
+      ],
+      "footer": "目黑电影院官方排片",
+      "palette": ["#F1ECE4", "#1F1917", "#9E3D37", "#6B7F62"]
+    }
+  ]
+}

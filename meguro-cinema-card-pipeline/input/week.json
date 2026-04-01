@@ -1,0 +1,283 @@
+{
+  "week": {
+    "slug": "2026-03-30_to_2026-04-05",
+    "title": "Meguro Cinema Weekly Schedule",
+    "startDate": "2026-03-30",
+    "endDate": "2026-04-05",
+    "timezone": "Asia/Tokyo",
+    "sourceUrl": "http://www.okura-movie.co.jp/meguro_cinema/now_showing.html"
+  },
+  "cards": [
+    {
+      "slug": "2026-03-30",
+      "kind": "daily",
+      "dateLabel": "MONDAY",
+      "weekLabel": "2026-03-30",
+      "title": "目黒シネマ 3/30 月曜",
+      "subtitle": "惊悚双响炮：雅各的天梯4K+齐柏林飞艇",
+      "schedule": [
+        {
+          "time": "10:00-14:30",
+          "title": "愚か者の身分 / ミーツ・ザ・ワールド",
+          "meta": "迷い込んだ世界が、この手を離さなかった",
+          "note": "開館9:30"
+        },
+        {
+          "time": "17:00-19:00",
+          "title": "ジェイコブス・ラダー 4Kレストア",
+          "meta": "Jacob's Ladder (4K Restoration) / 1990",
+          "note": "オンライン予約有"
+        },
+        {
+          "time": "19:10-20:50",
+          "title": "テレビの中に入りたい",
+          "meta": "若者たちの自分探しメランコリック・スリラー",
+          "note": "オンライン予約有"
+        },
+        {
+          "time": "21:00-23:00",
+          "title": "レッド・ツェッペリン：ビカミング",
+          "meta": "Becoming Led Zeppelin / 2025",
+          "note": "オンライン予約有"
+        }
+      ],
+      "highlights": ["4K Restoration", "Documentary"],
+      "footer": "目黒シネマ官方排片",
+      "palette": ["#F1ECE4", "#1F1917", "#9E3D37", "#6B7F62"]
+    },
+    {
+      "slug": "2026-03-31",
+      "kind": "daily",
+      "dateLabel": "TUESDAY",
+      "weekLabel": "2026-03-31",
+      "title": "目黒シネマ 3/31 火曜",
+      "subtitle": "惊悚双响炮：雅各的天梯4K+齐柏林飞艇",
+      "schedule": [
+        {
+          "time": "10:00-16:50",
+          "title": "愚か者の身分",
+          "meta": "迷い込んだ世界が、この手を離さなかった",
+          "note": "開館9:30、多场次"
+        },
+        {
+          "time": "17:00-18:40",
+          "title": "テレビの中に入りたい",
+          "meta": "若者たちの自分探しメランコリック・スリラー",
+          "note": "オンライン予約有"
+        },
+        {
+          "time": "18:50-20:50",
+          "title": "レッド・ツェッペリン：ビカミング",
+          "meta": "Becoming Led Zeppelin / 2025",
+          "note": "オンライン予約有"
+        },
+        {
+          "time": "21:00-23:00",
+          "title": "ジェイコブス・ラダー 4Kレストア",
+          "meta": "Jacob's Ladder (4K Restoration) / 1990",
+          "note": "オンライン予約有"
+        }
+      ],
+      "highlights": ["4K Restoration", "Documentary"],
+      "footer": "目黒シネマ官方排片",
+      "palette": ["#F1ECE4", "#1F1917", "#9E3D37", "#6B7F62"]
+    },
+    {
+      "slug": "2026-04-01",
+      "kind": "daily",
+      "dateLabel": "WEDNESDAY",
+      "weekLabel": "2026-04-01",
+      "title": "目黒シネマ 4/1 水曜",
+      "subtitle": "新片首映：科学怪人+杰·凯利",
+      "schedule": [
+        {
+          "time": "10:00-12:30",
+          "title": "フランケンシュタイン",
+          "meta": "Frankenstein / Guillermo del Toro / 2025",
+          "note": "サービスデー1100円、開館9:30"
+        },
+        {
+          "time": "12:40-14:55",
+          "title": "ジェイ・ケリー",
+          "meta": "Jay Kelly / Noah Baumbach / 2025",
+          "note": "オンライン予約有"
+        },
+        {
+          "time": "15:05-19:10",
+          "title": "バーフバリ エピック4K",
+          "meta": "Baahubali: The Epic (4K) / S.S. Rajamouli / 2025",
+          "note": "途中休憩15分"
+        },
+        {
+          "time": "19:20-21:00",
+          "title": "ファーゴ 4K",
+          "meta": "Fargo (4K) / Coen Brothers / 1996",
+          "note": "公開30周年記念"
+        },
+        {
+          "time": "21:10-22:55",
+          "title": "ユージュアル・サスペクツ",
+          "meta": "The Usual Suspects / Bryan Singer / 1995",
+          "note": "公開30周年記念"
+        }
+      ],
+      "highlights": ["Service Day", "30th Anniversary"],
+      "footer": "目黒シネマ官方排片",
+      "palette": ["#F1ECE4", "#1F1917", "#9E3D37", "#6B7F62"]
+    },
+    {
+      "slug": "2026-04-02",
+      "kind": "daily",
+      "dateLabel": "THURSDAY",
+      "weekLabel": "2026-04-02",
+      "title": "目黒シネマ 4/2 木曜",
+      "subtitle": "新片首映+犯罪经典30周年",
+      "schedule": [
+        {
+          "time": "10:00-12:15",
+          "title": "フランケンシュタイン",
+          "meta": "Frankenstein / Guillermo del Toro / 2025",
+          "note": "開館9:30"
+        },
+        {
+          "time": "12:25-14:55",
+          "title": "ジェイ・ケリー",
+          "meta": "Jay Kelly / Noah Baumbach / 2025",
+          "note": "オンライン予約有"
+        },
+        {
+          "time": "15:05-18:40",
+          "title": "ファーゴ 4K / ユージュアル・サスペクツ",
+          "meta": "Fargo (4K) / The Usual Suspects",
+          "note": "公開30周年記念"
+        },
+        {
+          "time": "18:50-22:55",
+          "title": "バーフバリ エピック4K",
+          "meta": "Baahubali: The Epic (4K) / S.S. Rajamouli / 2025",
+          "note": "途中休憩15分"
+        }
+      ],
+      "highlights": ["30th Anniversary", "Epic 4K"],
+      "footer": "目黒シネマ官方排片",
+      "palette": ["#F1ECE4", "#1F1917", "#9E3D37", "#6B7F62"]
+    },
+    {
+      "slug": "2026-04-03",
+      "kind": "daily",
+      "dateLabel": "FRIDAY",
+      "weekLabel": "2026-04-03",
+      "title": "目黒シネマ 4/3 金曜",
+      "subtitle": "新片首映+犯罪经典30周年",
+      "schedule": [
+        {
+          "time": "10:00-12:30",
+          "title": "フランケンシュタイン",
+          "meta": "Frankenstein / Guillermo del Toro / 2025",
+          "note": "開館9:30"
+        },
+        {
+          "time": "12:40-14:55",
+          "title": "ジェイ・ケリー",
+          "meta": "Jay Kelly / Noah Baumbach / 2025",
+          "note": "オンライン予約有"
+        },
+        {
+          "time": "15:05-19:10",
+          "title": "バーフバリ エピック4K",
+          "meta": "Baahubali: The Epic (4K) / S.S. Rajamouli / 2025",
+          "note": "途中休憩15分"
+        },
+        {
+          "time": "19:20-22:55",
+          "title": "ファーゴ 4K / ユージュアル・サスペクツ",
+          "meta": "Fargo (4K) / The Usual Suspects",
+          "note": "公開30周年記念"
+        }
+      ],
+      "highlights": ["30th Anniversary", "Epic 4K"],
+      "footer": "目黒シネマ官方排片",
+      "palette": ["#F1ECE4", "#1F1917", "#9E3D37", "#6B7F62"]
+    },
+    {
+      "slug": "2026-04-04",
+      "kind": "daily",
+      "dateLabel": "SATURDAY",
+      "weekLabel": "2026-04-04",
+      "title": "目黒シネマ 4/4 土曜",
+      "subtitle": "新片首映+犯罪经典30周年",
+      "schedule": [
+        {
+          "time": "10:00-12:15",
+          "title": "フランケンシュタイン",
+          "meta": "Frankenstein / Guillermo del Toro / 2025",
+          "note": "開館9:30"
+        },
+        {
+          "time": "12:25-14:55",
+          "title": "ジェイ・ケリー",
+          "meta": "Jay Kelly / Noah Baumbach / 2025",
+          "note": "オンライン予約有"
+        },
+        {
+          "time": "15:05-18:40",
+          "title": "ファーゴ 4K / ユージュアル・サスペクツ",
+          "meta": "Fargo (4K) / The Usual Suspects",
+          "note": "公開30周年記念"
+        },
+        {
+          "time": "18:50-22:55",
+          "title": "バーフバリ エピック4K",
+          "meta": "Baahubali: The Epic (4K) / S.S. Rajamouli / 2025",
+          "note": "途中休憩15分"
+        }
+      ],
+      "highlights": ["30th Anniversary", "Epic 4K"],
+      "footer": "目黒シネマ官方排片",
+      "palette": ["#F1ECE4", "#1F1917", "#9E3D37", "#6B7F62"]
+    },
+    {
+      "slug": "2026-04-05",
+      "kind": "daily",
+      "dateLabel": "SUNDAY",
+      "weekLabel": "2026-04-05",
+      "title": "目黒シネマ 4/5 日曜",
+      "subtitle": "野村萬斎还暦纪念影展开幕",
+      "schedule": [
+        {
+          "time": "11:00-15:05",
+          "title": "バーフバリ エピック4K",
+          "meta": "Baahubali: The Epic (4K) / S.S. Rajamouli / 2025",
+          "note": "開館10:30、途中休憩15分"
+        },
+        {
+          "time": "15:15-15:40",
+          "title": "虎の洞窟",
+          "meta": "野村萬斎映画祭",
+          "note": "オンライン予約有"
+        },
+        {
+          "time": "15:50-19:00",
+          "title": "のぼうの城",
+          "meta": "The Floating Castle / 2012",
+          "note": "トークイベント付き：野村萬斎/犬童一心/樋口真嗣"
+        },
+        {
+          "time": "19:20-20:45",
+          "title": "六つの顔",
+          "meta": "野村萬斎映画祭",
+          "note": "オンライン予約有"
+        },
+        {
+          "time": "20:55-22:55",
+          "title": "乱 4Kデジタル修復版",
+          "meta": "Ran (4K Digital Restoration) / Akira Kurosawa / 1985",
+          "note": "オンライン予約有"
+        }
+      ],
+      "highlights": ["Talk Event", "Mansai Nomura Festival"],
+      "footer": "目黒シネマ官方排片",
+      "palette": ["#F1ECE4", "#1F1917", "#9E3D37", "#6B7F62"]
+    }
+  ]
+}
