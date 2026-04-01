@@ -26,7 +26,9 @@ struct CharlieWidgetApp: App {
 
         server.onToast = { title, subtitle, body, level in
             store.addMessage(title: title, subtitle: subtitle, body: body, level: level)
-            ToastWindow.show(title: title, subtitle: subtitle, body: body, level: level)
+            if !store.muted {
+                ToastWindow.show(title: title, subtitle: subtitle, body: body, level: level)
+            }
         }
 
         server.onHistoryRequest = { connection in

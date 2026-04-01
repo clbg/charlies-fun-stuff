@@ -75,9 +75,15 @@ final class MessageStore: Sendable {
         return dir.appendingPathComponent("messages.json")
     }
 
+    private static let mutedKey = "CharlieWidget.muted"
+
     // MARK: Observable state
 
     private(set) var messages: [Message] = []
+
+    var muted: Bool {
+        didSet { UserDefaults.standard.set(muted, forKey: Self.mutedKey) }
+    }
 
     var unreadCount: Int {
         messages.filter { !$0.read }.count
@@ -86,6 +92,7 @@ final class MessageStore: Sendable {
     // MARK: Init
 
     init() {
+        self.muted = UserDefaults.standard.bool(forKey: Self.mutedKey)
         messages = Self.loadFromDisk()
     }
 

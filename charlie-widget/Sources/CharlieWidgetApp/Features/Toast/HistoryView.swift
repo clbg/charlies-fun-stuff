@@ -1,9 +1,11 @@
 import SwiftUI
+import AppKit
 
 struct HistoryView: View {
 
     @Bindable var store: MessageStore
     @State private var selectedMessageID: UUID?
+    @State private var copiedMessageID: UUID?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -15,7 +17,17 @@ struct HistoryView: View {
 
             Divider()
 
-            HStack {
+            HStack(spacing: 12) {
+                Button {
+                    store.muted.toggle()
+                } label: {
+                    Image(systemName: store.muted ? "bell.slash.fill" : "bell.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(store.muted ? .secondary : .primary)
+                }
+                .buttonStyle(.plain)
+                .help(store.muted ? "Unmute toasts" : "Mute toasts")
+
                 if store.unreadCount > 0 {
                     Text("\(store.unreadCount) unread")
                         .font(.caption)
@@ -132,6 +144,15 @@ struct HistoryView: View {
                     .font(.system(size: 13, weight: .bold))
                 Spacer()
                 Button {
+                    copyMessage(message)
+                } label: {
+                    Image(systemName: copiedMessageID == message.id ? "checkmark.circle.fill" : "doc.on.doc")
+                        .foregroundStyle(copiedMessageID == message.id ? .green : .secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Copy message")
+
+                Button {
                     withAnimation(.easeInOut(duration: 0.15)) {
                         selectedMessageID = nil
                         store.deleteMessage(id: message.id)
@@ -141,6 +162,7 @@ struct HistoryView: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
+                .help("Delete message")
             }
 
             if let subtitle = message.subtitle, !subtitle.isEmpty {
@@ -170,6 +192,24 @@ struct HistoryView: View {
             withAnimation(.easeInOut(duration: 0.15)) {
                 selectedMessageID = nil
             }
+        }
+    }
+
+    // MARK: - Actions
+
+    private func copyMessage(_ message: Message) {
+        var text = message.title
+        if let subtitle = message.subtitle, !subtitle.isEmpty {
+            text += "\n\(subtitle)"
+        }
+        text += "\n\(message.body)"
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+
+        withAnimation { copiedMessageID = message.id }
+        Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            withAnimation { copiedMessageID = nil }
         }
     }
 
