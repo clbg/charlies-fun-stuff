@@ -24,9 +24,9 @@ struct CharlieWidgetApp: App {
         let store = self.store
         let server = self.server
 
-        server.onToast = { title, subtitle, body in
-            store.addMessage(title: title, subtitle: subtitle, body: body)
-            ToastWindow.show(title: title, subtitle: subtitle, body: body)
+        server.onToast = { title, subtitle, body, level in
+            store.addMessage(title: title, subtitle: subtitle, body: body, level: level)
+            ToastWindow.show(title: title, subtitle: subtitle, body: body, level: level)
         }
 
         server.onHistoryRequest = { connection in

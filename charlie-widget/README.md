@@ -33,6 +33,13 @@ charlie-widget toast "some message"
 # Full options
 charlie-widget toast --title "Title" --subtitle "Sub" --body "Body text"
 
+# Toast levels: info (default), success, warning, error
+charlie-widget toast "Build passed" --level success
+charlie-widget toast "Disk full" --level error
+
+# Body supports inline markdown: **bold**, *italic*, `code`
+charlie-widget toast '**All tests** passed in `2.1s`' --level success
+
 # View message history (JSON)
 charlie-widget toast --history
 
@@ -44,8 +51,11 @@ charlie-widget toast --clear
 
 - Menu bar shows a bubble icon with unread badge count
 - Click icon → dropdown with message history (timestamp, preview, blue dot for unread)
-- Click entry → full detail view
-- Toast popups appear top-right, auto-dismiss after 3s, click to dismiss
+- Click entry → full detail view; click X to delete that message
+- Toast popups appear top-right, auto-dismiss after 4s, click to dismiss
+- Toast panel auto-sizes to fit content (min 280, max 360 wide)
+- Each toast shows a level icon (info/success/warning/error) with accent color
+- Body text renders inline markdown (bold, italic, code, links)
 - Multiple toasts stack vertically
 - IPC via Unix domain socket (`/tmp/charlie-widget.sock`)
 - Messages persist at `~/Library/Application Support/CharlieWidget/messages.json` (last 100)

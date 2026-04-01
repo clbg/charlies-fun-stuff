@@ -9,7 +9,7 @@ final class SocketServer: Sendable {
     // MARK: - Types
 
     enum Command {
-        case toast(title: String, subtitle: String?, body: String)
+        case toast(title: String, subtitle: String?, body: String, level: ToastLevel)
         case history
         case clear
     }
@@ -20,7 +20,7 @@ final class SocketServer: Sendable {
 
     // MARK: - Callbacks
 
-    var onToast: (@MainActor @Sendable (String, String?, String) -> Void)?
+    var onToast: (@MainActor @Sendable (String, String?, String, ToastLevel) -> Void)?
     var onHistoryRequest: (@MainActor @Sendable (NWConnection) -> Void)?
     var onClearRequest: (@MainActor @Sendable () -> Void)?
 
@@ -175,7 +175,9 @@ final class SocketServer: Sendable {
             let title = json["title"] as? String ?? "Charlie Widget"
             let subtitle = json["subtitle"] as? String
             let body = json["body"] as? String ?? ""
-            onToast?(title, subtitle, body)
+            let levelStr = json["level"] as? String ?? "info"
+            let level = ToastLevel(rawValue: levelStr) ?? .info
+            onToast?(title, subtitle, body, level)
             send("{\"ok\":true}\n", to: connection)
 
         case "history":

@@ -45,6 +45,7 @@ struct CLI {
         var title = "Charlie Widget"
         var subtitle: String?
         var body: String?
+        var level = "info"
 
         var i = 0
         var positionalArgs: [String] = []
@@ -72,6 +73,13 @@ struct CLI {
                     exit(1)
                 }
                 body = args[i]
+            case "--level":
+                i += 1
+                guard i < args.count else {
+                    fputs("--level requires a value (info|success|warning|error)\n", stderr)
+                    exit(1)
+                }
+                level = args[i]
             default:
                 positionalArgs.append(args[i])
             }
@@ -93,6 +101,7 @@ struct CLI {
             "command": "toast",
             "title": title,
             "body": body,
+            "level": level,
         ]
         if let subtitle {
             dict["subtitle"] = subtitle
@@ -216,7 +225,7 @@ struct CLI {
         let usage = """
         Usage:
           charlie-widget toast "message"
-          charlie-widget toast --title "T" --subtitle "S" --body "B"
+          charlie-widget toast --title "T" --subtitle "S" --body "B" --level "success"
           charlie-widget toast --history
           charlie-widget toast --clear
         """

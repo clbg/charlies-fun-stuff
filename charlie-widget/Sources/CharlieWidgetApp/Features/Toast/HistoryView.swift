@@ -73,11 +73,21 @@ struct HistoryView: View {
             }
         } label: {
             HStack(alignment: .top, spacing: 8) {
-                // Unread indicator
-                Circle()
-                    .fill(message.read ? Color.clear : Color.blue)
-                    .frame(width: 8, height: 8)
-                    .padding(.top, 4)
+                // Level icon with unread indicator
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: message.level.sfSymbol)
+                        .font(.system(size: 14))
+                        .foregroundStyle(levelColor(message.level))
+                        .frame(width: 18, height: 18)
+
+                    if !message.read {
+                        Circle()
+                            .fill(Color.blue)
+                            .frame(width: 6, height: 6)
+                            .offset(x: 2, y: -2)
+                    }
+                }
+                .padding(.top, 2)
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack {
@@ -90,11 +100,19 @@ struct HistoryView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    Text(message.body)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .truncationMode(.tail)
+                    if let attrStr = try? AttributedString(markdown: message.body, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
+                        Text(attrStr)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .truncationMode(.tail)
+                    } else {
+                        Text(message.body)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .truncationMode(.tail)
+                    }
                 }
             }
             .padding(.horizontal, 12)
@@ -107,12 +125,16 @@ struct HistoryView: View {
     private func detailRow(_ message: Message) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
+                Image(systemName: message.level.sfSymbol)
+                    .font(.system(size: 14))
+                    .foregroundStyle(levelColor(message.level))
                 Text(message.title)
                     .font(.system(size: 13, weight: .bold))
                 Spacer()
                 Button {
                     withAnimation(.easeInOut(duration: 0.15)) {
                         selectedMessageID = nil
+                        store.deleteMessage(id: message.id)
                     }
                 } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -127,9 +149,15 @@ struct HistoryView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Text(message.body)
-                .font(.system(size: 12))
-                .fixedSize(horizontal: false, vertical: true)
+            if let attrStr = try? AttributedString(markdown: message.body, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
+                Text(attrStr)
+                    .font(.system(size: 12))
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text(message.body)
+                    .font(.system(size: 12))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             Text(fullTimestamp(message.timestamp))
                 .font(.caption2)
@@ -143,6 +171,13 @@ struct HistoryView: View {
                 selectedMessageID = nil
             }
         }
+    }
+
+    // MARK: - Level Color
+
+    private func levelColor(_ level: ToastLevel) -> Color {
+        let c = level.accentColor
+        return Color(red: c.red, green: c.green, blue: c.blue)
     }
 
     // MARK: - Time Formatting
