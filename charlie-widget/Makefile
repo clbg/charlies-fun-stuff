@@ -19,9 +19,13 @@ icon:
 install: release icon
 	@# CLI
 	cp .build/release/charlie-widget ~/.local/bin/
-	@# Hook script
+	@# Hook scripts
 	cp scripts/cc-monitor-hook.sh ~/.local/bin/cc-monitor-hook.sh
+	cp scripts/codex-monitor-hook.sh ~/.local/bin/codex-monitor-hook.sh
+	cp scripts/gemini-monitor-hook.sh ~/.local/bin/gemini-monitor-hook.sh
 	chmod +x ~/.local/bin/cc-monitor-hook.sh
+	chmod +x ~/.local/bin/codex-monitor-hook.sh
+	chmod +x ~/.local/bin/gemini-monitor-hook.sh
 	@# App bundle
 	mkdir -p $(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/MacOS
 	mkdir -p $(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/Resources
@@ -72,6 +76,8 @@ uninstall:
 	rm -rf $(APP_INSTALL_DIR)/$(APP_BUNDLE)
 	rm -f ~/.local/bin/charlie-widget
 	rm -f ~/.local/bin/cc-monitor-hook.sh
+	rm -f ~/.local/bin/codex-monitor-hook.sh
+	rm -f ~/.local/bin/gemini-monitor-hook.sh
 	rm -rf ~/Library/Application\ Support/CharlieWidget
 	@echo "Uninstalled"
 

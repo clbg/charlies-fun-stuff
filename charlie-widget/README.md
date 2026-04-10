@@ -52,7 +52,7 @@ charlie-widget toast --clear
 Tracks all running AI coding agent sessions in the menu bar.
 
 ```bash
-# Sessions are tracked automatically via Claude Code hooks (installed by `make install`)
+# Claude Code / Codex / Gemini hook scripts are installed by `make install`
 # View active sessions
 charlie-widget sessions
 
@@ -64,6 +64,9 @@ charlie-widget sessions --clear
 - Click icon → tabbed dropdown: **Sessions** tab (live status) and **Messages** tab (toast history)
 - Sessions show project directory, state, and time since last update
 - Dead sessions are auto-cleaned via PID detection (+ 5-min TTL fallback)
+- Claude Code hooks configured in `~/.claude/settings.json`
+- Codex hooks configured via `~/.codex/config.toml` + `~/.codex/hooks.json`
+- Gemini hooks configured in `~/.gemini/settings.json`
 
 ### Setup Claude Code hooks
 
@@ -112,6 +115,20 @@ All hooks are `async: true` — they never block the agent. Takes effect immedia
 - IPC via Unix domain socket (`/tmp/charlie-widget.sock`) for toasts
 - Session state via file-based IPC (`~/Library/Application Support/CharlieWidget/sessions/`)
 - Messages persist at `~/Library/Application Support/CharlieWidget/messages.json` (last 100)
+
+## Hook Setup
+
+`make install` copies these scripts to `~/.local/bin/`:
+
+- `cc-monitor-hook.sh`
+- `codex-monitor-hook.sh`
+- `gemini-monitor-hook.sh`
+
+The expected state mapping is:
+
+- Claude Code: `UserPromptSubmit` / `PreToolUse` → `running`, `Notification(permission_prompt)` → `pending`, `Stop` → `idle`
+- Codex: `SessionStart` → `idle`, `UserPromptSubmit` / `PreToolUse` / `PostToolUse` → `running`, `Stop` → `idle`
+- Gemini: `SessionStart` → `idle`, `BeforeAgent` → `running`, `Notification` → `pending`, `AfterAgent` → `idle`, `SessionEnd` → remove session
 
 ## Build from source
 

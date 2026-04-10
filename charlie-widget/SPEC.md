@@ -65,7 +65,7 @@ charlie-widget toast --clear
 
 ### What it does
 
-Monitors all running AI coding agent sessions (Claude Code, with future support for Gemini/Codex) and displays their live status in the menu bar. Uses Claude Code hooks to track session state, and PID-based process detection for cleanup.
+Monitors all running AI coding agent sessions (Claude Code, Codex CLI, Gemini CLI) and displays their live status in the menu bar. Uses per-agent hooks to track session state, and PID-based process detection for cleanup.
 
 ### Session States
 - `running` — agent is actively working (blue dot)
@@ -84,7 +84,7 @@ Monitors all running AI coding agent sessions (Claude Code, with future support 
   ```json
   {
     "session_id": "string",
-    "agent": "claude",
+    "agent": "claude | codex | gemini",
     "cwd": "/absolute/path",
     "state": "running | idle | pending",
     "pid": 12345,
@@ -96,7 +96,7 @@ Monitors all running AI coding agent sessions (Claude Code, with future support 
 - 5-minute TTL fallback for sessions without PID
 - 60-second periodic sweep timer catches dead sessions between FSEvents
 
-### Claude Code Integration
+### Agent Integration
 - Hook script `cc-monitor-hook.sh` reads hook JSON from stdin
 - Finds Claude Code process PID by walking ancestor process tree
 - Configured in `~/.claude/settings.json` for events:
@@ -104,7 +104,19 @@ Monitors all running AI coding agent sessions (Claude Code, with future support 
   - `PreToolUse` → running (also resumes from pending)
   - `Stop` → idle
   - `Notification(permission_prompt)` → pending
-- All hooks are `async: true` — never block the agent
+- Hook script `codex-monitor-hook.sh` reads Codex hook JSON from stdin
+- Configured via `~/.codex/config.toml` + `~/.codex/hooks.json` for events:
+  - `SessionStart` → idle
+  - `UserPromptSubmit` / `PreToolUse` / `PostToolUse` → running
+  - `Stop` → idle
+- Hook script `gemini-monitor-hook.sh` reads Gemini hook JSON from stdin
+- Configured in `~/.gemini/settings.json` for events:
+  - `SessionStart` → idle
+  - `BeforeAgent` → running
+  - `Notification` → pending
+  - `AfterAgent` → idle
+  - `SessionEnd` → remove session file
+- Claude hooks should be `async: true`
 
 ### CLI
 ```bash
@@ -135,7 +147,9 @@ charlie-widget/
 │   └── charlie-widget/            # CLI tool
 │       └── CLI.swift
 ├── scripts/
-│   └── cc-monitor-hook.sh         # Claude Code hook script
+│   ├── cc-monitor-hook.sh         # Claude Code hook script
+│   ├── codex-monitor-hook.sh      # Codex hook script
+│   └── gemini-monitor-hook.sh     # Gemini hook script
 ├── docs/cc-monitor/
 │   ├── user-stories.md
 │   └── design.md
