@@ -3,7 +3,9 @@
 APP_NAME = CharlieWidget
 APP_BUNDLE = $(APP_NAME).app
 APP_INSTALL_DIR = /Applications
+LAUNCHAGENT_LABEL = com.charlie.widget
 LAUNCHAGENT_PLIST = ~/Library/LaunchAgents/com.charlie.widget.plist
+LAUNCHCTL_DOMAIN = gui/$(shell id -u)
 
 build:
 	swift build
@@ -59,8 +61,10 @@ install: release icon
 	    <false/>\n\
 	</dict>\n\
 	</plist>\n" > $(LAUNCHAGENT_PLIST)
-	launchctl load $(LAUNCHAGENT_PLIST) 2>/dev/null || true
-	@echo "LaunchAgent installed — will start on login"
+	launchctl bootout $(LAUNCHCTL_DOMAIN) $(LAUNCHAGENT_PLIST) 2>/dev/null || true
+	launchctl bootstrap $(LAUNCHCTL_DOMAIN) $(LAUNCHAGENT_PLIST)
+	launchctl kickstart -k $(LAUNCHCTL_DOMAIN)/$(LAUNCHAGENT_LABEL)
+	@echo "LaunchAgent installed and CharlieWidget restarted"
 
 uninstall:
 	launchctl unload $(LAUNCHAGENT_PLIST) 2>/dev/null || true
