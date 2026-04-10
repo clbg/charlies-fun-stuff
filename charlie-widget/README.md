@@ -64,7 +64,37 @@ charlie-widget sessions --clear
 - Click icon → tabbed dropdown: **Sessions** tab (live status) and **Messages** tab (toast history)
 - Sessions show project directory, state, and time since last update
 - Dead sessions are auto-cleaned via PID detection (+ 5-min TTL fallback)
-- Claude Code hooks configured in `~/.claude/settings.json` — see `docs/cc-monitor/` for details
+
+### Setup Claude Code hooks
+
+`make install` copies the hook script to `~/.local/bin/cc-monitor-hook.sh`. You still need to add the hooks to `~/.claude/settings.json` once:
+
+```jsonc
+// Add these entries under the "hooks" key in ~/.claude/settings.json
+// If you already have hooks for these events, add cc-monitor-hook.sh
+// alongside your existing hooks.
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "cc-monitor-hook.sh", "async": true }] }
+    ],
+    "PreToolUse": [
+      { "hooks": [{ "type": "command", "command": "cc-monitor-hook.sh", "async": true }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "cc-monitor-hook.sh", "async": true }] }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt",
+        "hooks": [{ "type": "command", "command": "cc-monitor-hook.sh", "async": true }]
+      }
+    ]
+  }
+}
+```
+
+All hooks are `async: true` — they never block the agent. Takes effect immediately for new Claude Code sessions.
 
 ## How it works
 
