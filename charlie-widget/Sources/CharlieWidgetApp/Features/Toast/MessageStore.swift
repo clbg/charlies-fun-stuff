@@ -89,6 +89,14 @@ final class MessageStore: Sendable {
         messages.filter { !$0.read }.count
     }
 
+    var unreadCountsByLevel: [ToastLevel: Int] {
+        var counts: [ToastLevel: Int] = [:]
+        for msg in messages where !msg.read {
+            counts[msg.level, default: 0] += 1
+        }
+        return counts
+    }
+
     // MARK: Init
 
     init() {
