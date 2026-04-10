@@ -6,19 +6,35 @@ mkdir -p "$SESSIONS_DIR"
 
 INPUT=$(cat)
 
-# Parse JSON fields via python3 (available on all macOS)
-parse() { echo "$INPUT" | /usr/bin/python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('$1',''))"; }
+# Debug: log raw payloads to diagnose Notification timing
+echo "$(date -u +%H:%M:%S) $INPUT" >> "$SESSIONS_DIR/.debug.log"
 
-EVENT=$(parse hook_event_name)
-SESSION_ID=$(parse session_id)
-CWD=$(parse cwd)
+# Parse all fields in a single python3 invocation (tab-separated)
+IFS=$'\t' read -r EVENT SESSION_ID CWD TOOL_NAME PERM_MODE < <(
+  /usr/bin/python3 -c "
+import sys, json
+d = json.loads(sys.stdin.read())
+print(d.get('hook_event_name',''), d.get('session_id',''), d.get('cwd',''),
+      d.get('tool_name',''), d.get('permission_mode',''), sep='\t')
+" <<< "$INPUT" 2>/dev/null
+) || exit 0
 
 [ -z "$SESSION_ID" ] && exit 0
 
 # Map hook event to session state
+# For PreToolUse: predict whether tool needs approval based on permission_mode
 case "$EVENT" in
   UserPromptSubmit) STATE="running" ;;
-  PreToolUse)       STATE="running" ;;
+  PreToolUse)
+    STATE="running"
+    # In acceptEdits mode, Bash/Agent need approval
+    if [[ "$PERM_MODE" == "acceptEdits" ]]; then
+      case "$TOOL_NAME" in Bash|Agent) STATE="pending" ;; esac
+    # In default mode, most tools except read-only need approval
+    elif [[ "$PERM_MODE" == "default" ]]; then
+      case "$TOOL_NAME" in Read|Glob|Grep) ;; *) STATE="pending" ;; esac
+    fi
+    ;;
   Stop)             STATE="idle" ;;
   Notification)     STATE="pending" ;;
   *)                exit 0 ;;

@@ -74,7 +74,7 @@ final class SessionStore: Sendable {
         let source = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: fd,
             eventMask: .write,
-            queue: .global(qos: .utility)
+            queue: .global(qos: .userInitiated)
         )
 
         source.setEventHandler { [weak self] in
@@ -82,7 +82,7 @@ final class SessionStore: Sendable {
             Task { @MainActor in
                 self.debounceTask?.cancel()
                 self.debounceTask = Task {
-                    try? await Task.sleep(for: .milliseconds(300))
+                    try? await Task.sleep(for: .milliseconds(100))
                     guard !Task.isCancelled else { return }
                     self.reload()
                 }

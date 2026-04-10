@@ -16,14 +16,12 @@ struct CharlieWidgetApp: App {
                     NSApp?.setActivationPolicy(.accessory)
                 }
         } label: {
-            let summary = MenuBarIcon.SessionSummary(
-                running: sessionStore.runningCount,
-                pending: sessionStore.pendingCount,
-                idle: sessionStore.idleCount
-            )
+            let dots = sessionStore.sessions.map {
+                MenuBarIcon.SessionDot(state: $0.state, agent: $0.agent)
+            }
             Image(nsImage: MenuBarIcon.make(
                 unreadByLevel: store.unreadCountsByLevel,
-                sessions: summary
+                sessionDots: dots
             ))
         }
         .menuBarExtraStyle(.window)

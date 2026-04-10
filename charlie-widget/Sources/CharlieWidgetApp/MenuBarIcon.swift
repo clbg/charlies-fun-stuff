@@ -11,18 +11,15 @@ enum MenuBarIcon {
         (.info,    1, 0),  // bottom-right
     ]
 
-    struct SessionSummary {
-        var running: Int = 0
-        var pending: Int = 0
-        var idle: Int = 0
-
-        var hasAny: Bool { running + pending + idle > 0 }
-        var total: Int { running + pending + idle }
+    /// A session dot: state determines color, agent determines the letter inside.
+    struct SessionDot {
+        let state: SessionState
+        let agent: AgentKind
     }
 
     static func make(
         unreadByLevel: [ToastLevel: Int] = [:],
-        sessions: SessionSummary = SessionSummary()
+        sessionDots: [SessionDot] = []
     ) -> NSImage {
         let hasUnread = unreadByLevel.values.contains { $0 > 0 }
 
@@ -33,12 +30,12 @@ enum MenuBarIcon {
         let gridH = cellSize * 2 + gap
         let gridTotalWidth: CGFloat = hasUnread ? gridW + 3 : 0
 
-        // Session dots area
-        let dotSize: CGFloat = 6.0
+        // Session dots area — slightly larger to fit letter
+        let dotSize: CGFloat = 8.0
         let dotGap: CGFloat = 3.0
-        let sessionDotsWidth: CGFloat = sessions.hasAny
-            ? CGFloat(sessions.total) * dotSize + CGFloat(sessions.total - 1) * dotGap + 4
-            : 0
+        let sessionDotsWidth: CGFloat = sessionDots.isEmpty
+            ? 0
+            : CGFloat(sessionDots.count) * dotSize + CGFloat(sessionDots.count - 1) * dotGap + 4
 
         let size = NSSize(width: 50 + gridTotalWidth + sessionDotsWidth, height: 18)
         let image = NSImage(size: size, flipped: false) { rect in
@@ -82,32 +79,34 @@ enum MenuBarIcon {
                 }
             }
 
-            // Session dots (new)
-            if sessions.hasAny {
+            // Session dots with agent letter
+            if !sessionDots.isEmpty {
                 var dotX = 50 + gridTotalWidth + 2
                 let dotY = rect.midY - dotSize / 2
 
-                // Draw running dots (blue)
-                for _ in 0..<sessions.running {
-                    NSColor.systemBlue.setFill()
-                    let dotRect = NSRect(x: dotX, y: dotY, width: dotSize, height: dotSize)
-                    NSBezierPath(ovalIn: dotRect).fill()
-                    dotX += dotSize + dotGap
-                }
+                for dot in sessionDots {
+                    let color: NSColor = switch dot.state {
+                    case .running: .systemBlue
+                    case .pending: .systemOrange
+                    case .idle:    .systemGray.withAlphaComponent(0.4)
+                    }
 
-                // Draw pending dots (orange)
-                for _ in 0..<sessions.pending {
-                    NSColor.systemOrange.setFill()
+                    color.setFill()
                     let dotRect = NSRect(x: dotX, y: dotY, width: dotSize, height: dotSize)
-                    NSBezierPath(ovalIn: dotRect).fill()
-                    dotX += dotSize + dotGap
-                }
+                    NSBezierPath(roundedRect: dotRect, xRadius: 2, yRadius: 2).fill()
 
-                // Draw idle dots (gray)
-                for _ in 0..<sessions.idle {
-                    NSColor.systemGray.withAlphaComponent(0.4).setFill()
-                    let dotRect = NSRect(x: dotX, y: dotY, width: dotSize, height: dotSize)
-                    NSBezierPath(ovalIn: dotRect).fill()
+                    // Agent letter
+                    let letterAttrs: [NSAttributedString.Key: Any] = [
+                        .font: NSFont.monospacedSystemFont(ofSize: 5.5, weight: .bold),
+                        .foregroundColor: NSColor.white,
+                    ]
+                    let letterStr = NSAttributedString(string: dot.agent.dotLetter, attributes: letterAttrs)
+                    let ls = letterStr.size()
+                    letterStr.draw(at: NSPoint(
+                        x: dotX + (dotSize - ls.width) / 2,
+                        y: dotY + (dotSize - ls.height) / 2
+                    ))
+
                     dotX += dotSize + dotGap
                 }
             }

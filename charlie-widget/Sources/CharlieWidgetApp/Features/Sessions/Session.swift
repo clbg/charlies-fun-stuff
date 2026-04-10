@@ -6,6 +6,7 @@ enum AgentKind: String, Codable, Sendable, CaseIterable {
     case claude
     case gemini
     case codex
+    case kiro
     case unknown
 
     var displayName: String {
@@ -13,6 +14,7 @@ enum AgentKind: String, Codable, Sendable, CaseIterable {
         case .claude:  return "Claude Code"
         case .gemini:  return "Gemini CLI"
         case .codex:   return "Codex CLI"
+        case .kiro:    return "Kiro"
         case .unknown: return "Agent"
         }
     }
@@ -22,7 +24,19 @@ enum AgentKind: String, Codable, Sendable, CaseIterable {
         case .claude:  return "c.square.fill"
         case .gemini:  return "g.square.fill"
         case .codex:   return "o.square.fill"
+        case .kiro:    return "k.square.fill"
         case .unknown: return "questionmark.square.fill"
+        }
+    }
+
+    /// Single letter shown inside menu-bar session dots.
+    var dotLetter: String {
+        switch self {
+        case .claude:  return "C"
+        case .gemini:  return "G"
+        case .codex:   return "X"
+        case .kiro:    return "K"
+        case .unknown: return "?"
         }
     }
 }
