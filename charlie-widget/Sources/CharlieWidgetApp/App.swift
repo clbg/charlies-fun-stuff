@@ -6,16 +6,25 @@ import Network
 struct CharlieWidgetApp: App {
 
     @State private var store = MessageStore()
+    @State private var sessionStore = SessionStore()
     private let server = SocketServer()
 
     var body: some Scene {
         MenuBarExtra {
-            HistoryView(store: store)
+            HistoryView(store: store, sessionStore: sessionStore)
                 .onAppear {
                     NSApp?.setActivationPolicy(.accessory)
                 }
         } label: {
-            Image(nsImage: MenuBarIcon.make(badgeCount: store.unreadCount))
+            let summary = MenuBarIcon.SessionSummary(
+                running: sessionStore.runningCount,
+                pending: sessionStore.pendingCount,
+                idle: sessionStore.idleCount
+            )
+            Image(nsImage: MenuBarIcon.make(
+                unreadByLevel: store.unreadCountsByLevel,
+                sessions: summary
+            ))
         }
         .menuBarExtraStyle(.window)
     }

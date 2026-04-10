@@ -3,34 +3,118 @@ import AppKit
 @MainActor
 enum MenuBarIcon {
 
-    static func make(badgeCount: Int = 0) -> NSImage {
-        let size = NSSize(width: 50, height: 18)
+    /// 2x2 grid positions: top-left=error, top-right=warning, bottom-left=success, bottom-right=info
+    private static let gridLayout: [(level: ToastLevel, col: Int, row: Int)] = [
+        (.error,   0, 1),  // top-left
+        (.warning, 1, 1),  // top-right
+        (.success, 0, 0),  // bottom-left
+        (.info,    1, 0),  // bottom-right
+    ]
+
+    struct SessionSummary {
+        var running: Int = 0
+        var pending: Int = 0
+        var idle: Int = 0
+
+        var hasAny: Bool { running + pending + idle > 0 }
+        var total: Int { running + pending + idle }
+    }
+
+    static func make(
+        unreadByLevel: [ToastLevel: Int] = [:],
+        sessions: SessionSummary = SessionSummary()
+    ) -> NSImage {
+        let hasUnread = unreadByLevel.values.contains { $0 > 0 }
+
+        let cellSize: CGFloat = 8.0
+        let gap: CGFloat = 1.0
+        let cornerR: CGFloat = 1.5
+        let gridW = cellSize * 2 + gap
+        let gridH = cellSize * 2 + gap
+        let gridTotalWidth: CGFloat = hasUnread ? gridW + 3 : 0
+
+        // Session dots area
+        let dotSize: CGFloat = 6.0
+        let dotGap: CGFloat = 3.0
+        let sessionDotsWidth: CGFloat = sessions.hasAny
+            ? CGFloat(sessions.total) * dotSize + CGFloat(sessions.total - 1) * dotGap + 4
+            : 0
+
+        let size = NSSize(width: 50 + gridTotalWidth + sessionDotsWidth, height: 18)
         let image = NSImage(size: size, flipped: false) { rect in
+            // "charlie" text
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
                 .foregroundColor: NSColor.black,
             ]
             let str = NSAttributedString(string: "charlie", attributes: attrs)
             let s = str.size()
-            str.draw(at: NSPoint(x: (rect.width - s.width) / 2, y: (rect.height - s.height) / 2))
+            str.draw(at: NSPoint(x: (50 - s.width) / 2, y: (rect.height - s.height) / 2))
 
-            if badgeCount > 0 {
-                let badgeR: CGFloat = 4.5
-                let badgeX = rect.maxX - badgeR + 1
-                let badgeY = rect.minY + badgeR - 1
-                NSColor.black.setFill()
-                NSBezierPath(ovalIn: NSRect(x: badgeX - badgeR, y: badgeY - badgeR, width: badgeR * 2, height: badgeR * 2)).fill()
-                let numAttrs: [NSAttributedString.Key: Any] = [
-                    .font: NSFont.systemFont(ofSize: 7, weight: .bold),
-                    .foregroundColor: NSColor.white,
-                ]
-                let numStr = NSAttributedString(string: badgeCount > 9 ? "+" : "\(badgeCount)", attributes: numAttrs)
-                let ns = numStr.size()
-                numStr.draw(at: NSPoint(x: badgeX - ns.width / 2, y: badgeY - ns.height / 2))
+            // Unread grid (existing)
+            if hasUnread {
+                let gridX: CGFloat = 52
+                let gridY = rect.midY - gridH / 2
+
+                for item in gridLayout {
+                    let count = unreadByLevel[item.level] ?? 0
+                    let c = item.level.accentColor
+                    let x = gridX + CGFloat(item.col) * (cellSize + gap)
+                    let y = gridY + CGFloat(item.row) * (cellSize + gap)
+                    let cellRect = NSRect(x: x, y: y, width: cellSize, height: cellSize)
+
+                    if count > 0 {
+                        let color = NSColor(red: c.red, green: c.green, blue: c.blue, alpha: 1.0)
+                        color.setFill()
+                        NSBezierPath(roundedRect: cellRect, xRadius: cornerR, yRadius: cornerR).fill()
+
+                        let numAttrs: [NSAttributedString.Key: Any] = [
+                            .font: NSFont.monospacedDigitSystemFont(ofSize: 6.5, weight: .heavy),
+                            .foregroundColor: NSColor.white,
+                        ]
+                        let numStr = NSAttributedString(string: count > 9 ? "+" : "\(count)", attributes: numAttrs)
+                        let ns = numStr.size()
+                        numStr.draw(at: NSPoint(x: x + (cellSize - ns.width) / 2, y: y + (cellSize - ns.height) / 2))
+                    } else {
+                        NSColor(red: c.red, green: c.green, blue: c.blue, alpha: 0.15).setFill()
+                        NSBezierPath(roundedRect: cellRect, xRadius: cornerR, yRadius: cornerR).fill()
+                    }
+                }
             }
+
+            // Session dots (new)
+            if sessions.hasAny {
+                var dotX = 50 + gridTotalWidth + 2
+                let dotY = rect.midY - dotSize / 2
+
+                // Draw running dots (blue)
+                for _ in 0..<sessions.running {
+                    NSColor.systemBlue.setFill()
+                    let dotRect = NSRect(x: dotX, y: dotY, width: dotSize, height: dotSize)
+                    NSBezierPath(ovalIn: dotRect).fill()
+                    dotX += dotSize + dotGap
+                }
+
+                // Draw pending dots (orange)
+                for _ in 0..<sessions.pending {
+                    NSColor.systemOrange.setFill()
+                    let dotRect = NSRect(x: dotX, y: dotY, width: dotSize, height: dotSize)
+                    NSBezierPath(ovalIn: dotRect).fill()
+                    dotX += dotSize + dotGap
+                }
+
+                // Draw idle dots (gray)
+                for _ in 0..<sessions.idle {
+                    NSColor.systemGray.withAlphaComponent(0.4).setFill()
+                    let dotRect = NSRect(x: dotX, y: dotY, width: dotSize, height: dotSize)
+                    NSBezierPath(ovalIn: dotRect).fill()
+                    dotX += dotSize + dotGap
+                }
+            }
+
             return true
         }
-        image.isTemplate = (badgeCount == 0)
+        image.isTemplate = false
         return image
     }
 

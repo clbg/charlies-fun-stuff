@@ -1,22 +1,137 @@
 import SwiftUI
 import AppKit
 
+enum DropdownTab: String, CaseIterable {
+    case sessions = "Sessions"
+    case messages = "Messages"
+}
+
 struct HistoryView: View {
 
     @Bindable var store: MessageStore
+    var sessionStore: SessionStore
+    @State private var selectedTab: DropdownTab = .sessions
     @State private var selectedMessageID: UUID?
     @State private var copiedMessageID: UUID?
 
     var body: some View {
         VStack(spacing: 0) {
+            // Tab bar
+            tabBar
+
+            Divider()
+
+            // Content
+            switch selectedTab {
+            case .sessions:
+                sessionsTab
+            case .messages:
+                messagesTab
+            }
+
+            Divider()
+
+            // Footer
+            footer
+        }
+        .frame(width: 340, height: 400)
+    }
+
+    // MARK: - Tab Bar
+
+    private var tabBar: some View {
+        HStack(spacing: 0) {
+            ForEach(DropdownTab.allCases, id: \.self) { tab in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        selectedTab = tab
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(tab.rawValue)
+                            .font(.system(size: 12, weight: selectedTab == tab ? .semibold : .regular))
+                        badge(for: tab)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(selectedTab == tab ? Color.accentColor.opacity(0.1) : Color.clear)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(selectedTab == tab ? .primary : .secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func badge(for tab: DropdownTab) -> some View {
+        switch tab {
+        case .sessions:
+            let count = sessionStore.activeSessions.count
+            if count > 0 {
+                Text("\(count)")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(Capsule().fill(Color.blue))
+            }
+        case .messages:
+            let count = store.unreadCount
+            if count > 0 {
+                Text("\(count)")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(Capsule().fill(Color.red))
+            }
+        }
+    }
+
+    // MARK: - Sessions Tab
+
+    private var sessionsTab: some View {
+        Group {
+            if sessionStore.activeSessions.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "terminal")
+                        .font(.system(size: 32))
+                        .foregroundStyle(.tertiary)
+                    Text("No active sessions")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(sessionStore.activeSessions) { session in
+                            SessionRow(session: session)
+                            Divider()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Messages Tab
+
+    private var messagesTab: some View {
+        Group {
             if store.messages.isEmpty {
                 emptyPlaceholder
             } else {
                 messageList
             }
+        }
+    }
 
-            Divider()
+    // MARK: - Footer
 
+    private var footer: some View {
+        VStack(spacing: 0) {
             HStack(spacing: 12) {
                 Button {
                     store.muted.toggle()
@@ -36,7 +151,11 @@ struct HistoryView: View {
                 Spacer()
                 Button("Clear All") {
                     selectedMessageID = nil
-                    store.clearAll()
+                    if selectedTab == .sessions {
+                        sessionStore.clearAll()
+                    } else {
+                        store.clearAll()
+                    }
                 }
                 .buttonStyle(.plain)
                 .font(.caption)
@@ -44,8 +163,33 @@ struct HistoryView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
+
+            Divider()
+
+            Button {
+                openDataFolder()
+            } label: {
+                HStack {
+                    Image(systemName: "folder")
+                        .font(.system(size: 11))
+                    Text("Open Data Folder...")
+                        .font(.caption)
+                }
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
-        .frame(width: 340, height: 400)
+    }
+
+    // MARK: - Open Data Folder
+
+    private func openDataFolder() {
+        let url = SessionStore.sessionsDirectoryURL.deletingLastPathComponent()
+        NSWorkspace.shared.open(url)
     }
 
     // MARK: - Subviews

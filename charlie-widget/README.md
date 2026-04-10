@@ -47,17 +47,40 @@ charlie-widget toast --history
 charlie-widget toast --clear
 ```
 
+## Session Monitoring (CC Monitor)
+
+Tracks all running AI coding agent sessions in the menu bar.
+
+```bash
+# Sessions are tracked automatically via Claude Code hooks (installed by `make install`)
+# View active sessions
+charlie-widget sessions
+
+# Clear all session state files
+charlie-widget sessions --clear
+```
+
+- Menu bar shows colored dots: blue=running, orange=pending, gray=idle
+- Click icon → tabbed dropdown: **Sessions** tab (live status) and **Messages** tab (toast history)
+- Sessions show project directory, state, and time since last update
+- Dead sessions are auto-cleaned via PID detection (+ 5-min TTL fallback)
+- Claude Code hooks configured in `~/.claude/settings.json` — see `docs/cc-monitor/` for details
+
 ## How it works
 
-- Menu bar shows a bubble icon with unread badge count
-- Click icon → dropdown with message history (timestamp, preview, blue dot for unread)
-- Click entry → full detail view; click X to delete that message
+- Menu bar shows "charlie" text with unread badge grid + session status dots
+- Click icon → tabbed dropdown (Sessions | Messages)
+- **Sessions tab**: live agent session status, auto-refreshes via FSEvents + 60s sweep timer
+- **Messages tab**: toast history (timestamp, preview, blue dot for unread)
+- Click message entry → full detail view; click X to delete
 - Toast popups appear top-right, auto-dismiss after 4s, click to dismiss
 - Toast panel auto-sizes to fit content (min 280, max 360 wide)
 - Each toast shows a level icon (info/success/warning/error) with accent color
 - Body text renders inline markdown (bold, italic, code, links)
 - Multiple toasts stack vertically
-- IPC via Unix domain socket (`/tmp/charlie-widget.sock`)
+- "Open Data Folder..." in footer opens `~/Library/Application Support/CharlieWidget/`
+- IPC via Unix domain socket (`/tmp/charlie-widget.sock`) for toasts
+- Session state via file-based IPC (`~/Library/Application Support/CharlieWidget/sessions/`)
 - Messages persist at `~/Library/Application Support/CharlieWidget/messages.json` (last 100)
 
 ## Build from source

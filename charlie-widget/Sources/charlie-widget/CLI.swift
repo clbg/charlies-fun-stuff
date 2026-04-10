@@ -18,6 +18,8 @@ struct CLI {
         switch subcommand {
         case "toast":
             await handleToast(Array(args.dropFirst()))
+        case "sessions":
+            handleSessions(Array(args.dropFirst()))
         default:
             fputs("Unknown command: \(subcommand)\n", stderr)
             printUsage()
@@ -115,6 +117,47 @@ struct CLI {
         }
 
         await sendAndExpectOK(json + "\n")
+    }
+
+    // MARK: - Sessions subcommand
+
+    private static func handleSessions(_ args: [String]) {
+        let sessionsDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("CharlieWidget", isDirectory: true)
+            .appendingPathComponent("sessions", isDirectory: true)
+
+        if args.contains("--clear") {
+            let fm = FileManager.default
+            if let files = try? fm.contentsOfDirectory(at: sessionsDir, includingPropertiesForKeys: nil) {
+                for file in files where file.pathExtension == "json" {
+                    try? fm.removeItem(at: file)
+                }
+            }
+            print("Sessions cleared")
+            return
+        }
+
+        // List sessions as JSON
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(at: sessionsDir, includingPropertiesForKeys: nil) else {
+            print("[]")
+            return
+        }
+
+        var sessions: [[String: Any]] = []
+        for file in files where file.pathExtension == "json" && !file.lastPathComponent.hasPrefix(".") {
+            if let data = try? Data(contentsOf: file),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                sessions.append(json)
+            }
+        }
+
+        if let data = try? JSONSerialization.data(withJSONObject: sessions, options: .prettyPrinted),
+           let output = String(data: data, encoding: .utf8) {
+            print(output)
+        } else {
+            print("[]")
+        }
     }
 
     // MARK: - Socket communication
@@ -228,6 +271,8 @@ struct CLI {
           charlie-widget toast --title "T" --subtitle "S" --body "B" --level "success"
           charlie-widget toast --history
           charlie-widget toast --clear
+          charlie-widget sessions              List active agent sessions (JSON)
+          charlie-widget sessions --clear      Remove all session state files
         """
         fputs(usage + "\n", stderr)
     }

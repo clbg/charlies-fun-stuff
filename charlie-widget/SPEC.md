@@ -61,6 +61,57 @@ charlie-widget toast --clear
 - Schema: `{ timestamp, title, subtitle, body, level, read }`
 - Backward compatible: old messages without `level` decode as `info`
 
+## Feature 2: CC Monitor (Session Status)
+
+### What it does
+
+Monitors all running AI coding agent sessions (Claude Code, with future support for Gemini/Codex) and displays their live status in the menu bar. Uses Claude Code hooks to track session state, and PID-based process detection for cleanup.
+
+### Session States
+- `running` — agent is actively working (blue dot)
+- `idle` — agent finished, waiting for user input (gray dot)
+- `pending` — agent needs approval (orange dot)
+
+### Menu Bar
+- Colored dots to the right of "charlie" text: blue=running, orange=pending, gray=idle
+- Click → dropdown with two tabs: **Sessions** and **Messages**
+- Sessions tab shows: state icon, project directory (last 2 path components), relative time
+- Badge count on tab shows number of active sessions
+
+### State File Protocol
+- Location: `~/Library/Application Support/CharlieWidget/sessions/{session_id}.json`
+- Schema:
+  ```json
+  {
+    "session_id": "string",
+    "agent": "claude",
+    "cwd": "/absolute/path",
+    "state": "running | idle | pending",
+    "pid": 12345,
+    "last_updated": "ISO-8601"
+  }
+  ```
+- Widget watches directory via FSEvents for real-time updates
+- PID-based cleanup: `kill(pid, 0)` detects dead processes → auto-remove
+- 5-minute TTL fallback for sessions without PID
+- 60-second periodic sweep timer catches dead sessions between FSEvents
+
+### Claude Code Integration
+- Hook script `cc-monitor-hook.sh` reads hook JSON from stdin
+- Finds Claude Code process PID by walking ancestor process tree
+- Configured in `~/.claude/settings.json` for events:
+  - `UserPromptSubmit` → running
+  - `PreToolUse` → running (also resumes from pending)
+  - `Stop` → idle
+  - `Notification(permission_prompt)` → pending
+- All hooks are `async: true` — never block the agent
+
+### CLI
+```bash
+charlie-widget sessions              # list active sessions (JSON)
+charlie-widget sessions --clear      # remove all session files
+```
+
 ## Project Structure
 
 ```
@@ -69,15 +120,25 @@ charlie-widget/
 ├── Sources/
 │   ├── CharlieWidgetApp/          # Menu bar app
 │   │   ├── App.swift              # @main, MenuBarExtra
+│   │   ├── MenuBarIcon.swift      # Menu bar icon with unread grid + session dots
 │   │   ├── Features/
-│   │   │   └── Toast/
-│   │   │       ├── ToastWindow.swift
-│   │   │       ├── HistoryView.swift
-│   │   │       └── MessageStore.swift
+│   │   │   ├── Toast/
+│   │   │   │   ├── ToastWindow.swift
+│   │   │   │   ├── HistoryView.swift   # Tabbed dropdown (Sessions | Messages)
+│   │   │   │   └── MessageStore.swift
+│   │   │   └── Sessions/
+│   │   │       ├── Session.swift       # Data model (AgentKind, SessionState, Session)
+│   │   │       ├── SessionStore.swift  # FSEvents watcher + PID checking + sweep timer
+│   │   │       └── SessionRow.swift    # Session row view
 │   │   └── IPC/
 │   │       └── SocketServer.swift
 │   └── charlie-widget/            # CLI tool
 │       └── CLI.swift
+├── scripts/
+│   └── cc-monitor-hook.sh         # Claude Code hook script
+├── docs/cc-monitor/
+│   ├── user-stories.md
+│   └── design.md
 ├── Makefile
 ├── SPEC.md
 └── README.md

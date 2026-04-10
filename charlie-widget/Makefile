@@ -17,6 +17,9 @@ icon:
 install: release icon
 	@# CLI
 	cp .build/release/charlie-widget ~/.local/bin/
+	@# Hook script
+	cp scripts/cc-monitor-hook.sh ~/.local/bin/cc-monitor-hook.sh
+	chmod +x ~/.local/bin/cc-monitor-hook.sh
 	@# App bundle
 	mkdir -p $(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/MacOS
 	mkdir -p $(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/Resources
@@ -64,6 +67,7 @@ uninstall:
 	rm -f $(LAUNCHAGENT_PLIST)
 	rm -rf $(APP_INSTALL_DIR)/$(APP_BUNDLE)
 	rm -f ~/.local/bin/charlie-widget
+	rm -f ~/.local/bin/cc-monitor-hook.sh
 	rm -rf ~/Library/Application\ Support/CharlieWidget
 	@echo "Uninstalled"
 
