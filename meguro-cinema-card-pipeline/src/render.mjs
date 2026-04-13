@@ -31,7 +31,7 @@ function normalizeScheduleItems(card) {
 
     const time = truncateText(item.time ?? "", 22);
     const title = truncateText(item.title ?? "", card.kind === "cover" ? 56 : 28);
-    const meta = truncateText(item.meta ?? "", card.kind === "cover" ? 70 : 42);
+    const meta = truncateText(item.meta ?? "", card.kind === "cover" ? 70 : 48);
     const note = truncateText(item.note ?? "", card.kind === "cover" ? 70 : 36);
 
     return { time, title, meta, note };
@@ -50,6 +50,9 @@ function palette(card) {
   };
 }
 
+const CJK_FONT = '"Noto Sans JP", "Noto Sans SC", "Inter"';
+const LATIN_FONT = '"Inter", "Noto Sans JP", "Noto Sans SC"';
+
 export async function loadFonts(projectRoot) {
   const fontDir = path.join(projectRoot, "node_modules");
   const fontFiles = [
@@ -57,49 +60,37 @@ export async function loadFonts(projectRoot) {
       name: "Noto Sans JP",
       weight: 400,
       style: "normal",
-      file: path.join(
-        fontDir,
-        "@fontsource",
-        "noto-sans-jp",
-        "files",
-        "noto-sans-jp-japanese-400-normal.woff",
-      ),
+      file: path.join(fontDir, "@fontsource", "noto-sans-jp", "files", "noto-sans-jp-japanese-400-normal.woff"),
     },
     {
       name: "Noto Sans JP",
       weight: 700,
       style: "normal",
-      file: path.join(
-        fontDir,
-        "@fontsource",
-        "noto-sans-jp",
-        "files",
-        "noto-sans-jp-japanese-700-normal.woff",
-      ),
+      file: path.join(fontDir, "@fontsource", "noto-sans-jp", "files", "noto-sans-jp-japanese-700-normal.woff"),
     },
     {
       name: "Noto Sans SC",
       weight: 400,
       style: "normal",
-      file: path.join(
-        fontDir,
-        "@fontsource",
-        "noto-sans-sc",
-        "files",
-        "noto-sans-sc-chinese-simplified-400-normal.woff",
-      ),
+      file: path.join(fontDir, "@fontsource", "noto-sans-sc", "files", "noto-sans-sc-chinese-simplified-400-normal.woff"),
     },
     {
       name: "Noto Sans SC",
       weight: 700,
       style: "normal",
-      file: path.join(
-        fontDir,
-        "@fontsource",
-        "noto-sans-sc",
-        "files",
-        "noto-sans-sc-chinese-simplified-700-normal.woff",
-      ),
+      file: path.join(fontDir, "@fontsource", "noto-sans-sc", "files", "noto-sans-sc-chinese-simplified-700-normal.woff"),
+    },
+    {
+      name: "Inter",
+      weight: 400,
+      style: "normal",
+      file: path.join(fontDir, "@fontsource", "inter", "files", "inter-latin-400-normal.woff"),
+    },
+    {
+      name: "Inter",
+      weight: 700,
+      style: "normal",
+      file: path.join(fontDir, "@fontsource", "inter", "files", "inter-latin-700-normal.woff"),
     },
   ];
 
@@ -113,21 +104,6 @@ export async function loadFonts(projectRoot) {
   );
 }
 
-function sectionTitle(text, color) {
-  return React.createElement(
-    "div",
-    {
-      style: {
-        fontSize: 22,
-        fontWeight: 700,
-        letterSpacing: 3,
-        color,
-      },
-    },
-    text,
-  );
-}
-
 export async function renderCardToSvg(card, fonts) {
   const colors = palette(card);
   const schedules = normalizeScheduleItems(card);
@@ -137,7 +113,9 @@ export async function renderCardToSvg(card, fonts) {
   const footer = truncateText(card.footer, 36);
   const dateLabel = truncateText(card.dateLabel, 26);
   const weekLabel = truncateText(card.weekLabel, 34);
+  const isCover = card.kind === "cover";
 
+  // — Badge (left side of header row) —
   const badge = React.createElement(
     "div",
     {
@@ -152,25 +130,24 @@ export async function renderCardToSvg(card, fonts) {
         fontSize: 22,
         fontWeight: 700,
         letterSpacing: 1.5,
+        fontFamily: LATIN_FONT,
       },
     },
     [
-      React.createElement(
-        "div",
-        {
-          key: "dot",
-          style: {
-            width: 14,
-            height: 14,
-            borderRadius: 999,
-            backgroundColor: colors.accent,
-          },
+      React.createElement("div", {
+        key: "dot",
+        style: {
+          width: 14,
+          height: 14,
+          borderRadius: 999,
+          backgroundColor: colors.accent,
         },
-      ),
+      }),
       React.createElement("div", { key: "label" }, "MEGURO CINEMA"),
     ],
   );
 
+  // — Schedule rows —
   const scheduleItems = schedules.map((entry, index) =>
     React.createElement(
       "div",
@@ -179,15 +156,15 @@ export async function renderCardToSvg(card, fonts) {
         style: {
           display: "flex",
           flexDirection: "column",
-          gap: card.kind === "cover" ? 0 : 6,
+          gap: isCover ? 0 : 6,
           width: "100%",
-          padding: card.kind === "cover" ? "18px 22px" : "16px 20px",
+          padding: isCover ? "18px 22px" : "16px 20px",
           borderRadius: 22,
           backgroundColor: "rgba(255,255,255,0.72)",
           color: colors.foreground,
         },
       },
-      card.kind === "cover"
+      isCover
         ? React.createElement(
             "div",
             {
@@ -221,11 +198,12 @@ export async function renderCardToSvg(card, fonts) {
                     key: "time",
                     style: {
                       display: "flex",
-                      minWidth: 176,
+                      minWidth: 160,
                       fontSize: 20,
                       lineHeight: 1.15,
                       fontWeight: 700,
                       color: colors.accentAlt,
+                      fontFamily: LATIN_FONT,
                     },
                   },
                   entry.time || "时间未确认",
@@ -254,8 +232,8 @@ export async function renderCardToSvg(card, fonts) {
                     style: {
                       display: "flex",
                       width: "100%",
-                      fontSize: 16,
-                      lineHeight: 1.2,
+                      fontSize: 21,
+                      lineHeight: 1.25,
                       fontWeight: 500,
                       color: "#4E4741",
                     },
@@ -271,7 +249,7 @@ export async function renderCardToSvg(card, fonts) {
                     style: {
                       display: "flex",
                       width: "100%",
-                      fontSize: 15,
+                      fontSize: 17,
                       lineHeight: 1.2,
                       fontWeight: 500,
                       color: colors.accent,
@@ -284,26 +262,201 @@ export async function renderCardToSvg(card, fonts) {
     ),
   );
 
-  const highlightPills = highlights.map((line, index) =>
+  // — Top section (differs between cover and daily) —
+  let topSection;
+  if (isCover) {
+    // Cover: badge, dateLabel, title, weekLabel, subtitle
+    topSection = React.createElement(
+      "div",
+      { key: "top", style: { display: "flex", flexDirection: "column", gap: 24 } },
+      [
+        badge,
+        React.createElement(
+          "div",
+          { key: "headings", style: { display: "flex", flexDirection: "column", gap: 14 } },
+          [
+            React.createElement(
+              "div",
+              { key: "date", style: { fontSize: 28, fontWeight: 700, letterSpacing: 1.5, color: colors.accentAlt, fontFamily: LATIN_FONT } },
+              dateLabel,
+            ),
+            React.createElement(
+              "div",
+              { key: "title", style: { fontSize: 66, fontWeight: 700, lineHeight: 1.06, letterSpacing: -1.5 } },
+              title,
+            ),
+            React.createElement(
+              "div",
+              { key: "week", style: { fontSize: 24, fontWeight: 700, letterSpacing: 1.4, color: colors.accent, fontFamily: LATIN_FONT } },
+              weekLabel,
+            ),
+            React.createElement(
+              "div",
+              { key: "subtitle", style: { fontSize: 28, lineHeight: 1.35, fontWeight: 500, color: "#3C352F" } },
+              subtitle,
+            ),
+          ],
+        ),
+      ],
+    );
+  } else {
+    // Daily: badge (left) + date (right) on one row, then title + subtitle
+    topSection = React.createElement(
+      "div",
+      { key: "top", style: { display: "flex", flexDirection: "column", gap: 20 } },
+      [
+        React.createElement(
+          "div",
+          { key: "header", style: { display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" } },
+          [
+            badge,
+            React.createElement(
+              "div",
+              {
+                key: "date",
+                style: {
+                  display: "flex",
+                  fontSize: 20,
+                  fontWeight: 700,
+                  letterSpacing: 1.2,
+                  color: colors.accentAlt,
+                  fontFamily: LATIN_FONT,
+                },
+              },
+              weekLabel,
+            ),
+          ],
+        ),
+        React.createElement(
+          "div",
+          { key: "headings", style: { display: "flex", flexDirection: "column", gap: 12 } },
+          [
+            React.createElement(
+              "div",
+              {
+                key: "title",
+                style: { fontSize: 58, fontWeight: 700, lineHeight: 1.06, letterSpacing: -1.5 },
+              },
+              title,
+            ),
+            React.createElement(
+              "div",
+              {
+                key: "subtitle",
+                style: { fontSize: 26, lineHeight: 1.35, fontWeight: 500, color: "#3C352F" },
+              },
+              subtitle,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // — Middle section (schedule) —
+  const middleChildren = [];
+  if (isCover) {
+    middleChildren.push(
+      React.createElement(
+        "div",
+        { key: "label", style: { fontSize: 22, fontWeight: 700, letterSpacing: 3, color: colors.accentAlt, fontFamily: LATIN_FONT } },
+        "SCHEDULE",
+      ),
+    );
+  }
+  middleChildren.push(
     React.createElement(
       "div",
-      {
-        key: `${index}-${line}`,
-        style: {
-          display: "flex",
-          padding: "12px 18px",
-          borderRadius: 999,
-          backgroundColor: index % 2 === 0 ? colors.accent : colors.accentAlt,
-          color: "#FFF8F1",
-          fontSize: 22,
-          lineHeight: 1.2,
-          fontWeight: 700,
-        },
-      },
-      line,
+      { key: "schedule", style: { display: "flex", flexDirection: "column", gap: isCover ? 14 : 10 } },
+      scheduleItems,
     ),
   );
 
+  const middleSection = React.createElement(
+    "div",
+    { key: "middle", style: { display: "flex", flexDirection: "column", gap: 18 } },
+    middleChildren,
+  );
+
+  // — Bottom section —
+  const bottomChildren = [];
+  if (isCover) {
+    bottomChildren.push(
+      React.createElement(
+        "div",
+        { key: "hl-label", style: { fontSize: 22, fontWeight: 700, letterSpacing: 3, color: colors.accentAlt, fontFamily: LATIN_FONT } },
+        "HIGHLIGHTS",
+      ),
+    );
+  }
+  if (highlights.length > 0) {
+    const highlightPills = highlights.map((line, index) =>
+      React.createElement(
+        "div",
+        {
+          key: `${index}-${line}`,
+          style: {
+            display: "flex",
+            padding: "12px 18px",
+            borderRadius: 999,
+            backgroundColor: index % 2 === 0 ? colors.accent : colors.accentAlt,
+            color: "#FFF8F1",
+            fontSize: 22,
+            lineHeight: 1.2,
+            fontWeight: 700,
+          },
+        },
+        line,
+      ),
+    );
+    bottomChildren.push(
+      React.createElement(
+        "div",
+        { key: "highlights", style: { display: "flex", flexWrap: "wrap", gap: 12 } },
+        highlightPills,
+      ),
+    );
+  }
+  // Footer (both cover and daily)
+  bottomChildren.push(
+    React.createElement(
+      "div",
+      {
+        key: "footer",
+        style: {
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          paddingTop: isCover ? 10 : 0,
+          fontSize: 20,
+          lineHeight: 1.25,
+          color: "#514943",
+        },
+      },
+      [
+        React.createElement(
+          "div",
+          { key: "source", style: { display: "flex", maxWidth: 720 } },
+          footer,
+        ),
+        isCover
+          ? React.createElement(
+              "div",
+              { key: "slug", style: { display: "flex", fontWeight: 700, color: colors.accent, fontFamily: LATIN_FONT } },
+              truncateText(card.slug, 16).toUpperCase(),
+            )
+          : null,
+      ],
+    ),
+  );
+
+  const bottomSection = React.createElement(
+    "div",
+    { key: "bottom", style: { display: "flex", flexDirection: "column", gap: 18 } },
+    bottomChildren,
+  );
+
+  // — Root —
   return satori(
     React.createElement(
       "div",
@@ -317,7 +470,7 @@ export async function renderCardToSvg(card, fonts) {
           padding: 48,
           backgroundColor: colors.background,
           color: colors.foreground,
-          fontFamily: '"Noto Sans JP", "Noto Sans SC"',
+          fontFamily: CJK_FONT,
         },
       },
       [
@@ -362,176 +515,7 @@ export async function renderCardToSvg(card, fonts) {
               justifyContent: "space-between",
             },
           },
-          [
-            React.createElement(
-              "div",
-              {
-                key: "top",
-                style: {
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 24,
-                },
-              },
-              [
-                badge,
-                React.createElement(
-                  "div",
-                  {
-                    key: "headings",
-                    style: {
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 14,
-                    },
-                  },
-                  [
-                    React.createElement(
-                      "div",
-                      {
-                        key: "date",
-                        style: {
-                          fontSize: 28,
-                          fontWeight: 700,
-                          letterSpacing: 1.5,
-                          color: colors.accentAlt,
-                        },
-                      },
-                      dateLabel,
-                    ),
-                    React.createElement(
-                      "div",
-                      {
-                        key: "title",
-                        style: {
-                          fontSize: card.kind === "cover" ? 66 : 60,
-                          fontWeight: 700,
-                          lineHeight: 1.06,
-                          letterSpacing: -1.5,
-                        },
-                      },
-                      title,
-                    ),
-                    React.createElement(
-                      "div",
-                      {
-                        key: "week",
-                        style: {
-                          fontSize: 24,
-                          fontWeight: 700,
-                          letterSpacing: 1.4,
-                          color: colors.accent,
-                        },
-                      },
-                      weekLabel,
-                    ),
-                    React.createElement(
-                      "div",
-                      {
-                        key: "subtitle",
-                        style: {
-                          fontSize: 28,
-                          lineHeight: 1.35,
-                          fontWeight: 500,
-                          color: "#3C352F",
-                        },
-                      },
-                      subtitle,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            React.createElement(
-              "div",
-              {
-                key: "middle",
-                style: {
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 18,
-                },
-              },
-              [
-                sectionTitle("SCHEDULE", colors.accentAlt),
-                React.createElement(
-                  "div",
-                  {
-                    key: "schedule",
-                    style: {
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: card.kind === "cover" ? 14 : 10,
-                    },
-                  },
-                  scheduleItems,
-                ),
-              ],
-            ),
-            React.createElement(
-              "div",
-              {
-                key: "bottom",
-                style: {
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 18,
-                },
-              },
-              [
-                sectionTitle("HIGHLIGHTS", colors.accentAlt),
-                React.createElement(
-                  "div",
-                  {
-                    key: "highlights",
-                    style: {
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: 12,
-                    },
-                  },
-                  highlightPills,
-                ),
-                React.createElement(
-                  "div",
-                  {
-                    key: "footer",
-                    style: {
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      paddingTop: 10,
-                      fontSize: 20,
-                      lineHeight: 1.25,
-                      color: "#514943",
-                    },
-                  },
-                  [
-                    React.createElement(
-                      "div",
-                      {
-                        key: "source",
-                        style: { display: "flex", maxWidth: 720 },
-                      },
-                      footer,
-                    ),
-                    React.createElement(
-                      "div",
-                      {
-                        key: "slug",
-                        style: {
-                          display: "flex",
-                          fontWeight: 700,
-                          color: colors.accent,
-                        },
-                      },
-                      truncateText(card.slug, 16).toUpperCase(),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
+          [topSection, middleSection, bottomSection],
         ),
       ],
     ),

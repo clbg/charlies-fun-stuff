@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@fontsource/inter':
+        specifier: ^5.2.8
+        version: 5.2.8
       '@fontsource/noto-sans-jp':
         specifier: ^5.2.9
         version: 5.2.9
@@ -25,6 +28,9 @@ importers:
         version: 0.26.0
 
 packages:
+
+  '@fontsource/inter@5.2.8':
+    resolution: {integrity: sha512-P6r5WnJoKiNVV+zvW2xM13gNdFhAEpQ9dQJHt3naLvfg+LkF2ldgSLiF4T41lf1SQCM9QmkqPTn4TH568IRagg==}
 
   '@fontsource/noto-sans-jp@5.2.9':
     resolution: {integrity: sha512-6yVGiofnrnbiJjU8ch4JGSs2HqyozxMvsVyVmFwOnDH3u//qQKLqmKM4n0lqN0637uaJNzUW9nIJqbbMgHVQzw==}
@@ -191,6 +197,8 @@ packages:
     resolution: {integrity: sha512-0LPOt3AxKqMdFBZA3HBAt/t/8vIKq7VaQYbuA8WxCgung+p9TVyKRYdpvCb80HcdTN2NkbIKbhNwKUfm3tQywQ==}
 
 snapshots:
+
+  '@fontsource/inter@5.2.8': {}
 
   '@fontsource/noto-sans-jp@5.2.9': {}
 

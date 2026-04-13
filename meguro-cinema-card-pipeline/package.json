@@ -9,6 +9,7 @@
     "render:sample": "node src/cli.mjs --input input/week.sample.json --out output/sample-week --debug-svg"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.2.8",
     "@fontsource/noto-sans-jp": "^5.2.9",
     "@fontsource/noto-sans-sc": "^5.2.9",
     "@resvg/resvg-js": "^2.6.2",
