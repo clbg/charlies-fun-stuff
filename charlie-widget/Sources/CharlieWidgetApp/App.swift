@@ -58,8 +58,9 @@ struct CharlieWidgetApp: App {
 
         server.onRecordStart = { source, connection in
             Task {
+                let wasIdle = recorderStore.state == .idle
                 await recorderStore.startRecording(source: source)
-                if recorderStore.state == .recording {
+                if wasIdle, recorderStore.state == .recording {
                     server.send("{\"ok\":true}\n", to: connection)
                 } else {
                     let err = recorderStore.lastError ?? "unknown"

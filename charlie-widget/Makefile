@@ -90,5 +90,8 @@ test-toast:
 test:
 	swift test
 
+test-recorder:
+	bash scripts/test-recorder.sh
+
 clean:
 	swift package clean
