@@ -4,13 +4,15 @@ import AppKit
 enum DropdownTab: String, CaseIterable {
     case sessions = "Sessions"
     case messages = "Messages"
+    case recorder = "Recorder"
 }
 
 struct HistoryView: View {
 
     @Bindable var store: MessageStore
     var sessionStore: SessionStore
-    @State private var selectedTab: DropdownTab = .sessions
+    var recorderStore: RecorderStore
+    @State private var selectedTab: DropdownTab = .messages
     @State private var selectedMessageID: UUID?
     @State private var copiedMessageID: UUID?
 
@@ -27,6 +29,8 @@ struct HistoryView: View {
                 sessionsTab
             case .messages:
                 messagesTab
+            case .recorder:
+                RecorderView(recorderStore: recorderStore)
             }
 
             Divider()
@@ -85,6 +89,12 @@ struct HistoryView: View {
                     .padding(.horizontal, 4)
                     .padding(.vertical, 1)
                     .background(Capsule().fill(Color.red))
+            }
+        case .recorder:
+            if recorderStore.state == .recording {
+                Circle()
+                    .fill(Color.red)
+                    .frame(width: 6, height: 6)
             }
         }
     }

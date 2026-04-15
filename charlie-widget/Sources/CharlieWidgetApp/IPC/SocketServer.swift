@@ -23,6 +23,10 @@ final class SocketServer: Sendable {
     var onToast: (@MainActor @Sendable (String, String?, String, ToastLevel) -> Void)?
     var onHistoryRequest: (@MainActor @Sendable (NWConnection) -> Void)?
     var onClearRequest: (@MainActor @Sendable () -> Void)?
+    var onRecordStart: (@MainActor @Sendable (AudioSource, NWConnection) -> Void)?
+    var onRecordStop: (@MainActor @Sendable (NWConnection) -> Void)?
+    var onRecordStatus: (@MainActor @Sendable (NWConnection) -> Void)?
+    var onRecordList: (@MainActor @Sendable (NWConnection) -> Void)?
 
     // MARK: - Private state
 
@@ -186,6 +190,20 @@ final class SocketServer: Sendable {
         case "clear":
             onClearRequest?()
             send("{\"ok\":true}\n", to: connection)
+
+        case "record_start":
+            let sourceStr = json["source"] as? String ?? "system+mic"
+            let source = AudioSource(rawValue: sourceStr) ?? .systemAndMic
+            onRecordStart?(source, connection)
+
+        case "record_stop":
+            onRecordStop?(connection)
+
+        case "record_status":
+            onRecordStatus?(connection)
+
+        case "record_list":
+            onRecordList?(connection)
 
         default:
             send("{\"error\":\"unknown command: \(command)\"}\n", to: connection)

@@ -19,7 +19,8 @@ enum MenuBarIcon {
 
     static func make(
         unreadByLevel: [ToastLevel: Int] = [:],
-        sessionDots: [SessionDot] = []
+        sessionDots: [SessionDot] = [],
+        isRecording: Bool = false
     ) -> NSImage {
         let hasUnread = unreadByLevel.values.contains { $0 > 0 }
 
@@ -37,20 +38,34 @@ enum MenuBarIcon {
             ? 0
             : CGFloat(sessionDots.count) * dotSize + CGFloat(sessionDots.count - 1) * dotGap + 4
 
-        let size = NSSize(width: 50 + gridTotalWidth + sessionDotsWidth, height: 18)
+        let labelWidth: CGFloat = 14
+        let recordingDotSize: CGFloat = 8.0
+        let recordingWidth: CGFloat = isRecording ? recordingDotSize + 4 : 0
+        let size = NSSize(width: labelWidth + recordingWidth + gridTotalWidth + sessionDotsWidth, height: 18)
         let image = NSImage(size: size, flipped: false) { rect in
-            // "charlie" text
+            // "C" in classical serif font
+            let serifDesc = NSFontDescriptor.preferredFontDescriptor(forTextStyle: .body)
+                .withDesign(.serif)?
+                .withSymbolicTraits(.bold) ?? NSFontDescriptor()
             let attrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
+                .font: NSFont(descriptor: serifDesc, size: 13) ?? NSFont.systemFont(ofSize: 13, weight: .bold),
                 .foregroundColor: NSColor.black,
             ]
-            let str = NSAttributedString(string: "charlie", attributes: attrs)
+            let str = NSAttributedString(string: "C", attributes: attrs)
             let s = str.size()
-            str.draw(at: NSPoint(x: (50 - s.width) / 2, y: (rect.height - s.height) / 2))
+            str.draw(at: NSPoint(x: (labelWidth - s.width) / 2, y: (rect.height - s.height) / 2))
+
+            // Recording indicator (red dot)
+            if isRecording {
+                let dotX = labelWidth + 2
+                let dotY = rect.midY - recordingDotSize / 2
+                NSColor.systemRed.setFill()
+                NSBezierPath(ovalIn: NSRect(x: dotX, y: dotY, width: recordingDotSize, height: recordingDotSize)).fill()
+            }
 
             // Unread grid (existing)
             if hasUnread {
-                let gridX: CGFloat = 52
+                let gridX = labelWidth + recordingWidth + 2
                 let gridY = rect.midY - gridH / 2
 
                 for item in gridLayout {
@@ -81,7 +96,7 @@ enum MenuBarIcon {
 
             // Session dots with agent letter
             if !sessionDots.isEmpty {
-                var dotX = 50 + gridTotalWidth + 2
+                var dotX = labelWidth + recordingWidth + gridTotalWidth + 2
                 let dotY = rect.midY - dotSize / 2
 
                 for dot in sessionDots {

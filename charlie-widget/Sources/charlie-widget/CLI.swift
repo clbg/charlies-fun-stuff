@@ -20,6 +20,8 @@ struct CLI {
             await handleToast(Array(args.dropFirst()))
         case "sessions":
             handleSessions(Array(args.dropFirst()))
+        case "record":
+            await handleRecord(Array(args.dropFirst()))
         default:
             fputs("Unknown command: \(subcommand)\n", stderr)
             printUsage()
@@ -160,6 +162,53 @@ struct CLI {
         }
     }
 
+    // MARK: - Record subcommand
+
+    private static func handleRecord(_ args: [String]) async {
+        guard let action = args.first else {
+            fputs("Usage: charlie-widget record <start|stop|status|list>\n", stderr)
+            exit(1)
+        }
+
+        switch action {
+        case "start":
+            let source = args.contains("--mic-only") ? "mic-only" : "system+mic"
+            let json = "{\"command\":\"record_start\",\"source\":\"\(source)\"}\n"
+            let response = await sendMessage(json)
+            if let response {
+                if response.contains("\"ok\":true") || response.contains("\"ok\": true") {
+                    print("Recording started (\(source))")
+                } else {
+                    fputs("Error: \(response)\n", stderr)
+                    exit(1)
+                }
+            }
+
+        case "stop":
+            let json = "{\"command\":\"record_stop\"}\n"
+            let response = await sendMessage(json)
+            if let response {
+                if response.contains("\"ok\":true") || response.contains("\"ok\": true") {
+                    print("Recording stopped")
+                } else {
+                    fputs("Error: \(response)\n", stderr)
+                    exit(1)
+                }
+            }
+
+        case "status":
+            await sendAndPrintResponse("{\"command\":\"record_status\"}\n")
+
+        case "list":
+            await sendAndPrintResponse("{\"command\":\"record_list\"}\n")
+
+        default:
+            fputs("Unknown record action: \(action)\n", stderr)
+            fputs("Usage: charlie-widget record <start|stop|status|list>\n", stderr)
+            exit(1)
+        }
+    }
+
     // MARK: - Socket communication
 
     private static func sendAndExpectOK(_ message: String) async {
@@ -273,6 +322,11 @@ struct CLI {
           charlie-widget toast --clear
           charlie-widget sessions              List active agent sessions (JSON)
           charlie-widget sessions --clear      Remove all session state files
+          charlie-widget record start          Start recording (system audio + mic)
+          charlie-widget record start --mic-only  Start recording (mic only)
+          charlie-widget record stop           Stop recording
+          charlie-widget record status         Current recording state
+          charlie-widget record list           List today's recordings
         """
         fputs(usage + "\n", stderr)
     }
