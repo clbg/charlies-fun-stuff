@@ -204,6 +204,76 @@ struct CLI {
         case "list":
             await sendAndPrintResponse("{\"command\":\"record_list\"}\n")
 
+        case "play":
+            // Play recording(s) via mpv with multi-track support
+            // Usage: charlie-widget record play [--track 1|2|both] [recording-id]
+            var track = "both"
+            var targetId: String?
+            var i = 1
+            while i < args.count {
+                switch args[i] {
+                case "--track":
+                    i += 1
+                    if i < args.count { track = args[i] }
+                case "--mic": track = "2"
+                case "--system": track = "1"
+                default:
+                    targetId = args[i]
+                }
+                i += 1
+            }
+
+            // Find the recording file
+            let recDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+                .appendingPathComponent("CharlieWidget/recordings", isDirectory: true)
+            let today = {
+                let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
+                return f.string(from: Date())
+            }()
+            let dayDir = recDir.appendingPathComponent(today)
+
+            // If ID given, find exact file; otherwise use latest
+            var m4aFile: String?
+            if let id = targetId {
+                // Search JSON files for matching ID
+                if let files = try? FileManager.default.contentsOfDirectory(at: dayDir, includingPropertiesForKeys: nil) {
+                    for f in files where f.pathExtension == "json" {
+                        if let data = try? Data(contentsOf: f), let s = String(data: data, encoding: .utf8), s.contains(id) {
+                            m4aFile = dayDir.appendingPathComponent(f.deletingPathExtension().lastPathComponent + ".m4a").path
+                            break
+                        }
+                    }
+                }
+            } else {
+                // Latest .m4a
+                if let files = try? FileManager.default.contentsOfDirectory(at: dayDir, includingPropertiesForKeys: [.contentModificationDateKey]) {
+                    m4aFile = files.filter { $0.pathExtension == "m4a" }
+                        .sorted { (try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast >
+                                  (try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast }
+                        .first?.path
+                }
+            }
+
+            guard let file = m4aFile, FileManager.default.fileExists(atPath: file) else {
+                fputs("No recording found\n", stderr)
+                exit(1)
+            }
+
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/mpv")
+            switch track {
+            case "1":
+                proc.arguments = ["--aid=1", "--no-terminal", file]
+            case "2":
+                proc.arguments = ["--aid=2", "--no-terminal", file]
+            default:
+                // Mix both tracks with volume normalization
+                proc.arguments = ["--lavfi-complex=[aid1]volume=0.3[v1];[aid2]volume=1.0[v2];[v1][v2]amix[ao]", "--no-terminal", file]
+            }
+            fputs("Playing \(track == "both" ? "both tracks (system 30%, mic 100%)" : "track \(track)"): \(URL(fileURLWithPath: file).lastPathComponent)\n", stderr)
+            try? proc.run()
+            proc.waitUntilExit()
+
         case "transcribe":
             guard args.count > 1 else {
                 fputs("Usage: charlie-widget record transcribe <recording-id>\n", stderr)
@@ -339,6 +409,10 @@ struct CLI {
           charlie-widget record stop           Stop recording
           charlie-widget record status         Current recording state
           charlie-widget record list           List today's recordings
+          charlie-widget record play           Play latest (both tracks mixed)
+          charlie-widget record play --mic     Play mic track only
+          charlie-widget record play --system  Play system track only
+          charlie-widget record play <id>      Play specific recording
           charlie-widget record transcribe <id>  Transcribe a recording
         """
         fputs(usage + "\n", stderr)
