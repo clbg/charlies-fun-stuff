@@ -8,5 +8,7 @@
     <string>CharlieWidget</string>
     <key>LSUIElement</key>
     <true/>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>CharlieWidget records audio for transcription and meeting notes.</string>
 </dict>
 </plist>

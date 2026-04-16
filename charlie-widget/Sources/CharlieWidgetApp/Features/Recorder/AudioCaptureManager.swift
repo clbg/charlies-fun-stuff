@@ -107,6 +107,8 @@ final class AudioCaptureManager: @unchecked Sendable {
 
     private var micSampleOffset: Int64 = 0
     private var micTargetInput: AVAssetWriterInput?  // which writer input mic feeds into
+    private var micConverter: AVAudioConverter?       // retained to survive release optimization
+    private var micTargetFormat: AVAudioFormat?       // retained to survive release optimization
 
     private func setupMic(writeTo targetInput: AVAssetWriterInput) throws {
         let engine = AVAudioEngine()
@@ -125,10 +127,10 @@ final class AudioCaptureManager: @unchecked Sendable {
         )!
 
         let needsConversion = hwFormat.sampleRate != Self.outputSampleRate || hwFormat.channelCount != channels
-        let converter: AVAudioConverter? = needsConversion
+        micConverter = needsConversion
             ? AVAudioConverter(from: hwFormat, to: targetFormat)
             : nil
-
+        micTargetFormat = targetFormat
         micTargetInput = targetInput
 
         // Set up resampler for live transcription (48kHz -> 16kHz)
@@ -136,7 +138,8 @@ final class AudioCaptureManager: @unchecked Sendable {
 
         inputNode.installTap(onBus: 0, bufferSize: 4096, format: hwFormat) {
             [weak self] buffer, _ in
-            guard let self else { return }
+            guard let self, let targetFormat = self.micTargetFormat else { return }
+            let converter = self.micConverter
             self.updateLevel(from: buffer)
             self.forwardToLiveTranscription(buffer, converter: converter, targetFormat: targetFormat)
             self.writerQueue.async {

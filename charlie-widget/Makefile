@@ -48,6 +48,8 @@ install: release icon
 	    <string>AppIcon</string>\n\
 	    <key>LSUIElement</key>\n\
 	    <true/>\n\
+	    <key>NSMicrophoneUsageDescription</key>\n\
+	    <string>CharlieWidget records audio for transcription and meeting notes.</string>\n\
 	</dict>\n\
 	</plist>\n" > $(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/Info.plist
 	@# Code sign with stable identity so TCC permissions persist across rebuilds
