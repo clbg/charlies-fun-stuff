@@ -55,7 +55,7 @@ struct RecorderView: View {
             if recorderStore.state == .recording {
                 Text(formatDuration(recorderStore.elapsedSeconds))
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.red)
+                    .foregroundStyle(.secondary)
             }
 
             Spacer()
@@ -166,9 +166,7 @@ struct RecorderView: View {
     // MARK: - Level Color
 
     private func levelColor(_ level: Float) -> Color {
-        if level < 0.3 { return .green }
-        if level < 0.7 { return .yellow }
-        return .red
+        Color.accentColor.opacity(0.4 + Double(level) * 0.6)
     }
 
     // MARK: - Formatting

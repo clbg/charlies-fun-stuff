@@ -219,6 +219,14 @@ final class AudioCaptureManager: @unchecked Sendable {
                 writer.error?.localizedDescription ?? "startWriting failed")
         }
 
+        // In "both" mode, start session at .zero immediately so both mic (PTS from 0)
+        // and system audio (PTS from ScreenCaptureKit host time) are valid.
+        // Single-source modes defer to first sample PTS.
+        if addMicTrack {
+            writer.startSession(atSourceTime: .zero)
+            sessionStarted = true
+        }
+
         assetWriter = writer
     }
 
