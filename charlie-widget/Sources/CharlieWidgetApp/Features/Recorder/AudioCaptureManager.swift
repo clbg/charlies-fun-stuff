@@ -39,7 +39,9 @@ final class AudioCaptureManager: @unchecked Sendable {
         sessionStarted = false
         micSampleOffset = 0
 
-        try setupAssetWriter(at: outputURL)
+        // For "both" mode, add mic input BEFORE startWriting
+        let addMicTrack = (source == .both)
+        try setupAssetWriter(at: outputURL, addMicTrack: addMicTrack)
 
         switch source {
         case .mic:
@@ -47,9 +49,7 @@ final class AudioCaptureManager: @unchecked Sendable {
         case .system:
             try await setupSystemAudio()
         case .both:
-            // Add a second writer input for mic track
-            let micInput = try addMicWriterInput()
-            try setupMic(writeTo: micInput)
+            try setupMic(writeTo: micWriterInput!)
             try await setupSystemAudio()
         }
 
@@ -189,27 +189,9 @@ final class AudioCaptureManager: @unchecked Sendable {
         input.append(cmBuffer)
     }
 
-    /// Add a second AVAssetWriterInput for mic in "both" mode.
-    private func addMicWriterInput() throws -> AVAssetWriterInput {
-        guard let writer = assetWriter else {
-            throw RecorderError.assetWriterFailed("No writer")
-        }
-        let settings: [String: Any] = [
-            AVFormatIDKey: kAudioFormatMPEG4AAC,
-            AVSampleRateKey: outputSampleRate,
-            AVNumberOfChannelsKey: channels,
-            AVEncoderBitRateKey: 64_000,
-        ]
-        let input = AVAssetWriterInput(mediaType: .audio, outputSettings: settings)
-        input.expectsMediaDataInRealTime = true
-        writer.add(input)
-        micWriterInput = input
-        return input
-    }
-
     // MARK: - System Audio (ScreenCaptureKit)
 
-    private func setupAssetWriter(at url: URL) throws {
+    private func setupAssetWriter(at url: URL, addMicTrack: Bool = false) throws {
         let writer = try AVAssetWriter(outputURL: url, fileType: .m4a)
 
         let settings: [String: Any] = [
@@ -222,16 +204,22 @@ final class AudioCaptureManager: @unchecked Sendable {
         let input = AVAssetWriterInput(mediaType: .audio, outputSettings: settings)
         input.expectsMediaDataInRealTime = true
         writer.add(input)
+        assetWriterInput = input
+
+        // Add mic as second track BEFORE startWriting (AVAssetWriter requirement)
+        if addMicTrack {
+            let micInput = AVAssetWriterInput(mediaType: .audio, outputSettings: settings)
+            micInput.expectsMediaDataInRealTime = true
+            writer.add(micInput)
+            micWriterInput = micInput
+        }
 
         guard writer.startWriting() else {
             throw RecorderError.assetWriterFailed(
                 writer.error?.localizedDescription ?? "startWriting failed")
         }
-        // NOTE: startSession is deferred to first sample (see appendToAssetWriter)
-        // so PTS matches actual buffer timestamps, not .zero
 
         assetWriter = writer
-        assetWriterInput = input
     }
 
     private func setupSystemAudio() async throws {
