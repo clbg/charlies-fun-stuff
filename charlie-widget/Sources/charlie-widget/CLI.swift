@@ -274,6 +274,26 @@ struct CLI {
             try? proc.run()
             proc.waitUntilExit()
 
+        case "delete":
+            guard args.count > 1 else {
+                fputs("Usage: charlie-widget record delete <recording-id>\n", stderr)
+                exit(1)
+            }
+            let recordingId = args[1]
+            let json = "{\"command\":\"record_delete\",\"recording_id\":\"\(recordingId)\"}\n"
+            await sendAndExpectOK(json)
+
+        case "rename":
+            guard args.count > 2 else {
+                fputs("Usage: charlie-widget record rename <recording-id> <name>\n", stderr)
+                exit(1)
+            }
+            let recordingId = args[1]
+            let name = args[2...].joined(separator: " ")
+            let escapedName = name.replacingOccurrences(of: "\"", with: "\\\"")
+            let json = "{\"command\":\"record_rename\",\"recording_id\":\"\(recordingId)\",\"name\":\"\(escapedName)\"}\n"
+            await sendAndExpectOK(json)
+
         case "transcribe":
             guard args.count > 1 else {
                 fputs("Usage: charlie-widget record transcribe <recording-id> [--lang zh|en|ja|...]\n", stderr)
@@ -446,6 +466,8 @@ struct CLI {
           charlie-widget record play --mic     Play mic track only
           charlie-widget record play --system  Play system track only
           charlie-widget record play <id>      Play specific recording
+          charlie-widget record delete <id>       Delete a recording and all its files
+          charlie-widget record rename <id> <name> Rename a recording
           charlie-widget record transcribe <id>  Transcribe a recording
           charlie-widget record diarize <id>    Assign speaker labels
           charlie-widget record identify <id>   Voice identification + translation

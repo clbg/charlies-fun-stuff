@@ -1,0 +1,47 @@
+{
+  "name": "undercurrent",
+  "version": "0.1.0",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "dist": "node scripts/build-app.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1029.0",
+    "@aws-sdk/credential-providers": "^3.1029.0",
+    "@tailwindcss/typography": "^0.5.19",
+    "nanoid": "^5.1.7",
+    "next": "16.2.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "sharp",
+      "unrs-resolver"
+    ]
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
+    "electron": "^41.2.0",
+    "electron-builder": "^26.8.1",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.3",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "wait-on": "^9.0.4"
+  }
+}

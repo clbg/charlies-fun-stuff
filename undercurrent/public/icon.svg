@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#18181b"/>
+      <stop offset="100%" style="stop-color:#27272a"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+  <!-- Three wave lines representing undercurrents / depth layers -->
+  <g fill="none" stroke-linecap="round" stroke-width="24">
+    <path d="M100,200 Q180,160 256,200 Q332,240 412,200" stroke="#a1a1aa" opacity="0.4"/>
+    <path d="M80,270 Q175,220 256,270 Q337,320 432,270" stroke="#d4d4d8" opacity="0.7"/>
+    <path d="M60,340 Q170,280 256,340 Q342,400 452,340" stroke="#f4f4f5" opacity="1"/>
+  </g>
+</svg>

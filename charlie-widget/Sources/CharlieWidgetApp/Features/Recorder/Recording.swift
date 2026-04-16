@@ -57,6 +57,7 @@ struct Recording: Identifiable, Codable, Sendable {
     let sampleRate: Int
     let source: AudioSource
     let filenameStem: String
+    var name: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -66,6 +67,7 @@ struct Recording: Identifiable, Codable, Sendable {
         case sampleRate = "sample_rate"
         case source
         case filenameStem = "filename_stem"
+        case name
     }
 }
 

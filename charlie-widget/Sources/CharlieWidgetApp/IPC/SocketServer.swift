@@ -28,6 +28,8 @@ final class SocketServer: Sendable {
     var onRecordStatus: (@MainActor @Sendable (NWConnection) -> Void)?
     var onRecordList: (@MainActor @Sendable (NWConnection) -> Void)?
     var onRecordTranscribe: (@MainActor @Sendable (String, String?, NWConnection) -> Void)?
+    var onRecordDelete: (@MainActor @Sendable (String, NWConnection) -> Void)?
+    var onRecordRename: (@MainActor @Sendable (String, String, NWConnection) -> Void)?
     var onRecordDiarize: (@MainActor @Sendable (String, NWConnection) -> Void)?
     var onRecordIdentify: (@MainActor @Sendable (String, NWConnection) -> Void)?
     var onRecordSummary: (@MainActor @Sendable (String, NWConnection) -> Void)?
@@ -208,6 +210,15 @@ final class SocketServer: Sendable {
 
         case "record_list":
             onRecordList?(connection)
+
+        case "record_delete":
+            let recordingId = json["recording_id"] as? String ?? ""
+            onRecordDelete?(recordingId, connection)
+
+        case "record_rename":
+            let recordingId = json["recording_id"] as? String ?? ""
+            let name = json["name"] as? String ?? ""
+            onRecordRename?(recordingId, name, connection)
 
         case "record_transcribe":
             let recordingId = json["recording_id"] as? String ?? ""

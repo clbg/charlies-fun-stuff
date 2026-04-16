@@ -99,6 +99,24 @@ struct CharlieWidgetApp: App {
             }
         }
 
+        server.onRecordDelete = { recordingId, connection in
+            if recorderStore.deleteRecording(id: recordingId) {
+                server.send("{\"ok\":true}\n", to: connection)
+            } else {
+                let err = recorderStore.lastError ?? "unknown"
+                server.send("{\"error\":\"\(err)\"}\n", to: connection)
+            }
+        }
+
+        server.onRecordRename = { recordingId, name, connection in
+            if recorderStore.renameRecording(id: recordingId, name: name) {
+                server.send("{\"ok\":true}\n", to: connection)
+            } else {
+                let err = recorderStore.lastError ?? "unknown"
+                server.send("{\"error\":\"\(err)\"}\n", to: connection)
+            }
+        }
+
         server.onRecordTranscribe = { recordingId, language, connection in
             Task {
                 if let text = await recorderStore.transcribe(recordingId: recordingId, language: language) {

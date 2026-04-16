@@ -171,6 +171,38 @@ final class RecorderStore: Sendable {
         todayRecordings = recordings.sorted { $0.startedAt > $1.startedAt }
     }
 
+    // MARK: - Delete & Rename
+
+    func deleteRecording(id: String) -> Bool {
+        guard let index = todayRecordings.firstIndex(where: { $0.id.uuidString == id }) else {
+            lastError = "Recording not found"
+            return false
+        }
+        let recording = todayRecordings[index]
+        let dayDir = Self.directoryURL(for: recording.startedAt)
+        let stem = recording.filenameStem
+
+        // Remove all associated files
+        for ext in ["m4a", "json", "transcript"] {
+            let url = dayDir.appendingPathComponent("\(stem).\(ext)")
+            try? FileManager.default.removeItem(at: url)
+        }
+
+        todayRecordings.remove(at: index)
+        return true
+    }
+
+    func renameRecording(id: String, name: String) -> Bool {
+        guard let index = todayRecordings.firstIndex(where: { $0.id.uuidString == id }) else {
+            lastError = "Recording not found"
+            return false
+        }
+        todayRecordings[index].name = name
+        let dayDir = Self.directoryURL(for: todayRecordings[index].startedAt)
+        saveMetadata(todayRecordings[index], in: dayDir)
+        return true
+    }
+
     // MARK: - Transcription
 
     nonisolated static func audioURL(for recording: Recording) -> URL {

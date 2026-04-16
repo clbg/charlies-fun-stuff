@@ -35,6 +35,7 @@ case "$EVENT" in
       case "$TOOL_NAME" in Read|Glob|Grep) ;; *) STATE="pending" ;; esac
     fi
     ;;
+  PostToolUse)      STATE="running" ;;
   Stop)             STATE="idle" ;;
   Notification)     STATE="pending" ;;
   *)                exit 0 ;;
