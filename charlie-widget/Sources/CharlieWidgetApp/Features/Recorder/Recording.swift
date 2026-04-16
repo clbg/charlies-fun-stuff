@@ -68,3 +68,27 @@ struct Recording: Identifiable, Codable, Sendable {
         case filenameStem = "filename_stem"
     }
 }
+
+// MARK: - IdentificationResult
+
+/// Result of running voice identification and translation on a recording.
+struct IdentificationResult: Codable, Sendable {
+    let segments: [TranscriptSegment]
+    let speakerMapping: [String: String]
+    let translatedCount: Int
+    let enrolledSpeakers: [String]
+}
+
+// MARK: - IdentificationError
+
+enum IdentificationError: Error, LocalizedError {
+    case recordingNotFound
+    case noTranscript
+
+    var errorDescription: String? {
+        switch self {
+        case .recordingNotFound: "Recording not found"
+        case .noTranscript: "No transcript found. Run 'record transcribe <id>' first."
+        }
+    }
+}

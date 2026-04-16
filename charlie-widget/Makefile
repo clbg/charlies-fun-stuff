@@ -1,4 +1,4 @@
-.PHONY: build release install uninstall run-app test-toast test clean icon
+.PHONY: build release install uninstall run-app test-toast test test-recorder clean icon
 
 APP_NAME = CharlieWidget
 APP_BUNDLE = $(APP_NAME).app

@@ -276,17 +276,50 @@ struct CLI {
 
         case "transcribe":
             guard args.count > 1 else {
-                fputs("Usage: charlie-widget record transcribe <recording-id>\n", stderr)
+                fputs("Usage: charlie-widget record transcribe <recording-id> [--lang zh|en|ja|...]\n", stderr)
                 exit(1)
             }
             let recordingId = args[1]
+            var lang = ""
+            if args.count > 2, args[2] == "--lang", args.count > 3 {
+                lang = ",\"language\":\"\(args[3])\""
+            }
             fputs("Transcribing (this may take a while, downloading model on first run)...\n", stderr)
-            let json = "{\"command\":\"record_transcribe\",\"recording_id\":\"\(recordingId)\"}\n"
+            let json = "{\"command\":\"record_transcribe\",\"recording_id\":\"\(recordingId)\"\(lang)}\n"
+            await sendAndPrintResponse(json, timeout: 600)
+
+        case "diarize":
+            guard args.count > 1 else {
+                fputs("Usage: charlie-widget record diarize <recording-id>\n", stderr)
+                exit(1)
+            }
+            let recordingId = args[1]
+            fputs("Diarizing (assigning speaker labels)...\n", stderr)
+            let json = "{\"command\":\"record_diarize\",\"recording_id\":\"\(recordingId)\"}\n"
+            await sendAndPrintResponse(json, timeout: 600)
+
+        case "identify":
+            guard args.count > 1 else {
+                fputs("Usage: charlie-widget record identify <recording-id>\n", stderr)
+                exit(1)
+            }
+            let recordingId = args[1]
+            fputs("Identifying speakers and translating...\n", stderr)
+            let json = "{\"command\":\"record_identify\",\"recording_id\":\"\(recordingId)\"}\n"
+            await sendAndPrintResponse(json, timeout: 600)
+
+        case "summary":
+            var dateStr = ""
+            if args.count > 1, args[1] == "--date", args.count > 2 {
+                dateStr = args[2]
+            }
+            fputs("Generating daily summary...\n", stderr)
+            let json = "{\"command\":\"record_summary\",\"date\":\"\(dateStr)\"}\n"
             await sendAndPrintResponse(json, timeout: 600)
 
         default:
             fputs("Unknown record action: \(action)\n", stderr)
-            fputs("Usage: charlie-widget record <start|stop|status|list>\n", stderr)
+            fputs("Usage: charlie-widget record <start|stop|status|list|transcribe|diarize|identify|summary>\n", stderr)
             exit(1)
         }
     }
@@ -414,6 +447,10 @@ struct CLI {
           charlie-widget record play --system  Play system track only
           charlie-widget record play <id>      Play specific recording
           charlie-widget record transcribe <id>  Transcribe a recording
+          charlie-widget record diarize <id>    Assign speaker labels
+          charlie-widget record identify <id>   Voice identification + translation
+          charlie-widget record summary         Generate today's daily summary
+          charlie-widget record summary --date YYYY-MM-DD
         """
         fputs(usage + "\n", stderr)
     }

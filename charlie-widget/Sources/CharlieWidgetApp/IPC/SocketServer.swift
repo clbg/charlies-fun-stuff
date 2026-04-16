@@ -27,7 +27,10 @@ final class SocketServer: Sendable {
     var onRecordStop: (@MainActor @Sendable (NWConnection) -> Void)?
     var onRecordStatus: (@MainActor @Sendable (NWConnection) -> Void)?
     var onRecordList: (@MainActor @Sendable (NWConnection) -> Void)?
-    var onRecordTranscribe: (@MainActor @Sendable (String, NWConnection) -> Void)?
+    var onRecordTranscribe: (@MainActor @Sendable (String, String?, NWConnection) -> Void)?
+    var onRecordDiarize: (@MainActor @Sendable (String, NWConnection) -> Void)?
+    var onRecordIdentify: (@MainActor @Sendable (String, NWConnection) -> Void)?
+    var onRecordSummary: (@MainActor @Sendable (String, NWConnection) -> Void)?
 
     // MARK: - Private state
 
@@ -208,7 +211,20 @@ final class SocketServer: Sendable {
 
         case "record_transcribe":
             let recordingId = json["recording_id"] as? String ?? ""
-            onRecordTranscribe?(recordingId, connection)
+            let language = json["language"] as? String
+            onRecordTranscribe?(recordingId, language, connection)
+
+        case "record_diarize":
+            let recordingId = json["recording_id"] as? String ?? ""
+            onRecordDiarize?(recordingId, connection)
+
+        case "record_identify":
+            let recordingId = json["recording_id"] as? String ?? ""
+            onRecordIdentify?(recordingId, connection)
+
+        case "record_summary":
+            let dateStr = json["date"] as? String ?? ""
+            onRecordSummary?(dateStr, connection)
 
         default:
             send("{\"error\":\"unknown command: \(command)\"}\n", to: connection)

@@ -25,12 +25,25 @@ final class AudioCaptureManager: @unchecked Sendable {
     private var audioEngine: AVAudioEngine?
 
     // Format constants — use 48kHz for both modes (AAC encoder requires standard rates)
-    private let outputSampleRate: Double = 48000
+    static let outputSampleRate: Double = 48000
     private let channels: AVAudioChannelCount = 1
 
     // Audio level metering (0.0–1.0, updated from audio callbacks)
     var audioLevel: Float = 0
     var captureDeviceName: String = ""
+
+    /// Optional callback to receive raw 16kHz mono Float32 audio samples for live transcription.
+    /// Set before calling start(). Called from audio processing threads.
+    var liveAudioCallback: (([Float]) -> Void)?
+
+    // Resampler for converting captured audio to 16kHz for WhisperKit
+    private var whisperConverter: AVAudioConverter?
+    private let whisperFormat = AVAudioFormat(
+        commonFormat: .pcmFormatFloat32,
+        sampleRate: 16000,
+        channels: 1,
+        interleaved: false
+    )!
 
     // MARK: - Start
 
@@ -71,6 +84,7 @@ final class AudioCaptureManager: @unchecked Sendable {
         audioEngine?.inputNode.removeTap(onBus: 0)
         audioEngine?.stop()
         audioEngine = nil
+        whisperConverter = nil
 
         // Finalize AVAssetWriter
         if let writer = assetWriter {
@@ -105,22 +119,26 @@ final class AudioCaptureManager: @unchecked Sendable {
 
         let targetFormat = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
-            sampleRate: outputSampleRate,
+            sampleRate: Self.outputSampleRate,
             channels: channels,
             interleaved: false
         )!
 
-        let needsConversion = hwFormat.sampleRate != outputSampleRate || hwFormat.channelCount != channels
+        let needsConversion = hwFormat.sampleRate != Self.outputSampleRate || hwFormat.channelCount != channels
         let converter: AVAudioConverter? = needsConversion
             ? AVAudioConverter(from: hwFormat, to: targetFormat)
             : nil
 
         micTargetInput = targetInput
 
+        // Set up resampler for live transcription (48kHz -> 16kHz)
+        whisperConverter = AVAudioConverter(from: targetFormat, to: whisperFormat)
+
         inputNode.installTap(onBus: 0, bufferSize: 4096, format: hwFormat) {
             [weak self] buffer, _ in
             guard let self else { return }
             self.updateLevel(from: buffer)
+            self.forwardToLiveTranscription(buffer, converter: converter, targetFormat: targetFormat)
             self.writerQueue.async {
                 self.writeMicBuffer(buffer, converter: converter, targetFormat: targetFormat)
             }
@@ -171,7 +189,7 @@ final class AudioCaptureManager: @unchecked Sendable {
         }
 
         guard let cmBuffer = outputBuffer.toCMSampleBuffer(
-            sampleRate: outputSampleRate, sampleOffset: micSampleOffset
+            sampleRate: Self.outputSampleRate, sampleOffset: micSampleOffset
         ) else { return }
 
         if micSampleOffset == 0 {
@@ -196,7 +214,7 @@ final class AudioCaptureManager: @unchecked Sendable {
 
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatMPEG4AAC,
-            AVSampleRateKey: outputSampleRate,
+            AVSampleRateKey: Self.outputSampleRate,
             AVNumberOfChannelsKey: channels,
             AVEncoderBitRateKey: 64_000,
         ]
@@ -250,7 +268,7 @@ final class AudioCaptureManager: @unchecked Sendable {
 
         let config = SCStreamConfiguration()
         config.capturesAudio = true
-        config.sampleRate = Int(outputSampleRate)
+        config.sampleRate = Int(Self.outputSampleRate)
         config.channelCount = Int(channels)
         // Minimal video (required on macOS 14)
         config.width = 2
@@ -262,6 +280,7 @@ final class AudioCaptureManager: @unchecked Sendable {
 
         let output = AudioStreamOutput { [weak self] sampleBuffer in
             self?.updateLevel(fromCM: sampleBuffer)
+            self?.forwardSystemAudioToLiveTranscription(sampleBuffer)
             self?.appendSystemAudio(sampleBuffer)
         }
 
@@ -271,6 +290,125 @@ final class AudioCaptureManager: @unchecked Sendable {
 
         scStream = stream
         streamOutput = output
+    }
+
+    // MARK: - Live Transcription Forwarding
+
+    /// Resample mic audio from hardware format to 16kHz and forward to live callback.
+    private func forwardToLiveTranscription(
+        _ buffer: AVAudioPCMBuffer,
+        converter: AVAudioConverter?,
+        targetFormat: AVAudioFormat
+    ) {
+        guard let callback = liveAudioCallback else { return }
+
+        // First, get audio in targetFormat (48kHz mono float32)
+        let sourceBuffer: AVAudioPCMBuffer
+        if let converter {
+            let frameCapacity = AVAudioFrameCount(
+                Double(buffer.frameLength) * (targetFormat.sampleRate / buffer.format.sampleRate)
+            )
+            guard frameCapacity > 0,
+                  let converted = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: frameCapacity)
+            else { return }
+            var consumed = false
+            var error: NSError?
+            converter.convert(to: converted, error: &error) { _, outStatus in
+                if consumed {
+                    outStatus.pointee = .noDataNow
+                    return nil
+                }
+                consumed = true
+                outStatus.pointee = .haveData
+                return buffer
+            }
+            guard error == nil, converted.frameLength > 0 else { return }
+            sourceBuffer = converted
+        } else {
+            sourceBuffer = buffer
+        }
+
+        // Now resample from 48kHz to 16kHz for WhisperKit
+        guard let whisperConv = whisperConverter else { return }
+        let ratio = 16000.0 / targetFormat.sampleRate
+        let outFrames = AVAudioFrameCount(Double(sourceBuffer.frameLength) * ratio)
+        guard outFrames > 0,
+              let outBuffer = AVAudioPCMBuffer(pcmFormat: whisperFormat, frameCapacity: outFrames)
+        else { return }
+
+        var consumed = false
+        var error: NSError?
+        whisperConv.convert(to: outBuffer, error: &error) { _, outStatus in
+            if consumed {
+                outStatus.pointee = .noDataNow
+                return nil
+            }
+            consumed = true
+            outStatus.pointee = .haveData
+            return sourceBuffer
+        }
+        guard error == nil, outBuffer.frameLength > 0,
+              let floatData = outBuffer.floatChannelData?[0]
+        else { return }
+
+        let samples = Array(UnsafeBufferPointer(start: floatData, count: Int(outBuffer.frameLength)))
+        callback(samples)
+    }
+
+    /// Forward system audio (CMSampleBuffer at 48kHz) to live transcription as 16kHz float samples.
+    private func forwardSystemAudioToLiveTranscription(_ sampleBuffer: CMSampleBuffer) {
+        guard let callback = liveAudioCallback else { return }
+        guard let dataBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else { return }
+
+        let length = CMBlockBufferGetDataLength(dataBuffer)
+        let sampleCount = length / MemoryLayout<Float>.size
+        guard sampleCount > 0 else { return }
+
+        // Read raw float32 samples (48kHz mono from ScreenCaptureKit)
+        var rawSamples = [Float](repeating: 0, count: sampleCount)
+        CMBlockBufferCopyDataBytes(dataBuffer, atOffset: 0, dataLength: length, destination: &rawSamples)
+
+        // Create PCM buffer at 48kHz
+        let srcFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: Self.outputSampleRate,
+            channels: 1,
+            interleaved: false
+        )!
+        guard let srcBuffer = AVAudioPCMBuffer(pcmFormat: srcFormat, frameCapacity: AVAudioFrameCount(sampleCount))
+        else { return }
+        srcBuffer.frameLength = AVAudioFrameCount(sampleCount)
+        if let dst = srcBuffer.floatChannelData?[0] {
+            rawSamples.withUnsafeBufferPointer { src in
+                dst.initialize(from: src.baseAddress!, count: sampleCount)
+            }
+        }
+
+        // Resample to 16kHz
+        let ratio = 16000.0 / Self.outputSampleRate
+        let outFrames = AVAudioFrameCount(Double(sampleCount) * ratio)
+        guard outFrames > 0,
+              let outBuffer = AVAudioPCMBuffer(pcmFormat: whisperFormat, frameCapacity: outFrames)
+        else { return }
+
+        let sysConverter = AVAudioConverter(from: srcFormat, to: whisperFormat)!
+        var consumed = false
+        var error: NSError?
+        sysConverter.convert(to: outBuffer, error: &error) { _, outStatus in
+            if consumed {
+                outStatus.pointee = .noDataNow
+                return nil
+            }
+            consumed = true
+            outStatus.pointee = .haveData
+            return srcBuffer
+        }
+        guard error == nil, outBuffer.frameLength > 0,
+              let floatData = outBuffer.floatChannelData?[0]
+        else { return }
+
+        let samples = Array(UnsafeBufferPointer(start: floatData, count: Int(outBuffer.frameLength)))
+        callback(samples)
     }
 
     // MARK: - Append Audio to AVAssetWriter

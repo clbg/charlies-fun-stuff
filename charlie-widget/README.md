@@ -99,6 +99,32 @@ charlie-widget sessions --clear
 
 All hooks are `async: true` — they never block the agent. Takes effect immediately for new Claude Code sessions.
 
+## Audio Recorder
+
+Background audio recording with offline transcription. Captures system audio (including Zoom/Meet), microphone input, or both simultaneously.
+
+```bash
+charlie-widget record start              # start recording (both system + mic, default)
+charlie-widget record start --mic        # mic only
+charlie-widget record start --system     # system audio only
+charlie-widget record stop               # stop recording
+charlie-widget record status             # current state + elapsed time
+charlie-widget record list               # list today's recordings (JSON)
+charlie-widget record play               # play latest recording
+charlie-widget record play --mic         # play mic track only (both-mode recordings)
+charlie-widget record play --system      # play system track only
+charlie-widget record transcribe <id>    # offline transcription via WhisperKit
+```
+
+- **Screen Recording permission** required for system audio capture (ScreenCaptureKit). Granted once in System Settings > Privacy.
+- **Multi-track:** In both mode, system and mic are written as separate tracks in one .m4a. The `play` command mixes them automatically (system 30% + mic 100%). Most GUI players only play track 1 — use `record play` or `mpv` for both.
+- **Playback** requires [mpv](https://mpv.io/) (`brew install mpv`).
+- **Transcription** uses WhisperKit (downloaded on first run, ~460MB model). Multi-track recordings are transcribed per-track with speaker labels.
+- Recordings stored at `~/Library/Application Support/CharlieWidget/recordings/YYYY-MM-DD/`
+- Recorder tab in the menu bar dropdown shows source picker, level meter, and today's recordings
+
+See [docs/audio-recorder/design.md](docs/audio-recorder/design.md) for full technical details.
+
 ## How it works
 
 - Menu bar shows "charlie" text with unread badge grid + session status dots
@@ -133,12 +159,13 @@ The expected state mapping is:
 ## Build from source
 
 ```bash
-make build      # debug build
-make release    # release build
-make test       # swift test
-make test-toast # send a test toast via CLI
-make run-app    # run app in debug mode
-make clean      # clean build artifacts
+make build         # debug build
+make release       # release build
+make test          # swift test
+make test-toast    # send a test toast via CLI
+make test-recorder # run recorder integration tests (27 assertions)
+make run-app       # run app in debug mode
+make clean         # clean build artifacts
 ```
 
 ## Uninstall

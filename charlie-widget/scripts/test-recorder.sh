@@ -143,7 +143,7 @@ DAY_DIR="$REC_DIR/$TODAY"
 
 # Find the recording files
 JSON_FILE=$(find "$DAY_DIR" -name "*.json" -type f 2>/dev/null | head -1)
-WAV_FILE=$(find "$DAY_DIR" -name "*.m4a" -type f 2>/dev/null | head -1)
+M4A_FILE=$(find "$DAY_DIR" -name "*.m4a" -type f 2>/dev/null | head -1)
 
 if [ -n "$JSON_FILE" ]; then
     assert_file_exists "metadata JSON exists" "$JSON_FILE"
@@ -153,7 +153,7 @@ if [ -n "$JSON_FILE" ]; then
     assert_contains "has started_at" "$JSON_CONTENT" '"started_at"'
     assert_contains "has ended_at" "$JSON_CONTENT" '"ended_at"'
     assert_contains "has duration" "$JSON_CONTENT" '"duration_seconds"'
-    assert_contains "has sample_rate 16000" "$JSON_CONTENT" '"sample_rate" : 16000'
+    assert_contains "has sample_rate 48000" "$JSON_CONTENT" '"sample_rate" : 48000'
     assert_contains "source is mic" "$JSON_CONTENT" '"source" : "mic"'
 else
     red "  FAIL: no JSON metadata file found in $DAY_DIR"
@@ -161,17 +161,17 @@ else
     ERRORS+="  - no JSON file\n"
 fi
 
-if [ -n "$WAV_FILE" ]; then
-    assert_file_nonzero "M4A file has data" "$WAV_FILE"
+if [ -n "$M4A_FILE" ]; then
+    assert_file_nonzero "M4A file has data" "$M4A_FILE"
 
     # Verify audio format via afinfo
-    AFINFO=$(afinfo "$WAV_FILE" 2>&1)
-    assert_contains "format is m4af or MPEG" "$AFINFO" "m4a"
+    AFINFO=$(afinfo "$M4A_FILE" 2>&1)
+    assert_contains "format is m4af" "$AFINFO" "m4af"
     assert_contains "1 channel" "$AFINFO" "1 ch"
 else
     red "  FAIL: no M4A audio file found in $DAY_DIR"
     ((FAIL++))
-    ERRORS+="  - no WAV file\n"
+    ERRORS+="  - no M4A file\n"
 fi
 echo ""
 
@@ -209,6 +209,42 @@ OUT=$($CW record stop 2>&1 || true)
 # Should complete without crashing
 green "  PASS: stop-when-idle completes"
 PASS=$((PASS + 1))
+echo ""
+
+# --- Test 9: Transcription ---
+
+bold "Test 9: Transcription produces output"
+# Record a short clip for transcription
+$CW record start --mic > /dev/null 2>&1 || true
+sleep 2
+$CW record stop > /dev/null 2>&1 || true
+sleep 1
+
+# Get latest recording ID
+REC_ID=$(python3 -c "
+import json, sys
+recs = json.loads('''$($CW record list 2>&1)''')
+print(recs[0]['id'] if recs else '')
+")
+
+if [ -n "$REC_ID" ]; then
+    OUT=$($CW record transcribe "$REC_ID" 2>&1)
+    assert_contains "transcribe returns ok" "$OUT" '"ok":true'
+
+    # Check .transcript file was created
+    TRANSCRIPT_FILE=$(find "$DAY_DIR" -name "*.transcript" -type f 2>/dev/null | head -1)
+    if [ -n "$TRANSCRIPT_FILE" ]; then
+        assert_file_exists "transcript file exists" "$TRANSCRIPT_FILE"
+    else
+        red "  FAIL: no .transcript file created"
+        ERRORS+="  - no transcript file\n"
+        FAIL=$((FAIL + 1))
+    fi
+else
+    red "  FAIL: no recording found for transcription test"
+    ERRORS+="  - no recording for transcription\n"
+    FAIL=$((FAIL + 1))
+fi
 echo ""
 
 # --- Cleanup ---

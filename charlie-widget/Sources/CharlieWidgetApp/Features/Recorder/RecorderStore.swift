@@ -40,10 +40,16 @@ final class RecorderStore: Sendable {
         state == .recording ? captureManager.captureDeviceName : ""
     }
 
+    // Transcription state (Track A: UI support)
+    private(set) var transcribingRecordingId: UUID?
+    var isTranscribing: Bool { transcriptionEngine.isTranscribing }
+    var transcriptionProgress: String { transcriptionEngine.progress }
+
     // MARK: - Private
 
     private let captureManager = AudioCaptureManager()
     private let transcriptionEngine = TranscriptionEngine()
+    private let diarizationProvider: any DiarizationProvider = MockDiarizationProvider()
     private var durationTimer: Task<Void, Never>?
 
     // MARK: - Init
@@ -74,7 +80,7 @@ final class RecorderStore: Sendable {
             let recording = Recording(
                 id: UUID(),
                 startedAt: now,
-                sampleRate: 16000,
+                sampleRate: Int(AudioCaptureManager.outputSampleRate),
                 source: source,
                 filenameStem: stem
             )
@@ -177,7 +183,17 @@ final class RecorderStore: Sendable {
             .appendingPathComponent("\(recording.filenameStem).transcript")
     }
 
-    func transcribe(recordingId: String) async -> String? {
+    func hasTranscript(for recording: Recording) -> Bool {
+        FileManager.default.fileExists(atPath: Self.transcriptURL(for: recording).path)
+    }
+
+    func loadTranscript(for recording: Recording) -> Transcript? {
+        let url = Self.transcriptURL(for: recording)
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(Transcript.self, from: data)
+    }
+
+    func transcribe(recordingId: String, language: String? = nil) async -> String? {
         guard let recording = todayRecordings.first(where: { $0.id.uuidString == recordingId }) else {
             lastError = "Recording not found"
             return nil
@@ -189,8 +205,15 @@ final class RecorderStore: Sendable {
             return nil
         }
 
+        transcribingRecordingId = recording.id
+
         do {
-            let segments = try await transcriptionEngine.transcribe(audioURL: audioURL)
+            let segments: [TranscriptSegment]
+            if recording.source == .both {
+                segments = try await transcriptionEngine.transcribeMultiTrack(audioURL: audioURL, language: language)
+            } else {
+                segments = try await transcriptionEngine.transcribe(audioURL: audioURL, language: language)
+            }
             let transcript = Transcript(segments: segments)
 
             let encoder = JSONEncoder()
@@ -198,11 +221,145 @@ final class RecorderStore: Sendable {
             let data = try encoder.encode(transcript)
             try data.write(to: Self.transcriptURL(for: recording), options: .atomic)
 
+            transcribingRecordingId = nil
             return segments.map(\.text).joined(separator: " ")
+        } catch {
+            lastError = error.localizedDescription
+            transcribingRecordingId = nil
+            return nil
+        }
+    }
+
+    // MARK: - Diarization
+
+    func diarize(recordingId: String) async -> String? {
+        guard let recording = todayRecordings.first(where: { $0.id.uuidString == recordingId }) else {
+            lastError = "Recording not found"
+            return nil
+        }
+
+        let audioURL = Self.audioURL(for: recording)
+        guard FileManager.default.fileExists(atPath: audioURL.path) else {
+            lastError = "Audio file not found"
+            return nil
+        }
+
+        let transcriptURL = Self.transcriptURL(for: recording)
+        var existingSegments: [TranscriptSegment] = []
+        if let data = try? Data(contentsOf: transcriptURL),
+           let transcript = try? JSONDecoder().decode(Transcript.self, from: data) {
+            existingSegments = transcript.segments
+        }
+
+        if existingSegments.isEmpty {
+            do {
+                existingSegments = try await transcriptionEngine.transcribe(audioURL: audioURL)
+            } catch {
+                lastError = "Transcription failed: \(error.localizedDescription)"
+                return nil
+            }
+        }
+
+        guard !existingSegments.isEmpty else {
+            lastError = "No transcript segments to diarize"
+            return nil
+        }
+
+        do {
+            let diarized = try await diarizationProvider.diarize(
+                audioURL: audioURL, existingSegments: existingSegments)
+            let transcript = Transcript(segments: diarized)
+
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(transcript)
+            try data.write(to: transcriptURL, options: .atomic)
+
+            return diarized.map { "[\($0.speaker ?? "unknown")] \($0.text)" }.joined(separator: "\n")
         } catch {
             lastError = error.localizedDescription
             return nil
         }
+    }
+
+    // MARK: - Voice Identification
+
+    func identify(recordingId: String) async -> String? {
+        guard let recording = todayRecordings.first(where: { $0.id.uuidString == recordingId }) else {
+            lastError = "Recording not found"
+            return nil
+        }
+
+        let transcriptURL = Self.transcriptURL(for: recording)
+        guard let data = try? Data(contentsOf: transcriptURL),
+              let transcript = try? JSONDecoder().decode(Transcript.self, from: data) else {
+            lastError = "No transcript found — transcribe first"
+            return nil
+        }
+
+        let audioURL = Self.audioURL(for: recording)
+        let pipeline = PostProcessingPipeline()
+        let voicePrintStore = VoicePrintStore()
+
+        do {
+            let result = try await pipeline.process(
+                segments: transcript.segments,
+                audioURL: audioURL,
+                enrolledProfiles: voicePrintStore.allProfiles()
+            )
+
+            let updated = Transcript(segments: result.segments)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let updatedData = try encoder.encode(updated)
+            try updatedData.write(to: transcriptURL, options: .atomic)
+
+            return result.segments.map { "[\($0.speaker ?? "unknown")] \($0.text)" }.joined(separator: "\n")
+        } catch {
+            lastError = error.localizedDescription
+            return nil
+        }
+    }
+
+    // MARK: - Daily Summary
+
+    nonisolated static func dailySummaryURL(for date: Date) -> URL {
+        directoryURL(for: date).appendingPathComponent("daily-summary.json")
+    }
+
+    func generateDailySummary(for date: Date, provider: some SummaryProvider = MockSummaryProvider()) async throws -> DailySummary {
+        let dir = Self.directoryURL(for: date)
+        guard let files = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else {
+            throw SummaryError.noTranscriptsFound
+        }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        var pairs: [(recording: Recording, transcript: Transcript)] = []
+        for file in files where file.pathExtension == "transcript" {
+            let stem = file.deletingPathExtension().lastPathComponent
+            let metaURL = dir.appendingPathComponent("\(stem).json")
+            guard let metaData = try? Data(contentsOf: metaURL),
+                  let recording = try? decoder.decode(Recording.self, from: metaData),
+                  let transcriptData = try? Data(contentsOf: file),
+                  let transcript = try? JSONDecoder().decode(Transcript.self, from: transcriptData)
+            else { continue }
+            pairs.append((recording, transcript))
+        }
+
+        guard !pairs.isEmpty else { throw SummaryError.noTranscriptsFound }
+        pairs.sort { $0.recording.startedAt < $1.recording.startedAt }
+
+        let summary = try await provider.summarize(transcripts: pairs, date: date)
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(summary)
+        try data.write(to: Self.dailySummaryURL(for: date), options: .atomic)
+
+        return summary
     }
 
     // MARK: - Helpers

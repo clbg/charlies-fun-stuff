@@ -3,6 +3,7 @@ import SwiftUI
 struct RecorderView: View {
     var recorderStore: RecorderStore
     @State private var selectedSource: AudioSource = .both
+    @State private var expandedTranscriptId: UUID?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -120,32 +121,159 @@ struct RecorderView: View {
     }
 
     private func recordingRow(_ recording: Recording) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "waveform")
-                .font(.system(size: 14))
-                .foregroundStyle(.secondary)
-                .frame(width: 18, height: 18)
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: "waveform")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 18, height: 18)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(formatTime(recording.startedAt))
-                    .font(.system(size: 12, weight: .medium))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(formatTime(recording.startedAt))
+                        .font(.system(size: 12, weight: .medium))
 
-                HStack(spacing: 4) {
-                    if let dur = recording.durationSeconds {
-                        Text(formatDuration(dur))
+                    HStack(spacing: 4) {
+                        if let dur = recording.durationSeconds {
+                            Text(formatDuration(dur))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(recording.source.rawValue)
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.tertiary)
                     }
-                    Text(recording.source.rawValue)
+                }
+
+                Spacer()
+
+                transcriptionButton(for: recording)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+
+            // Inline transcript viewer
+            if expandedTranscriptId == recording.id {
+                transcriptView(for: recording)
+            }
+        }
+    }
+
+    // MARK: - Transcription Button
+
+    @ViewBuilder
+    private func transcriptionButton(for recording: Recording) -> some View {
+        let isThisTranscribing = recorderStore.isTranscribing
+            && recorderStore.transcribingRecordingId == recording.id
+
+        if isThisTranscribing {
+            HStack(spacing: 4) {
+                ProgressView()
+                    .controlSize(.small)
+                Text(recorderStore.transcriptionProgress)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        } else if recorderStore.hasTranscript(for: recording) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    if expandedTranscriptId == recording.id {
+                        expandedTranscriptId = nil
+                    } else {
+                        expandedTranscriptId = recording.id
+                    }
+                }
+            } label: {
+                HStack(spacing: 3) {
+                    Image(systemName: expandedTranscriptId == recording.id
+                          ? "chevron.up" : "text.bubble.fill")
+                        .font(.system(size: 10))
+                    Text(expandedTranscriptId == recording.id ? "Hide" : "View")
                         .font(.caption2)
-                        .foregroundStyle(.tertiary)
                 }
             }
-
-            Spacer()
+            .buttonStyle(.plain)
+            .foregroundStyle(.blue)
+        } else {
+            Button {
+                Task {
+                    _ = await recorderStore.transcribe(recordingId: recording.id.uuidString)
+                }
+            } label: {
+                HStack(spacing: 3) {
+                    Image(systemName: "text.bubble")
+                        .font(.system(size: 10))
+                    Text("Transcribe")
+                        .font(.caption2)
+                }
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .disabled(recorderStore.isTranscribing)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+    }
+
+    // MARK: - Transcript Viewer
+
+    private func transcriptView(for recording: Recording) -> some View {
+        Group {
+            if let transcript = recorderStore.loadTranscript(for: recording) {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 4) {
+                        ForEach(
+                            Array(transcript.segments.enumerated()), id: \.offset
+                        ) { _, segment in
+                            transcriptSegmentRow(segment)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                }
+                .frame(maxHeight: 160)
+            } else {
+                Text("Could not load transcript")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+            }
+        }
+        .background(Color.primary.opacity(0.03))
+    }
+
+    private func transcriptSegmentRow(_ segment: TranscriptSegment) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Text(formatSegmentTime(segment.start) + "-" + formatSegmentTime(segment.end))
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(.tertiary)
+                .frame(width: 72, alignment: .leading)
+
+            if let speaker = segment.speaker {
+                Text(speaker)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(speakerColor(speaker))
+                    .frame(width: 38, alignment: .leading)
+            }
+
+            Text(segment.text)
+                .font(.system(size: 11))
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func speakerColor(_ speaker: String) -> Color {
+        switch speaker.lowercased() {
+        case "system": .blue
+        case "mic": .green
+        default: .orange
+        }
+    }
+
+    private func formatSegmentTime(_ seconds: Double) -> String {
+        let m = Int(seconds) / 60
+        let s = Int(seconds) % 60
+        return String(format: "%d:%02d", m, s)
     }
 
     // MARK: - Empty

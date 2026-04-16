@@ -99,9 +99,9 @@ struct CharlieWidgetApp: App {
             }
         }
 
-        server.onRecordTranscribe = { recordingId, connection in
+        server.onRecordTranscribe = { recordingId, language, connection in
             Task {
-                if let text = await recorderStore.transcribe(recordingId: recordingId) {
+                if let text = await recorderStore.transcribe(recordingId: recordingId, language: language) {
                     let escaped = text
                         .replacingOccurrences(of: "\\", with: "\\\\")
                         .replacingOccurrences(of: "\"", with: "\\\"")
@@ -110,6 +110,65 @@ struct CharlieWidgetApp: App {
                 } else {
                     let err = recorderStore.lastError ?? "unknown"
                     server.send("{\"error\":\"\(err)\"}\n", to: connection)
+                }
+            }
+        }
+
+        server.onRecordDiarize = { recordingId, connection in
+            Task {
+                if let text = await recorderStore.diarize(recordingId: recordingId) {
+                    let escaped = text
+                        .replacingOccurrences(of: "\\", with: "\\\\")
+                        .replacingOccurrences(of: "\"", with: "\\\"")
+                        .replacingOccurrences(of: "\n", with: "\\n")
+                    server.send("{\"ok\":true,\"text\":\"\(escaped)\"}\n", to: connection)
+                } else {
+                    let err = recorderStore.lastError ?? "unknown"
+                    server.send("{\"error\":\"\(err)\"}\n", to: connection)
+                }
+            }
+        }
+
+        server.onRecordIdentify = { recordingId, connection in
+            Task {
+                if let text = await recorderStore.identify(recordingId: recordingId) {
+                    let escaped = text
+                        .replacingOccurrences(of: "\\", with: "\\\\")
+                        .replacingOccurrences(of: "\"", with: "\\\"")
+                        .replacingOccurrences(of: "\n", with: "\\n")
+                    server.send("{\"ok\":true,\"text\":\"\(escaped)\"}\n", to: connection)
+                } else {
+                    let err = recorderStore.lastError ?? "unknown"
+                    server.send("{\"error\":\"\(err)\"}\n", to: connection)
+                }
+            }
+        }
+
+        server.onRecordSummary = { dateStr, connection in
+            Task {
+                let date: Date
+                if dateStr.isEmpty {
+                    date = Date()
+                } else {
+                    let fmt = DateFormatter()
+                    fmt.dateFormat = "yyyy-MM-dd"
+                    guard let parsed = fmt.date(from: dateStr) else {
+                        server.send("{\"error\":\"Invalid date format, use YYYY-MM-DD\"}\n", to: connection)
+                        return
+                    }
+                    date = parsed
+                }
+                do {
+                    let summary = try await recorderStore.generateDailySummary(for: date)
+                    let encoder = JSONEncoder()
+                    encoder.dateEncodingStrategy = .iso8601
+                    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                    let data = try encoder.encode(summary)
+                    if let json = String(data: data, encoding: .utf8) {
+                        server.send(json + "\n", to: connection)
+                    }
+                } catch {
+                    server.send("{\"error\":\"\(error.localizedDescription)\"}\n", to: connection)
                 }
             }
         }
