@@ -247,6 +247,47 @@ else
 fi
 echo ""
 
+# --- Test 10: Rename recording ---
+
+bold "Test 10: Rename recording"
+if [ -n "$REC_ID" ]; then
+    $CW record rename "$REC_ID" "Test recording" > /dev/null 2>&1
+    OUT=$($CW record list 2>&1)
+    assert_contains "rename persisted" "$OUT" 'Test recording'
+else
+    red "  FAIL: no recording to rename"
+    ERRORS+="  - no recording for rename\n"
+    FAIL=$((FAIL + 1))
+fi
+echo ""
+
+# --- Test 11: Delete recording ---
+
+bold "Test 11: Delete recording"
+if [ -n "$REC_ID" ]; then
+    FILE_COUNT_BEFORE=$(find "$DAY_DIR" -type f 2>/dev/null | wc -l | tr -d ' ')
+    $CW record delete "$REC_ID" > /dev/null 2>&1
+    FILE_COUNT_AFTER=$(find "$DAY_DIR" -type f 2>/dev/null | wc -l | tr -d ' ')
+
+    if [ "$FILE_COUNT_AFTER" -lt "$FILE_COUNT_BEFORE" ]; then
+        green "  PASS: files removed"
+        PASS=$((PASS + 1))
+    else
+        red "  FAIL: files not removed ($FILE_COUNT_BEFORE -> $FILE_COUNT_AFTER)"
+        ERRORS+="  - delete did not remove files\n"
+        FAIL=$((FAIL + 1))
+    fi
+
+    # Verify not in list
+    OUT=$($CW record list 2>&1)
+    assert_not_contains "deleted from list" "$OUT" "$REC_ID"
+else
+    red "  FAIL: no recording to delete"
+    ERRORS+="  - no recording for delete\n"
+    FAIL=$((FAIL + 1))
+fi
+echo ""
+
 # --- Cleanup ---
 
 cleanup_today

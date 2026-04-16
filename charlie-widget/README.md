@@ -104,6 +104,7 @@ All hooks are `async: true` — they never block the agent. Takes effect immedia
 Background audio recording with offline transcription. Captures system audio (including Zoom/Meet), microphone input, or both simultaneously.
 
 ```bash
+# Recording
 charlie-widget record start              # start recording (both system + mic, default)
 charlie-widget record start --mic        # mic only
 charlie-widget record start --system     # system audio only
@@ -111,17 +112,25 @@ charlie-widget record stop               # stop recording
 charlie-widget record status             # current state + elapsed time
 charlie-widget record list               # list today's recordings (JSON)
 charlie-widget record play               # play latest recording
-charlie-widget record play --mic         # play mic track only (both-mode recordings)
-charlie-widget record play --system      # play system track only
-charlie-widget record transcribe <id>    # offline transcription via WhisperKit
+charlie-widget record delete <id>        # delete recording and all associated files
+charlie-widget record rename <id> <name> # set a friendly name
+
+# Processing pipeline
+charlie-widget record transcribe <id>              # transcription (auto language detect)
+charlie-widget record transcribe <id> --lang zh    # with language hint
+charlie-widget record diarize <id>                 # speaker diarization
+charlie-widget record identify <id>                # voice identification + translation
+charlie-widget record summary                      # today's daily summary
+charlie-widget record summary --date 2026-04-16    # specific date
 ```
 
 - **Screen Recording permission** required for system audio capture (ScreenCaptureKit). Granted once in System Settings > Privacy.
-- **Multi-track:** In both mode, system and mic are written as separate tracks in one .m4a. The `play` command mixes them automatically (system 30% + mic 100%). Most GUI players only play track 1 — use `record play` or `mpv` for both.
+- **Multi-track:** In both mode, system and mic are written as separate tracks in one .m4a. The `play` command mixes them automatically. Most GUI players only play track 1 — use `record play` or `mpv` for both.
 - **Playback** requires [mpv](https://mpv.io/) (`brew install mpv`).
-- **Transcription** uses WhisperKit (downloaded on first run, ~460MB model). Multi-track recordings are transcribed per-track with speaker labels.
+- **Transcription** uses WhisperKit `large-v3` model (~626MB, downloaded on first run). Auto-detects language — handles mixed Chinese/English/Japanese. Multi-track recordings are transcribed per-track with speaker labels.
+- **Pipeline:** Phase 4–6 (diarization, voice ID, summary) use mock providers. Swap in real AWS/ML implementations when ready.
 - Recordings stored at `~/Library/Application Support/CharlieWidget/recordings/YYYY-MM-DD/`
-- Recorder tab in the menu bar dropdown shows source picker, level meter, and today's recordings
+- Recorder tab shows source picker, level meter, today's recordings, and inline transcript viewer
 
 See [docs/audio-recorder/design.md](docs/audio-recorder/design.md) for full technical details.
 

@@ -178,6 +178,10 @@ charlie-widget record play --mic         # play mic track only
 charlie-widget record play --system      # play system track only
 charlie-widget record play <id>          # play specific recording
 
+# Management
+charlie-widget record delete <id>                  # delete recording + all associated files
+charlie-widget record rename <id> <name>           # set a friendly name for a recording
+
 # Processing pipeline
 charlie-widget record transcribe <id>              # offline transcription (auto language detect)
 charlie-widget record transcribe <id> --lang zh    # with language hint (zh/en/ja/...)
@@ -247,7 +251,7 @@ pkill -f CharlieWidgetApp; .build/debug/CharlieWidgetApp &disown
 ```bash
 make test-recorder    # or: bash scripts/test-recorder.sh
 ```
-27 assertions covering: start/stop/status/list, metadata persistence, .m4a format verification, double-start rejection, transcription smoke test.
+30 assertions covering: start/stop/status/list, metadata persistence, .m4a format verification, double-start rejection, transcription, rename, delete.
 
 ### Full pipeline smoke test
 ```bash
