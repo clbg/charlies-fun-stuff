@@ -139,18 +139,22 @@ struct RecorderView: View {
                             }
                             renamingId = nil
                         })
-                        .textFieldStyle(.plain)
+                        .textFieldStyle(.roundedBorder)
                         .font(.system(size: 12, weight: .medium))
                         .frame(maxWidth: 160)
                         .onExitCommand { renamingId = nil }
                     } else {
                         HStack(spacing: 4) {
-                            Text(recording.name ?? formatTime(recording.startedAt))
-                                .font(.system(size: 12, weight: .medium))
-                                .onTapGesture {
-                                    renameText = recording.name ?? ""
-                                    renamingId = recording.id
-                                }
+                            Button {
+                                renameText = recording.name ?? ""
+                                renamingId = recording.id
+                            } label: {
+                                Text(recording.name ?? formatTime(recording.startedAt))
+                                    .font(.system(size: 12, weight: .medium))
+                                    .underline(false)
+                            }
+                            .buttonStyle(.plain)
+
                             if recording.name != nil {
                                 Text(formatTime(recording.startedAt))
                                     .font(.caption2)
