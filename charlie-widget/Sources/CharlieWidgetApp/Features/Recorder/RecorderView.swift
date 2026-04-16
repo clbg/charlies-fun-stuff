@@ -112,14 +112,14 @@ struct RecorderView: View {
     // MARK: - Recordings List
 
     private var recordingsList: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(recorderStore.todayRecordings) { recording in
-                    recordingRow(recording)
-                    Divider()
-                }
+        List {
+            ForEach(recorderStore.todayRecordings) { recording in
+                recordingRow(recording)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.visible)
             }
         }
+        .listStyle(.plain)
     }
 
     private func recordingRow(_ recording: Recording) -> some View {
@@ -133,16 +133,24 @@ struct RecorderView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     if renamingId == recording.id {
                         TextField("Name", text: $renameText, onCommit: {
-                            _ = recorderStore.renameRecording(id: recording.id.uuidString, name: renameText)
+                            let name = renameText.trimmingCharacters(in: .whitespaces)
+                            if !name.isEmpty {
+                                _ = recorderStore.renameRecording(id: recording.id.uuidString, name: name)
+                            }
                             renamingId = nil
                         })
                         .textFieldStyle(.plain)
                         .font(.system(size: 12, weight: .medium))
                         .frame(maxWidth: 160)
+                        .onExitCommand { renamingId = nil }
                     } else {
                         HStack(spacing: 4) {
                             Text(recording.name ?? formatTime(recording.startedAt))
                                 .font(.system(size: 12, weight: .medium))
+                                .onTapGesture {
+                                    renameText = recording.name ?? ""
+                                    renamingId = recording.id
+                                }
                             if recording.name != nil {
                                 Text(formatTime(recording.startedAt))
                                     .font(.caption2)
@@ -169,20 +177,17 @@ struct RecorderView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .contextMenu {
-                Button("Rename...") {
-                    renameText = recording.name ?? ""
-                    renamingId = recording.id
-                }
-                Divider()
-                Button("Delete", role: .destructive) {
-                    _ = recorderStore.deleteRecording(id: recording.id.uuidString)
-                }
-            }
 
             // Inline transcript viewer
             if expandedTranscriptId == recording.id {
                 transcriptView(for: recording)
+            }
+        }
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) {
+                _ = recorderStore.deleteRecording(id: recording.id.uuidString)
+            } label: {
+                Label("Delete", systemImage: "trash")
             }
         }
     }
