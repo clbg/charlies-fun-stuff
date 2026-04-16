@@ -2,8 +2,8 @@ import SwiftUI
 import AppKit
 
 enum DropdownTab: String, CaseIterable {
-    case sessions = "Sessions"
     case messages = "Messages"
+    case sessions = "Sessions"
     case recorder = "Recorder"
 }
 
@@ -62,6 +62,7 @@ struct HistoryView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .focusEffectDisabled()
                 .foregroundStyle(selectedTab == tab ? .primary : .secondary)
             }
         }
