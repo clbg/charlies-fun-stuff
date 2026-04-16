@@ -17,6 +17,8 @@ icon:
 	swift generate-icon.swift
 
 install: release icon
+	@# Kill any debug instance first to avoid duplicates
+	@pkill -f '.build/debug/CharlieWidgetApp' 2>/dev/null || true
 	@# CLI
 	cp .build/release/charlie-widget ~/.local/bin/
 	@# Hook scripts
