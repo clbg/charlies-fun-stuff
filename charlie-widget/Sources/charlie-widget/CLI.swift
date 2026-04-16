@@ -172,7 +172,9 @@ struct CLI {
 
         switch action {
         case "start":
-            let source = args.contains("--mic-only") ? "mic-only" : "system+mic"
+            var source = "both"
+            if args.contains("--mic") { source = "mic" }
+            else if args.contains("--system") { source = "system" }
             let json = "{\"command\":\"record_start\",\"source\":\"\(source)\"}\n"
             let response = await sendMessage(json)
             if let response {
@@ -331,8 +333,9 @@ struct CLI {
           charlie-widget toast --clear
           charlie-widget sessions              List active agent sessions (JSON)
           charlie-widget sessions --clear      Remove all session state files
-          charlie-widget record start          Start recording (system audio + mic)
-          charlie-widget record start --mic-only  Start recording (mic only)
+          charlie-widget record start          Start recording (both system + mic)
+          charlie-widget record start --mic    Mic only
+          charlie-widget record start --system System audio only
           charlie-widget record stop           Stop recording
           charlie-widget record status         Current recording state
           charlie-widget record list           List today's recordings

@@ -194,7 +194,7 @@ final class SocketServer: Sendable {
 
         case "record_start":
             let sourceStr = json["source"] as? String ?? "system+mic"
-            let source = AudioSource(rawValue: sourceStr) ?? .systemAndMic
+            let source = AudioSource(rawValue: sourceStr) ?? .both
             onRecordStart?(source, connection)
 
         case "record_stop":

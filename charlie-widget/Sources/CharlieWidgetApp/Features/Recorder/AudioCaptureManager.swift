@@ -11,9 +11,10 @@ final class AudioCaptureManager: @unchecked Sendable {
 
     private let writerQueue = DispatchQueue(label: "com.charlie.widget.audio-writer")
 
-    // AVAssetWriter — used for both modes (consistent .m4a output)
+    // AVAssetWriter — used for all modes (consistent .m4a output)
     private var assetWriter: AVAssetWriter?
-    private var assetWriterInput: AVAssetWriterInput?
+    private var assetWriterInput: AVAssetWriterInput?       // system audio (or mic in mic-only)
+    private var micWriterInput: AVAssetWriterInput?          // mic track in "both" mode
     private var sessionStarted = false
 
     // ScreenCaptureKit
@@ -27,21 +28,29 @@ final class AudioCaptureManager: @unchecked Sendable {
     private let outputSampleRate: Double = 48000
     private let channels: AVAudioChannelCount = 1
 
+    // Audio level metering (0.0–1.0, updated from audio callbacks)
+    var audioLevel: Float = 0
+    var captureDeviceName: String = ""
+
     // MARK: - Start
 
     func start(source: AudioSource, outputURL: URL) async throws {
         guard !isCapturing else { throw RecorderError.alreadyRecording }
         sessionStarted = false
+        micSampleOffset = 0
 
-        if source == .systemAndMic {
-            // System audio via AVAssetWriter (receives CMSampleBuffer from SCStream)
-            try setupAssetWriter(at: outputURL)
-            try setupMicForMixing()
+        try setupAssetWriter(at: outputURL)
+
+        switch source {
+        case .mic:
+            try setupMic(writeTo: assetWriterInput!)
+        case .system:
             try await setupSystemAudio()
-        } else {
-            // Mic-only also uses AVAssetWriter for consistent .m4a output
-            try setupAssetWriter(at: outputURL)
-            try setupMicOnly()
+        case .both:
+            // Add a second writer input for mic track
+            let micInput = try addMicWriterInput()
+            try setupMic(writeTo: micInput)
+            try await setupSystemAudio()
         }
 
         isCapturing = true
@@ -63,31 +72,29 @@ final class AudioCaptureManager: @unchecked Sendable {
         audioEngine?.stop()
         audioEngine = nil
 
-        // Finalize AVAssetWriter (used by both modes)
-        if let writer = assetWriter, let input = assetWriterInput {
+        // Finalize AVAssetWriter
+        if let writer = assetWriter {
+            let inputs = [assetWriterInput, micWriterInput].compactMap { $0 }
             assetWriter = nil
             assetWriterInput = nil
-            try await finalizeWriter(writer, input: input)
+            micWriterInput = nil
+            for input in inputs { input.markAsFinished() }
+            await writer.finishWriting()
+            if writer.status == .failed {
+                throw RecorderError.assetWriterFailed(
+                    writer.error?.localizedDescription ?? "unknown")
+            }
         }
 
         isCapturing = false
     }
 
-    private func finalizeWriter(_ writer: AVAssetWriter, input: AVAssetWriterInput) async throws {
-        input.markAsFinished()
-        await writer.finishWriting()
-        if writer.status == .failed {
-            throw RecorderError.assetWriterFailed(
-                writer.error?.localizedDescription ?? "unknown")
-        }
-    }
+    // MARK: - Microphone Setup (shared by mic-only and both modes)
 
-    // MARK: - Mic-Only Mode (AVAudioEngine → AVAssetWriter)
-
-    /// Running sample count for generating CMSampleBuffer PTS from mic PCM buffers.
     private var micSampleOffset: Int64 = 0
+    private var micTargetInput: AVAssetWriterInput?  // which writer input mic feeds into
 
-    private func setupMicOnly() throws {
+    private func setupMic(writeTo targetInput: AVAssetWriterInput) throws {
         let engine = AVAudioEngine()
         let inputNode = engine.inputNode
         let hwFormat = inputNode.outputFormat(forBus: 0)
@@ -108,23 +115,30 @@ final class AudioCaptureManager: @unchecked Sendable {
             ? AVAudioConverter(from: hwFormat, to: targetFormat)
             : nil
 
-        micSampleOffset = 0
+        micTargetInput = targetInput
 
         inputNode.installTap(onBus: 0, bufferSize: 4096, format: hwFormat) {
             [weak self] buffer, _ in
             guard let self else { return }
+            self.updateLevel(from: buffer)
             self.writerQueue.async {
-                self.writeMicBufferToAssetWriter(
-                    buffer, converter: converter, targetFormat: targetFormat)
+                self.writeMicBuffer(buffer, converter: converter, targetFormat: targetFormat)
             }
         }
-        NSLog("[AudioCapture] mic tap installed, hwFormat=%@, needsConversion=%d", hwFormat.description, needsConversion ? 1 : 0)
+
+        // Set device name
+        if let uid = inputNode.auAudioUnit.deviceID as? AudioDeviceID, uid != 0 {
+            captureDeviceName = Self.deviceName(for: uid) ?? "Microphone"
+        } else {
+            captureDeviceName = "Default Microphone"
+        }
+        NSLog("[AudioCapture] mic tap installed, device=%@, hwFormat=%@", captureDeviceName, hwFormat.description)
 
         try engine.start()
         audioEngine = engine
     }
 
-    private func writeMicBufferToAssetWriter(
+    private func writeMicBuffer(
         _ buffer: AVAudioPCMBuffer,
         converter: AVAudioConverter?,
         targetFormat: AVAudioFormat
@@ -156,22 +170,44 @@ final class AudioCaptureManager: @unchecked Sendable {
             outputBuffer = buffer
         }
 
-        // Convert AVAudioPCMBuffer to CMSampleBuffer for AVAssetWriter
         guard let cmBuffer = outputBuffer.toCMSampleBuffer(
             sampleRate: outputSampleRate, sampleOffset: micSampleOffset
-        ) else {
-            NSLog("[AudioCapture] toCMSampleBuffer returned nil, frames=\(outputBuffer.frameLength), channels=\(outputBuffer.format.channelCount), rate=\(outputBuffer.format.sampleRate)")
-            return
-        }
+        ) else { return }
 
         if micSampleOffset == 0 {
-            NSLog("[AudioCapture] first mic CMSampleBuffer created, frames=\(outputBuffer.frameLength)")
+            NSLog("[AudioCapture] first mic CMSampleBuffer, frames=\(outputBuffer.frameLength)")
         }
         micSampleOffset += Int64(outputBuffer.frameLength)
-        appendToAssetWriter(cmBuffer)
+
+        // Write to the designated input (main input for mic-only, micWriterInput for both)
+        guard let input = micTargetInput, input.isReadyForMoreMediaData else { return }
+        if !sessionStarted, let writer = assetWriter {
+            let pts = CMSampleBufferGetPresentationTimeStamp(cmBuffer)
+            writer.startSession(atSourceTime: pts)
+            sessionStarted = true
+        }
+        input.append(cmBuffer)
     }
 
-    // MARK: - System+Mic Mode (AVAssetWriter)
+    /// Add a second AVAssetWriterInput for mic in "both" mode.
+    private func addMicWriterInput() throws -> AVAssetWriterInput {
+        guard let writer = assetWriter else {
+            throw RecorderError.assetWriterFailed("No writer")
+        }
+        let settings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatMPEG4AAC,
+            AVSampleRateKey: outputSampleRate,
+            AVNumberOfChannelsKey: channels,
+            AVEncoderBitRateKey: 64_000,
+        ]
+        let input = AVAssetWriterInput(mediaType: .audio, outputSettings: settings)
+        input.expectsMediaDataInRealTime = true
+        writer.add(input)
+        micWriterInput = input
+        return input
+    }
+
+    // MARK: - System Audio (ScreenCaptureKit)
 
     private func setupAssetWriter(at url: URL) throws {
         let writer = try AVAssetWriter(outputURL: url, fileType: .m4a)
@@ -196,19 +232,6 @@ final class AudioCaptureManager: @unchecked Sendable {
 
         assetWriter = writer
         assetWriterInput = input
-    }
-
-    private func setupMicForMixing() throws {
-        // Phase 1: mic mixing is intentionally skipped.
-        //
-        // ScreenCaptureKit captures all system audio, which already includes
-        // your own voice in Zoom/Meet calls (the far-end mix contains your
-        // mic audio as played through the speakers). For most meeting
-        // recording use-cases this is sufficient.
-        //
-        // Phase 2 enhancement: install an AVAudioEngine tap on the mic,
-        // convert PCM buffers to CMSampleBuffer, and interleave/mix them
-        // into the AVAssetWriter alongside the system audio track.
     }
 
     private func setupSystemAudio() async throws {
@@ -239,7 +262,10 @@ final class AudioCaptureManager: @unchecked Sendable {
         config.minimumFrameInterval = CMTime(value: 1, timescale: 1)
         config.showsCursor = false
 
+        captureDeviceName = "System Audio"
+
         let output = AudioStreamOutput { [weak self] sampleBuffer in
+            self?.updateLevel(fromCM: sampleBuffer)
             self?.appendSystemAudio(sampleBuffer)
         }
 
@@ -279,6 +305,43 @@ final class AudioCaptureManager: @unchecked Sendable {
         if !input.append(sampleBuffer) {
             NSLog("[AudioCapture] append failed, writer status: \(writer.status.rawValue), error: \(writer.error?.localizedDescription ?? "none")")
         }
+    }
+
+    // MARK: - Audio Level Metering
+
+    private func updateLevel(from buffer: AVAudioPCMBuffer) {
+        guard let data = buffer.floatChannelData?[0] else { return }
+        let count = Int(buffer.frameLength)
+        guard count > 0 else { return }
+        var sum: Float = 0
+        for i in 0..<count { sum += data[i] * data[i] }
+        let rms = sqrtf(sum / Float(count))
+        audioLevel = min(rms * 5, 1.0)  // scale up for visibility, clamp to 1.0
+    }
+
+    private func updateLevel(fromCM sampleBuffer: CMSampleBuffer) {
+        guard let dataBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else { return }
+        let length = CMBlockBufferGetDataLength(dataBuffer)
+        let count = length / MemoryLayout<Float>.size
+        guard count > 0 else { return }
+        var data = [Float](repeating: 0, count: count)
+        CMBlockBufferCopyDataBytes(dataBuffer, atOffset: 0, dataLength: length, destination: &data)
+        var sum: Float = 0
+        for s in data { sum += s * s }
+        let rms = sqrtf(sum / Float(count))
+        audioLevel = min(rms * 5, 1.0)
+    }
+
+    private static func deviceName(for deviceID: AudioDeviceID) -> String? {
+        var name = "" as CFString
+        var size = UInt32(MemoryLayout<CFString>.size)
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceNameCFString,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        let status = AudioObjectGetPropertyData(deviceID, &addr, 0, nil, &size, &name)
+        return status == noErr ? name as String : nil
     }
 }
 

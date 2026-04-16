@@ -110,15 +110,15 @@ echo ""
 
 bold "Test 3: Mic-only recording (3s)"
 cleanup_today
-OUT=$($CW record start --mic-only 2>&1)
+OUT=$($CW record start --mic 2>&1)
 assert_contains "start response" "$OUT" "Recording started"
-assert_contains "mic-only mode" "$OUT" "mic-only"
+assert_contains "mic mode" "$OUT" "mic"
 
 sleep 1
 
 OUT=$($CW record status 2>&1)
 assert_contains "state is recording" "$OUT" '"state":"recording"'
-assert_contains "source is mic-only" "$OUT" '"source":"mic-only"'
+assert_contains "source is mic" "$OUT" '"source":"mic"'
 # elapsed should be > 0 (could be 1 or 2 depending on timing)
 if echo "$OUT" | grep -qE '"elapsed_seconds":[1-9]'; then
     green "  PASS: elapsed > 0"
@@ -154,7 +154,7 @@ if [ -n "$JSON_FILE" ]; then
     assert_contains "has ended_at" "$JSON_CONTENT" '"ended_at"'
     assert_contains "has duration" "$JSON_CONTENT" '"duration_seconds"'
     assert_contains "has sample_rate 16000" "$JSON_CONTENT" '"sample_rate" : 16000'
-    assert_contains "source is mic-only" "$JSON_CONTENT" '"source" : "mic-only"'
+    assert_contains "source is mic" "$JSON_CONTENT" '"source" : "mic"'
 else
     red "  FAIL: no JSON metadata file found in $DAY_DIR"
     ((FAIL++))
@@ -195,9 +195,9 @@ echo ""
 # --- Test 7: Double start ---
 
 bold "Test 7: Double start rejected"
-$CW record start --mic-only > /dev/null 2>&1 || true
+$CW record start --mic > /dev/null 2>&1 || true
 sleep 0.5
-OUT=$($CW record start --mic-only 2>&1 || true)
+OUT=$($CW record start --mic 2>&1 || true)
 assert_contains "error on double start" "$OUT" "Already recording"
 $CW record stop > /dev/null 2>&1 || true
 echo ""

@@ -31,6 +31,15 @@ final class RecorderStore: Sendable {
         return Date().timeIntervalSince(start)
     }
 
+    var audioLevel: Float {
+        _ = timerTick  // re-evaluate with timer
+        return state == .recording ? captureManager.audioLevel : 0
+    }
+
+    var captureDeviceName: String {
+        state == .recording ? captureManager.captureDeviceName : ""
+    }
+
     // MARK: - Private
 
     private let captureManager = AudioCaptureManager()
@@ -45,7 +54,7 @@ final class RecorderStore: Sendable {
 
     // MARK: - Public API
 
-    func startRecording(source: AudioSource = .systemAndMic) async {
+    func startRecording(source: AudioSource = .both) async {
         guard state == .idle else {
             lastError = "Already recording"
             return

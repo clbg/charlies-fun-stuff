@@ -11,8 +11,20 @@ enum RecorderState: String, Codable, Sendable {
 // MARK: - AudioSource
 
 enum AudioSource: String, Codable, Sendable {
-    case systemAndMic = "system+mic"
-    case micOnly = "mic-only"
+    case mic = "mic"
+    case system = "system"
+    case both = "both"
+}
+
+// Backward compat: old recordings used "mic-only" and "system+mic"
+extension AudioSource {
+    init(legacyRawValue: String) {
+        switch legacyRawValue {
+        case "mic-only": self = .mic
+        case "system+mic": self = .both
+        default: self = AudioSource(rawValue: legacyRawValue) ?? .both
+        }
+    }
 }
 
 // MARK: - RecorderError

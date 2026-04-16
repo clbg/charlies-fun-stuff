@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RecorderView: View {
     var recorderStore: RecorderStore
+    @State private var selectedSource: AudioSource = .both
 
     var body: some View {
         VStack(spacing: 0) {
@@ -18,13 +19,14 @@ struct RecorderView: View {
     // MARK: - Recording Control
 
     private var recordingControl: some View {
+        VStack(spacing: 0) {
         HStack(spacing: 12) {
             Button {
                 Task {
                     if recorderStore.state == .recording {
                         await recorderStore.stopRecording()
                     } else {
-                        await recorderStore.startRecording()
+                        await recorderStore.startRecording(source: selectedSource)
                     }
                 }
             } label: {
@@ -38,6 +40,17 @@ struct RecorderView: View {
             }
             .buttonStyle(.plain)
             .disabled(recorderStore.state == .stopping)
+
+            // Source picker
+            if recorderStore.state == .idle {
+                Picker("", selection: $selectedSource) {
+                    Image(systemName: "mic.fill").tag(AudioSource.mic)
+                    Image(systemName: "speaker.wave.2.fill").tag(AudioSource.system)
+                    Image(systemName: "mic.and.signal.meter.fill").tag(AudioSource.both)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 100)
+            }
 
             if recorderStore.state == .recording {
                 Text(formatDuration(recorderStore.elapsedSeconds))
@@ -56,6 +69,41 @@ struct RecorderView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+
+        // Audio level meter + device name
+        if recorderStore.state == .recording {
+            VStack(spacing: 4) {
+                // Level meter bar
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color.gray.opacity(0.2))
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(levelColor(recorderStore.audioLevel))
+                            .frame(width: geo.size.width * CGFloat(recorderStore.audioLevel))
+                            .animation(.linear(duration: 0.1), value: recorderStore.audioLevel)
+                    }
+                }
+                .frame(height: 6)
+                .padding(.horizontal, 12)
+
+                // Device name
+                if !recorderStore.captureDeviceName.isEmpty {
+                    HStack(spacing: 4) {
+                        Image(systemName: recorderStore.currentRecording?.source == .mic
+                              ? "mic.fill" : "speaker.wave.2.fill")
+                            .font(.system(size: 9))
+                        Text(recorderStore.captureDeviceName)
+                            .font(.system(size: 10))
+                    }
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                }
+            }
+            .padding(.bottom, 6)
+        }
+        } // VStack
     }
 
     // MARK: - Recordings List
@@ -113,6 +161,14 @@ struct RecorderView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.vertical, 40)
+    }
+
+    // MARK: - Level Color
+
+    private func levelColor(_ level: Float) -> Color {
+        if level < 0.3 { return .green }
+        if level < 0.7 { return .yellow }
+        return .red
     }
 
     // MARK: - Formatting
