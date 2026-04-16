@@ -49,6 +49,15 @@ final class AudioCaptureManager: @unchecked Sendable {
 
     func start(source: AudioSource, outputURL: URL) async throws {
         guard !isCapturing else { throw RecorderError.alreadyRecording }
+
+        // Request Screen Recording permission only when needed (system/both modes)
+        if source == .system || source == .both {
+            if !CGPreflightScreenCaptureAccess() {
+                CGRequestScreenCaptureAccess()
+                throw RecorderError.permissionDenied("Screen Recording")
+            }
+        }
+
         sessionStarted = false
         micSampleOffset = 0
 

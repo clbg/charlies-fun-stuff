@@ -30,11 +30,6 @@ struct CharlieWidgetApp: App {
     }
 
     init() {
-        // Request Screen Recording permission if not already granted
-        if !CGPreflightScreenCaptureAccess() {
-            CGRequestScreenCaptureAccess()
-        }
-
         let store = self.store
         let server = self.server
         let recorderStore = self.recorderStore
