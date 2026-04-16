@@ -58,7 +58,7 @@ final class RecorderStore: Sendable {
             try FileManager.default.createDirectory(
                 at: dayDir, withIntermediateDirectories: true)
 
-            let ext = (source == .micOnly) ? "wav" : "m4a"
+            let ext = "m4a"
             let audioURL = dayDir.appendingPathComponent("\(stem).\(ext)")
 
             let recording = Recording(
