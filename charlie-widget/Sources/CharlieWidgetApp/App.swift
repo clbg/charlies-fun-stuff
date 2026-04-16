@@ -99,6 +99,21 @@ struct CharlieWidgetApp: App {
             }
         }
 
+        server.onRecordTranscribe = { recordingId, connection in
+            Task {
+                if let text = await recorderStore.transcribe(recordingId: recordingId) {
+                    let escaped = text
+                        .replacingOccurrences(of: "\\", with: "\\\\")
+                        .replacingOccurrences(of: "\"", with: "\\\"")
+                        .replacingOccurrences(of: "\n", with: "\\n")
+                    server.send("{\"ok\":true,\"text\":\"\(escaped)\"}\n", to: connection)
+                } else {
+                    let err = recorderStore.lastError ?? "unknown"
+                    server.send("{\"error\":\"\(err)\"}\n", to: connection)
+                }
+            }
+        }
+
         server.start()
     }
 }

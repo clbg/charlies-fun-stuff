@@ -27,6 +27,7 @@ final class SocketServer: Sendable {
     var onRecordStop: (@MainActor @Sendable (NWConnection) -> Void)?
     var onRecordStatus: (@MainActor @Sendable (NWConnection) -> Void)?
     var onRecordList: (@MainActor @Sendable (NWConnection) -> Void)?
+    var onRecordTranscribe: (@MainActor @Sendable (String, NWConnection) -> Void)?
 
     // MARK: - Private state
 
@@ -204,6 +205,10 @@ final class SocketServer: Sendable {
 
         case "record_list":
             onRecordList?(connection)
+
+        case "record_transcribe":
+            let recordingId = json["recording_id"] as? String ?? ""
+            onRecordTranscribe?(recordingId, connection)
 
         default:
             send("{\"error\":\"unknown command: \(command)\"}\n", to: connection)

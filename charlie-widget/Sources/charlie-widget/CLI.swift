@@ -202,6 +202,16 @@ struct CLI {
         case "list":
             await sendAndPrintResponse("{\"command\":\"record_list\"}\n")
 
+        case "transcribe":
+            guard args.count > 1 else {
+                fputs("Usage: charlie-widget record transcribe <recording-id>\n", stderr)
+                exit(1)
+            }
+            let recordingId = args[1]
+            fputs("Transcribing (this may take a while, downloading model on first run)...\n", stderr)
+            let json = "{\"command\":\"record_transcribe\",\"recording_id\":\"\(recordingId)\"}\n"
+            await sendAndPrintResponse(json, timeout: 600)
+
         default:
             fputs("Unknown record action: \(action)\n", stderr)
             fputs("Usage: charlie-widget record <start|stop|status|list>\n", stderr)
@@ -221,14 +231,14 @@ struct CLI {
         }
     }
 
-    private static func sendAndPrintResponse(_ message: String) async {
-        let response = await sendMessage(message)
+    private static func sendAndPrintResponse(_ message: String, timeout: TimeInterval = 5) async {
+        let response = await sendMessage(message, timeout: timeout)
         if let response {
             print(response)
         }
     }
 
-    private static func sendMessage(_ message: String) async -> String? {
+    private static func sendMessage(_ message: String, timeout: TimeInterval = 5) async -> String? {
         guard FileManager.default.fileExists(atPath: socketPath) else {
             fputs("Error: CharlieWidget is not running (socket not found at \(socketPath))\n", stderr)
             exit(1)
@@ -299,8 +309,7 @@ struct CLI {
 
             connection.start(queue: .global())
 
-            // Timeout after 5 seconds
-            DispatchQueue.global().asyncAfter(deadline: .now() + 5) {
+            DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
                 if connection.state != .cancelled {
                     fputs("Error: connection timed out\n", stderr)
                     connection.cancel()
@@ -327,6 +336,7 @@ struct CLI {
           charlie-widget record stop           Stop recording
           charlie-widget record status         Current recording state
           charlie-widget record list           List today's recordings
+          charlie-widget record transcribe <id>  Transcribe a recording
         """
         fputs(usage + "\n", stderr)
     }

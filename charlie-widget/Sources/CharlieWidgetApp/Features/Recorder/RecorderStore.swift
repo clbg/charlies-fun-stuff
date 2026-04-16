@@ -34,6 +34,7 @@ final class RecorderStore: Sendable {
     // MARK: - Private
 
     private let captureManager = AudioCaptureManager()
+    private let transcriptionEngine = TranscriptionEngine()
     private var durationTimer: Task<Void, Never>?
 
     // MARK: - Init
@@ -153,6 +154,46 @@ final class RecorderStore: Sendable {
         }
 
         todayRecordings = recordings.sorted { $0.startedAt > $1.startedAt }
+    }
+
+    // MARK: - Transcription
+
+    nonisolated static func audioURL(for recording: Recording) -> URL {
+        directoryURL(for: recording.startedAt)
+            .appendingPathComponent("\(recording.filenameStem).m4a")
+    }
+
+    nonisolated static func transcriptURL(for recording: Recording) -> URL {
+        directoryURL(for: recording.startedAt)
+            .appendingPathComponent("\(recording.filenameStem).transcript")
+    }
+
+    func transcribe(recordingId: String) async -> String? {
+        guard let recording = todayRecordings.first(where: { $0.id.uuidString == recordingId }) else {
+            lastError = "Recording not found"
+            return nil
+        }
+
+        let audioURL = Self.audioURL(for: recording)
+        guard FileManager.default.fileExists(atPath: audioURL.path) else {
+            lastError = "Audio file not found"
+            return nil
+        }
+
+        do {
+            let segments = try await transcriptionEngine.transcribe(audioURL: audioURL)
+            let transcript = Transcript(segments: segments)
+
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(transcript)
+            try data.write(to: Self.transcriptURL(for: recording), options: .atomic)
+
+            return segments.map(\.text).joined(separator: " ")
+        } catch {
+            lastError = error.localizedDescription
+            return nil
+        }
     }
 
     // MARK: - Helpers

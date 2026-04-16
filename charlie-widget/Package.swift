@@ -8,9 +8,15 @@ let package = Package(
         .executable(name: "CharlieWidgetApp", targets: ["CharlieWidgetApp"]),
         .executable(name: "charlie-widget", targets: ["charlie-widget"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/argmaxinc/argmax-oss-swift.git", from: "0.9.0"),
+    ],
     targets: [
         .executableTarget(
             name: "CharlieWidgetApp",
+            dependencies: [
+                .product(name: "WhisperKit", package: "argmax-oss-swift"),
+            ],
             path: "Sources/CharlieWidgetApp",
             exclude: ["Resources"],
             linkerSettings: [
