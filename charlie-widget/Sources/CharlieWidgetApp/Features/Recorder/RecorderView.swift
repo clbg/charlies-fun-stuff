@@ -4,6 +4,8 @@ struct RecorderView: View {
     var recorderStore: RecorderStore
     @State private var selectedSource: AudioSource = .both
     @State private var expandedTranscriptId: UUID?
+    @State private var renamingId: UUID?
+    @State private var renameText: String = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -129,8 +131,25 @@ struct RecorderView: View {
                     .frame(width: 18, height: 18)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(formatTime(recording.startedAt))
+                    if renamingId == recording.id {
+                        TextField("Name", text: $renameText, onCommit: {
+                            _ = recorderStore.renameRecording(id: recording.id.uuidString, name: renameText)
+                            renamingId = nil
+                        })
+                        .textFieldStyle(.plain)
                         .font(.system(size: 12, weight: .medium))
+                        .frame(maxWidth: 160)
+                    } else {
+                        HStack(spacing: 4) {
+                            Text(recording.name ?? formatTime(recording.startedAt))
+                                .font(.system(size: 12, weight: .medium))
+                            if recording.name != nil {
+                                Text(formatTime(recording.startedAt))
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
 
                     HStack(spacing: 4) {
                         if let dur = recording.durationSeconds {
@@ -150,6 +169,16 @@ struct RecorderView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
+            .contextMenu {
+                Button("Rename...") {
+                    renameText = recording.name ?? ""
+                    renamingId = recording.id
+                }
+                Divider()
+                Button("Delete", role: .destructive) {
+                    _ = recorderStore.deleteRecording(id: recording.id.uuidString)
+                }
+            }
 
             // Inline transcript viewer
             if expandedTranscriptId == recording.id {
