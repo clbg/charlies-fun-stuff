@@ -49,6 +49,10 @@ install: release icon
 	    <true/>\n\
 	</dict>\n\
 	</plist>\n" > $(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/Info.plist
+	@# Code sign with stable identity so TCC permissions persist across rebuilds
+	@codesign --force --sign "CharlieWidget Dev" $(APP_INSTALL_DIR)/$(APP_BUNDLE) 2>/dev/null \
+		&& echo "Signed with CharlieWidget Dev certificate" \
+		|| echo "Warning: No signing identity found, using ad-hoc (Screen Recording permission will reset on rebuild)"
 	@echo "Installed to $(APP_INSTALL_DIR)/$(APP_BUNDLE)"
 	@# LaunchAgent for login startup
 	@printf "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
