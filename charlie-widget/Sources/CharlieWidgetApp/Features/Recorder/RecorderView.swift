@@ -6,10 +6,23 @@ struct RecorderView: View {
     @State private var expandedTranscriptId: UUID?
     @State private var renamingId: UUID?
     @State private var renameText: String = ""
+    @State private var summaryExpanded = false
+    @State private var recoveryNoticeDismissed = false
 
     var body: some View {
         VStack(spacing: 0) {
+            if recorderStore.recoveredPartialCount > 0 && !recoveryNoticeDismissed {
+                recoveryBanner
+            }
             recordingControl
+            if recorderStore.state == .recording && recorderStore.isLiveTranscribing {
+                Divider()
+                liveTranscriptPanel
+            }
+            if recorderStore.state == .recording, recorderStore.liveSummary != nil {
+                Divider()
+                liveSummarySection
+            }
             Divider()
             if recorderStore.todayRecordings.isEmpty && recorderStore.state == .idle {
                 emptyPlaceholder
@@ -17,6 +30,204 @@ struct RecorderView: View {
                 recordingsList
             }
         }
+    }
+
+    // MARK: - Recovery Banner
+
+    private var recoveryBanner: some View {
+        let n = recorderStore.recoveredPartialCount
+        let label = "Recovered \(n) interrupted transcript\(n == 1 ? "" : "s")"
+        return HStack(spacing: 6) {
+            Image(systemName: "info.circle.fill")
+                .font(.system(size: 11))
+                .foregroundStyle(.blue)
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundStyle(.primary)
+            Spacer()
+            Button {
+                recoveryNoticeDismissed = true
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .padding(4)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Color.blue.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color.blue.opacity(0.2), lineWidth: 0.5)
+        )
+        .cornerRadius(6)
+        .padding(.horizontal, 10)
+        .padding(.top, 8)
+    }
+
+    // MARK: - Live Transcript Panel
+
+    private var liveTranscriptPanel: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Live transcript")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .padding(.horizontal, 12)
+                .padding(.top, 6)
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 3) {
+                        ForEach(recorderStore.liveSegmentsTail, id: \.start) { segment in
+                            liveSegmentRow(segment)
+                                .id(segment.start)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+                }
+                .frame(maxHeight: 200)
+                .onChange(of: recorderStore.liveSegmentsTail.count) { _, _ in
+                    if let last = recorderStore.liveSegmentsTail.last {
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            proxy.scrollTo(last.start, anchor: .bottom)
+                        }
+                    }
+                }
+            }
+        }
+        .background(Color.primary.opacity(0.03))
+    }
+
+    private func liveSegmentRow(_ segment: TranscriptSegment) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Text(formatSegmentTime(segment.start))
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(.tertiary)
+                .frame(width: 36, alignment: .leading)
+
+            speakerChip(segment.speaker)
+
+            Text(segment.text)
+                .font(.system(size: 11))
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func speakerChip(_ speaker: String?) -> some View {
+        let color: Color = {
+            switch speaker?.lowercased() {
+            case "mic": return .green
+            case "system": return .blue
+            default: return .gray
+            }
+        }()
+        let text = speaker ?? "?"
+        return Text(text)
+            .font(.system(size: 9, weight: .medium))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(color.opacity(0.85))
+            .cornerRadius(3)
+            .frame(minWidth: 32, alignment: .leading)
+    }
+
+    // MARK: - Live Summary Section
+
+    private var liveSummarySection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    summaryExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text("Summary")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                    Image(systemName: summaryExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.top, 6)
+
+            summaryContent
+                .padding(.horizontal, 12)
+                .padding(.bottom, 6)
+        }
+        .background(Color.primary.opacity(0.03))
+    }
+
+    @ViewBuilder
+    private var summaryContent: some View {
+        if let live = recorderStore.liveSummary {
+            if live.runningBullets.isEmpty {
+                Text("Building summary\u{2026}")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            } else if summaryExpanded {
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach(Array(live.runningBullets.enumerated()), id: \.offset) { _, bullet in
+                        bulletLine(bullet)
+                    }
+                    if !live.windows.isEmpty {
+                        Text("Windows")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+                            .padding(.top, 6)
+                        ForEach(Array(live.windows.enumerated()), id: \.offset) { _, window in
+                            windowRow(window)
+                        }
+                    }
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach(Array(live.runningBullets.suffix(5).enumerated()), id: \.offset) { _, bullet in
+                        bulletLine(bullet)
+                    }
+                }
+            }
+        }
+    }
+
+    private func bulletLine(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Text("\u{2022}")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+            Text(text)
+                .font(.system(size: 11))
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func windowRow(_ window: WindowSummary) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Text("\(formatSegmentTime(window.startOffset)) - \(formatSegmentTime(window.endOffset))")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+                ForEach(window.speakersPresent, id: \.self) { sp in
+                    speakerChip(sp)
+                }
+            }
+            ForEach(Array(window.bullets.enumerated()), id: \.offset) { _, b in
+                bulletLine(b)
+            }
+        }
+        .padding(.vertical, 3)
     }
 
     // MARK: - Recording Control

@@ -22,6 +22,8 @@ struct CLI {
             handleSessions(Array(args.dropFirst()))
         case "record":
             await handleRecord(Array(args.dropFirst()))
+        case "voice":
+            await handleVoice(Array(args.dropFirst()))
         default:
             fputs("Unknown command: \(subcommand)\n", stderr)
             printUsage()
@@ -337,9 +339,62 @@ struct CLI {
             let json = "{\"command\":\"record_summary\",\"date\":\"\(dateStr)\"}\n"
             await sendAndPrintResponse(json, timeout: 600)
 
+        case "live-transcript":
+            var tailClause = ""
+            if let idx = args.firstIndex(of: "--tail"), idx + 1 < args.count,
+               let tail = Int(args[idx + 1]), tail > 0 {
+                tailClause = ",\"tail\":\(tail)"
+            }
+            let json = "{\"command\":\"record_live_transcript\"\(tailClause)}\n"
+            await sendAndPrintResponse(json)
+
+        case "live-summary":
+            let json = "{\"command\":\"record_live_summary\"}\n"
+            await sendAndPrintResponse(json)
+
+        case "live-status":
+            let json = "{\"command\":\"record_live_status\"}\n"
+            await sendAndPrintResponse(json)
+
         default:
             fputs("Unknown record action: \(action)\n", stderr)
             fputs("Usage: charlie-widget record <start|stop|status|list|transcribe|diarize|identify|summary>\n", stderr)
+            exit(1)
+        }
+    }
+
+    // MARK: - Voice subcommand
+
+    private static func handleVoice(_ args: [String]) async {
+        guard let action = args.first else {
+            fputs("Usage: charlie-widget voice <start|stop|status>\n", stderr)
+            exit(1)
+        }
+
+        switch action {
+        case "start":
+            let json = "{\"command\":\"voice_start\"}\n"
+            let response = await sendMessage(json)
+            if let response {
+                if response.contains("\"ok\":true") || response.contains("\"ok\": true") {
+                    print("Voice recording started (press Option+V or run 'voice stop' to finish)")
+                } else {
+                    fputs("Error: \(response)\n", stderr)
+                    exit(1)
+                }
+            }
+
+        case "stop":
+            fputs("Stopping, transcribing and sending to iTerm...\n", stderr)
+            let json = "{\"command\":\"voice_stop\"}\n"
+            await sendAndPrintResponse(json, timeout: 600)
+
+        case "status":
+            await sendAndPrintResponse("{\"command\":\"voice_status\"}\n")
+
+        default:
+            fputs("Unknown voice action: \(action)\n", stderr)
+            fputs("Usage: charlie-widget voice <start|stop|status>\n", stderr)
             exit(1)
         }
     }
@@ -473,6 +528,13 @@ struct CLI {
           charlie-widget record identify <id>   Voice identification + translation
           charlie-widget record summary         Generate today's daily summary
           charlie-widget record summary --date YYYY-MM-DD
+          charlie-widget record live-transcript       Current live transcription segments (JSON)
+          charlie-widget record live-transcript --tail 20  Last N segments only
+          charlie-widget record live-summary          Current rolling summary (JSON)
+          charlie-widget record live-status           Live state (flags + counts)
+          charlie-widget voice start           Start voice command recording
+          charlie-widget voice stop            Stop, transcribe, send to iTerm
+          charlie-widget voice status          Current voice command state
         """
         fputs(usage + "\n", stderr)
     }

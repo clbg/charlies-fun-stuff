@@ -34,7 +34,8 @@ final class AudioCaptureManager: @unchecked Sendable {
 
     /// Optional callback to receive raw 16kHz mono Float32 audio samples for live transcription.
     /// Set before calling start(). Called from audio processing threads.
-    var liveAudioCallback: (([Float]) -> Void)?
+    /// Speaker label is "mic" or "system" (in both mode, each source forwards under its own label).
+    var liveAudioCallback: (([Float], String) -> Void)?
 
     // Resampler for converting captured audio to 16kHz for WhisperKit
     private var whisperConverter: AVAudioConverter?
@@ -141,7 +142,7 @@ final class AudioCaptureManager: @unchecked Sendable {
             guard let self, let targetFormat = self.micTargetFormat else { return }
             let converter = self.micConverter
             self.updateLevel(from: buffer)
-            self.forwardToLiveTranscription(buffer, converter: converter, targetFormat: targetFormat)
+            self.forwardToLiveTranscription(buffer, converter: converter, targetFormat: targetFormat, speaker: "mic")
             self.writerQueue.async {
                 self.writeMicBuffer(buffer, converter: converter, targetFormat: targetFormat)
             }
@@ -301,7 +302,8 @@ final class AudioCaptureManager: @unchecked Sendable {
     private func forwardToLiveTranscription(
         _ buffer: AVAudioPCMBuffer,
         converter: AVAudioConverter?,
-        targetFormat: AVAudioFormat
+        targetFormat: AVAudioFormat,
+        speaker: String
     ) {
         guard let callback = liveAudioCallback else { return }
 
@@ -355,7 +357,7 @@ final class AudioCaptureManager: @unchecked Sendable {
         else { return }
 
         let samples = Array(UnsafeBufferPointer(start: floatData, count: Int(outBuffer.frameLength)))
-        callback(samples)
+        callback(samples, speaker)
     }
 
     /// Forward system audio (CMSampleBuffer at 48kHz) to live transcription as 16kHz float samples.
@@ -411,7 +413,7 @@ final class AudioCaptureManager: @unchecked Sendable {
         else { return }
 
         let samples = Array(UnsafeBufferPointer(start: floatData, count: Int(outBuffer.frameLength)))
-        callback(samples)
+        callback(samples, "system")
     }
 
     // MARK: - Append Audio to AVAssetWriter

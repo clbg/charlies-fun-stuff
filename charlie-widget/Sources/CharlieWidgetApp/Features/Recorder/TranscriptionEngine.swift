@@ -14,7 +14,12 @@ final class TranscriptionEngine {
     // MARK: - Live Transcription State
 
     /// Accumulated live transcript segments, updated as each chunk is transcribed.
+    /// Capped at `maxInMemorySegments`; older segments are trimmed from the front
+    /// (they're still on disk in the `.transcript.partial` file).
     private(set) var liveSegments: [TranscriptSegment] = []
+
+    /// Total number of segments committed this session (never trimmed).
+    private(set) var totalLiveSegmentCount: Int = 0
 
     /// Whether live (streaming) transcription is active.
     private(set) var isLiveTranscribing = false
@@ -22,14 +27,28 @@ final class TranscriptionEngine {
     /// The current partial text being transcribed (latest chunk, may change).
     private(set) var livePartialText: String = ""
 
+    /// Called on the main actor with each batch of newly-committed segments.
+    /// Consumers: LiveTranscriptWriter (crash recovery), RollingSummarizer.
+    var onSegmentsCommitted: (@MainActor ([TranscriptSegment]) -> Void)?
+
     private var whisperKit: WhisperKit?
 
     /// Model to use. "small" for dev, "large-v3-v20240930_626MB" for production.
     private let modelName = "large-v3-v20240930_626MB"
 
-    // Live transcription internals — buffer is accessed from audio threads via nonisolated feedAudioBuffer
-    private let liveBuffer = OSAllocatedUnfairLock(initialState: [Float]())
+    // Per-speaker live buffers — audio threads feed via nonisolated feedAudioBuffer(_:speaker:).
+    // Each speaker's samples are transcribed independently so dual-track speaker attribution is preserved.
+    private let liveBuffers = OSAllocatedUnfairLock(initialState: [String: LiveBufferState]())
+
+    private struct LiveBufferState {
+        var samples: [Float] = []
+        var ingestedSampleCount: Int64 = 0  // cumulative samples seen for this speaker
+    }
+
     private var liveTranscriptionTask: Task<Void, Never>?
+
+    /// Cap on segments kept in RAM. Older ones are trimmed; disk copy is authoritative.
+    private let maxInMemorySegments = 500
 
     /// How many seconds of audio to accumulate before transcribing a chunk.
     private let liveChunkSeconds: Double = 5.0
@@ -47,14 +66,15 @@ final class TranscriptionEngine {
 
     // MARK: - Live Transcription
 
-    /// Start live transcription. Call `feedAudioBuffer` to push audio samples.
+    /// Start live transcription. Call `feedAudioBuffer(_:speaker:)` to push audio samples.
     func startLiveTranscription() async throws {
         guard !isLiveTranscribing else { return }
         try await ensureLoaded()
 
         liveSegments = []
+        totalLiveSegmentCount = 0
         livePartialText = ""
-        liveBuffer.withLock { $0 = [] }
+        liveBuffers.withLock { $0 = [:] }
         isLiveTranscribing = true
 
         // Start a background loop that periodically transcribes buffered audio
@@ -65,50 +85,76 @@ final class TranscriptionEngine {
     }
 
     /// Stop live transcription and transcribe any remaining audio.
+    /// Does NOT cancel the live task — cancellation would propagate into
+    /// the in-flight WhisperKit transcribe and throw CancellationError,
+    /// losing the chunk. Instead we flip the flag and let the loop exit.
     func stopLiveTranscription() async {
         guard isLiveTranscribing else { return }
         isLiveTranscribing = false
-        liveTranscriptionTask?.cancel()
+
+        // Wait for the loop task to finish naturally (it sleeps up to 500ms then checks the flag)
+        await liveTranscriptionTask?.value
         liveTranscriptionTask = nil
 
-        // Transcribe any remaining buffered audio
-        await transcribeLiveChunk()
+        // Flush any remaining buffered audio for every speaker (main-actor call, not cancellable)
+        let remainingSpeakers = liveBuffers.withLock { Array($0.keys) }
+        for speaker in remainingSpeakers {
+            await transcribeLiveChunk(speaker: speaker, force: true)
+        }
         livePartialText = ""
-        NSLog("[TranscriptionEngine] live transcription stopped, total segments: \(liveSegments.count)")
+        NSLog("[TranscriptionEngine] live transcription stopped, total segments: \(totalLiveSegmentCount)")
     }
 
     /// Feed raw PCM float32 audio samples (16kHz mono) for live transcription.
     /// Called from audio capture callbacks. Thread-safe.
-    nonisolated func feedAudioBuffer(_ samples: [Float]) {
-        liveBuffer.withLock { $0.append(contentsOf: samples) }
+    nonisolated func feedAudioBuffer(_ samples: [Float], speaker: String) {
+        liveBuffers.withLock { buffers in
+            var state = buffers[speaker] ?? LiveBufferState()
+            state.samples.append(contentsOf: samples)
+            state.ingestedSampleCount += Int64(samples.count)
+            buffers[speaker] = state
+        }
     }
 
     private func liveTranscriptionLoop() async {
         let chunkSampleCount = Int(liveChunkSeconds * Self.whisperSampleRate)
 
         while !Task.isCancelled && isLiveTranscribing {
-            // Wait until we have enough audio
             try? await Task.sleep(for: .milliseconds(500))
 
-            let bufferCount = liveBuffer.withLock { $0.count }
-
-            if bufferCount >= chunkSampleCount {
-                await transcribeLiveChunk()
+            // Snapshot speakers whose buffers have enough audio to transcribe
+            let readySpeakers = liveBuffers.withLock { buffers in
+                buffers.compactMap { (key, state) in
+                    state.samples.count >= chunkSampleCount ? key : nil
+                }
+            }
+            for speaker in readySpeakers {
+                await transcribeLiveChunk(speaker: speaker, force: false)
             }
         }
     }
 
-    /// Transcribe whatever is currently in the live audio buffer.
-    private func transcribeLiveChunk() async {
-        // Drain the buffer
-        let samples = liveBuffer.withLock { buf -> [Float] in
-            let s = buf; buf = []; return s
+    /// Transcribe whatever is currently buffered for the given speaker.
+    /// Uses sample-count-based timestamps to avoid drift under backpressure.
+    private func transcribeLiveChunk(speaker: String, force: Bool) async {
+        // Drain buffer + snapshot ingestedSampleCount atomically
+        let (samples, endSampleCount) = liveBuffers.withLock { buffers -> ([Float], Int64) in
+            guard var state = buffers[speaker] else { return ([], 0) }
+            let drained = state.samples
+            let count = state.ingestedSampleCount
+            state.samples = []
+            buffers[speaker] = state
+            return (drained, count)
         }
 
-        guard !samples.isEmpty, let kit = whisperKit else { return }
+        // Require a minimum chunk size unless forcing (end-of-recording flush)
+        let minFrames = force ? 1 : Int(liveChunkSeconds * Self.whisperSampleRate / 2)
+        guard samples.count >= minFrames, let kit = whisperKit else { return }
 
-        // Calculate time offset for this chunk based on existing segments
-        let timeOffset: Double = liveSegments.last?.end ?? 0
+        // Chunk start time: (ingestedBeforeThisChunk) / sampleRate
+        // = (totalIngested - chunkLength) / sampleRate
+        let startSampleCount = endSampleCount - Int64(samples.count)
+        let chunkStartTime = Double(startSampleCount) / Self.whisperSampleRate
 
         do {
             let results: [TranscriptionResult] = try await kit.transcribe(
@@ -126,10 +172,10 @@ final class TranscriptionEngine {
                     let cleaned = TranscriptionEngine.cleanText(seg.text)
                     guard !cleaned.isEmpty else { return nil }
                     return TranscriptSegment(
-                        start: timeOffset + Double(seg.start),
-                        end: timeOffset + Double(seg.end),
+                        start: chunkStartTime + Double(seg.start),
+                        end: chunkStartTime + Double(seg.end),
                         text: cleaned,
-                        speaker: nil,
+                        speaker: speaker,
                         language: language,
                         translation: nil
                     )
@@ -138,10 +184,18 @@ final class TranscriptionEngine {
 
             if !newSegments.isEmpty {
                 liveSegments.append(contentsOf: newSegments)
+                totalLiveSegmentCount += newSegments.count
+                // Trim in-memory ring so long recordings don't grow unbounded
+                if liveSegments.count > maxInMemorySegments {
+                    let drop = liveSegments.count - maxInMemorySegments
+                    liveSegments.removeFirst(drop)
+                    NSLog("[TranscriptionEngine] trimmed \(drop) older segments from memory")
+                }
                 livePartialText = ""
+                onSegmentsCommitted?(newSegments)
             }
         } catch {
-            NSLog("[TranscriptionEngine] live chunk transcription error: \(error)")
+            NSLog("[TranscriptionEngine] live chunk transcription error (speaker=\(speaker)): \(error)")
         }
     }
 

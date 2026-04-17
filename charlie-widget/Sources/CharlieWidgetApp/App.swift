@@ -8,11 +8,14 @@ struct CharlieWidgetApp: App {
     @State private var store = MessageStore()
     @State private var sessionStore = SessionStore()
     @State private var recorderStore = RecorderStore()
+    @State private var voiceCommandService = VoiceCommandService()
+    @State private var hotkeyManager = HotkeyManager()
+    @State private var recorderHotkeyService = RecorderHotkeyService()
     private let server = SocketServer()
 
     var body: some Scene {
         MenuBarExtra {
-            HistoryView(store: store, sessionStore: sessionStore, recorderStore: recorderStore)
+            HistoryView(store: store, sessionStore: sessionStore, recorderStore: recorderStore, voiceCommandService: voiceCommandService, recorderHotkeyService: recorderHotkeyService)
                 .onAppear {
                     NSApp?.setActivationPolicy(.accessory)
                 }
@@ -23,7 +26,7 @@ struct CharlieWidgetApp: App {
             Image(nsImage: MenuBarIcon.make(
                 unreadByLevel: store.unreadCountsByLevel,
                 sessionDots: dots,
-                isRecording: recorderStore.state == .recording
+                isRecording: recorderStore.state == .recording || voiceCommandService.state == .recording
             ))
         }
         .menuBarExtraStyle(.window)
@@ -191,6 +194,96 @@ struct CharlieWidgetApp: App {
             }
         }
 
+        let voiceCommandService = self.voiceCommandService
+        let hotkeyManager = self.hotkeyManager
+        let recorderHotkeyService = self.recorderHotkeyService
+
+        recorderHotkeyService.setup(
+            recorderStore: recorderStore,
+            messageStore: store,
+            hotkeyManager: hotkeyManager
+        )
+
+        server.onVoiceStart = { connection in
+            voiceCommandService.triggerStart()
+            if voiceCommandService.state == .recording {
+                server.send("{\"ok\":true}\n", to: connection)
+            } else {
+                server.send("{\"error\":\"not idle\"}\n", to: connection)
+            }
+        }
+
+        server.onVoiceStop = { connection in
+            Task {
+                await voiceCommandService.triggerStop()
+                server.send("{\"ok\":true}\n", to: connection)
+            }
+        }
+
+        server.onVoiceStatus = { connection in
+            server.send("{\"state\":\"\(voiceCommandService.state.rawValue)\"}\n", to: connection)
+        }
+
+        server.onRecordLiveTranscript = { tail, connection in
+            let all = recorderStore.liveSegments
+            let segs: [TranscriptSegment] = {
+                if let tail, tail > 0, tail < all.count {
+                    return Array(all.suffix(tail))
+                }
+                return all
+            }()
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys]
+            let isLive = recorderStore.isLiveTranscribing
+            struct Payload: Encodable {
+                let is_live_transcribing: Bool
+                let segment_count: Int
+                let segments: [TranscriptSegment]
+            }
+            let payload = Payload(
+                is_live_transcribing: isLive,
+                segment_count: segs.count,
+                segments: segs
+            )
+            if let data = try? encoder.encode(payload),
+               let json = String(data: data, encoding: .utf8) {
+                server.send(json + "\n", to: connection)
+            } else {
+                server.send("{\"error\":\"encode failed\"}\n", to: connection)
+            }
+        }
+
+        server.onRecordLiveSummary = { connection in
+            guard let summary = recorderStore.liveSummary else {
+                server.send("{\"error\":\"no active live summary\"}\n", to: connection)
+                return
+            }
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            if let data = try? encoder.encode(summary),
+               let json = String(data: data, encoding: .utf8) {
+                server.send(json + "\n", to: connection)
+            } else {
+                server.send("{\"error\":\"encode failed\"}\n", to: connection)
+            }
+        }
+
+        server.onRecordLiveStatus = { connection in
+            let enabled = recorderStore.liveTranscriptionEnabled
+            let isLive = recorderStore.isLiveTranscribing
+            let segCount = recorderStore.liveSegments.count
+            let winCount = recorderStore.liveSummary?.windows.count ?? 0
+            let bulletCount = recorderStore.liveSummary?.runningBullets.count ?? 0
+            let recovered = recorderStore.recoveredPartialCount
+            let payload = """
+            {"enabled":\(enabled),"is_live_transcribing":\(isLive),"segment_count":\(segCount),"window_count":\(winCount),"running_bullet_count":\(bulletCount),"recovered_partial_count":\(recovered)}
+            """
+            server.send(payload + "\n", to: connection)
+        }
+
         server.start()
+
+        voiceCommandService.setup(messageStore: store, hotkeyManager: hotkeyManager)
     }
 }

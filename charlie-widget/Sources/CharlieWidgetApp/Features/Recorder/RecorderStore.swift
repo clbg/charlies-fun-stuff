@@ -45,17 +45,60 @@ final class RecorderStore: Sendable {
     var isTranscribing: Bool { transcriptionEngine.isTranscribing }
     var transcriptionProgress: String { transcriptionEngine.progress }
 
+    // Live transcription (exposed to UI)
+    var isLiveTranscribing: Bool { transcriptionEngine.isLiveTranscribing }
+    var liveSegments: [TranscriptSegment] { transcriptionEngine.liveSegments }
+    var liveSegmentsTail: [TranscriptSegment] {
+        Array(transcriptionEngine.liveSegments.suffix(50))
+    }
+
     // MARK: - Private
 
     private let captureManager = AudioCaptureManager()
-    private let transcriptionEngine = TranscriptionEngine()
+    let transcriptionEngine = TranscriptionEngine()
     private let diarizationProvider: any DiarizationProvider = MockDiarizationProvider()
     private var durationTimer: Task<Void, Never>?
+
+    /// Live transcription on/off — read on each recording start from UserDefaults.
+    static let liveTranscriptionEnabledKey = "CharlieWidget.liveTranscription.enabled"
+    var liveTranscriptionEnabled: Bool {
+        UserDefaults.standard.object(forKey: Self.liveTranscriptionEnabledKey) as? Bool ?? true
+    }
+
+    /// JSONL partial writer for the current recording, if any.
+    private var liveTranscriptWriter: LiveTranscriptWriter?
+
+    /// Rolling summarizer for the current recording, if any.
+    private var rollingSummarizer: RollingSummarizer?
+
+    /// Live summary snapshot for UI.
+    var liveSummary: LiveSummary? { rollingSummarizer?.summary }
+
+    /// Number of orphan partials promoted on last app launch — for UI banner.
+    private(set) var recoveredPartialCount: Int = 0
+
+    nonisolated static func liveSummaryURL(for recording: Recording) -> URL {
+        directoryURL(for: recording.startedAt)
+            .appendingPathComponent("\(recording.filenameStem).live-summary.json")
+    }
+
+    func loadLiveSummary(for recording: Recording) -> LiveSummary? {
+        let url = Self.liveSummaryURL(for: recording)
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        let dec = JSONDecoder()
+        dec.dateDecodingStrategy = .iso8601
+        return try? dec.decode(LiveSummary.self, from: data)
+    }
 
     // MARK: - Init
 
     init() {
         loadTodayRecordings()
+        // Recover any interrupted live transcripts from previous crashes
+        recoveredPartialCount = LiveTranscriptWriter.scanAndPromoteOrphans(in: Self.recordingsBaseURL)
+        if recoveredPartialCount > 0 {
+            loadTodayRecordings()  // refresh so recovered transcripts show up
+        }
     }
 
     // MARK: - Public API
@@ -85,6 +128,15 @@ final class RecorderStore: Sendable {
                 filenameStem: stem
             )
 
+            // Hook live audio → TranscriptionEngine BEFORE starting capture
+            if liveTranscriptionEnabled {
+                captureManager.liveAudioCallback = { [weak transcriptionEngine] samples, speaker in
+                    transcriptionEngine?.feedAudioBuffer(samples, speaker: speaker)
+                }
+            } else {
+                captureManager.liveAudioCallback = nil
+            }
+
             try await captureManager.start(source: source, outputURL: audioURL)
 
             currentRecording = recording
@@ -94,6 +146,43 @@ final class RecorderStore: Sendable {
 
             saveMetadata(recording, in: dayDir)
             startDurationTimer()
+
+            // Kick off live transcription after audio is flowing; model load can take time
+            // but feedAudioBuffer is already accumulating samples thread-safely.
+            if liveTranscriptionEnabled {
+                let partialURL = dayDir.appendingPathComponent("\(stem).transcript.partial")
+                let finalURL = dayDir.appendingPathComponent("\(stem).transcript")
+                let summaryURL = dayDir.appendingPathComponent("\(stem).live-summary.json")
+
+                do {
+                    liveTranscriptWriter = try LiveTranscriptWriter(
+                        partialURL: partialURL, finalURL: finalURL)
+                } catch {
+                    NSLog("[RecorderStore] live transcript writer init failed: \(error)")
+                }
+
+                rollingSummarizer = RollingSummarizer(
+                    recording: recording,
+                    provider: MockWindowSummaryProvider(),
+                    storageURL: summaryURL
+                )
+
+                transcriptionEngine.onSegmentsCommitted = { [weak self] newSegments in
+                    guard let self else { return }
+                    for seg in newSegments {
+                        self.liveTranscriptWriter?.append(seg)
+                    }
+                    self.rollingSummarizer?.ingest(newSegments)
+                }
+
+                Task { [weak self] in
+                    do {
+                        try await self?.transcriptionEngine.startLiveTranscription()
+                    } catch {
+                        NSLog("[RecorderStore] live transcription failed to start: \(error)")
+                    }
+                }
+            }
 
         } catch {
             lastError = error.localizedDescription
@@ -110,6 +199,22 @@ final class RecorderStore: Sendable {
         state = .stopping
         durationTimer?.cancel()
         durationTimer = nil
+
+        // Stop live transcription first so it flushes remaining audio
+        // before the capture pipeline tears down.
+        if transcriptionEngine.isLiveTranscribing {
+            await transcriptionEngine.stopLiveTranscription()
+        }
+        captureManager.liveAudioCallback = nil
+        transcriptionEngine.onSegmentsCommitted = nil
+
+        // Finalize the rolling summary (flushes pending segments + persists)
+        await rollingSummarizer?.finalize()
+        rollingSummarizer = nil
+
+        // Promote .partial → .transcript atomically before recording metadata is finalized
+        liveTranscriptWriter?.finalize()
+        liveTranscriptWriter = nil
 
         do {
             try await captureManager.stop()

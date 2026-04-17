@@ -8,7 +8,7 @@ Background audio recording with transcription, speaker diarization, translation,
 
 - ✅ Phase 1: Core recording (mic / system / both modes)
 - ✅ Phase 2: Offline transcription via WhisperKit (multi-track support)
-- ✅ Phase 3: Real-time transcription (chunked WhisperKit, 5s buffers)
+- ✅ Phase 3: Real-time transcription wired into recording (per-speaker chunking, crash recovery, rolling summary)
 - ✅ Phase 4: Speaker diarization (mock provider; AWS Transcribe stubbed)
 - ✅ Phase 5: Voice print matching + translation (mock providers; sherpa-onnx/AWS Translate stubbed)
 - ✅ Phase 6: Daily summary (mock provider; Bedrock Claude stubbed)
@@ -94,15 +94,80 @@ Transcript saved as `<stem>.transcript` JSON alongside `.m4a`:
 
 ## Real-time Transcription (Phase 3)
 
-Chunked approach — buffers 5 seconds of 16kHz audio, transcribes each chunk via WhisperKit, appends to `liveSegments`.
+Wired into the recording pipeline: when a recording starts with live transcription enabled, the `AudioCaptureManager.liveAudioCallback` forwards 16kHz mono samples to `TranscriptionEngine.feedAudioBuffer(_:speaker:)`, tagged by source (`"mic"` or `"system"`).
 
-- **AudioCaptureManager** forwards audio to `TranscriptionEngine.feedAudioBuffer()` via `liveAudioCallback`
-- Resamples from 48kHz to 16kHz using `AVAudioConverter` before forwarding
-- Thread-safe buffer using `OSAllocatedUnfairLock`
-- `liveSegments`, `livePartialText`, `isLiveTranscribing` are @Observable for UI binding
-- Start/stop via `TranscriptionEngine.startLiveTranscription()` / `stopLiveTranscription()`
+### Per-speaker buffers
 
-Note: Live transcription UI in RecorderView is not yet connected — segments are available but not displayed during recording.
+Each speaker has its own accumulator inside `TranscriptionEngine.liveBuffers`. The transcription loop transcribes a speaker's buffer when it has ≥ 5 seconds queued. Segments are tagged with the speaker label, preserving dual-track attribution without post-hoc diarization.
+
+### Timestamp accuracy
+
+Chunk start time = `(totalIngestedSamples - chunkLength) / 16000`. Uses cumulative sample count ingested into `feedAudioBuffer`, not wall-clock or `liveSegments.last.end`, so timestamps don't drift under backpressure (slow WhisperKit chunk or UI stalls).
+
+### Memory cap
+
+`liveSegments` is capped at 500 entries in-memory — older segments are trimmed but remain on disk in the `.transcript.partial` file. UI reads `liveSegmentsTail` (last 50).
+
+### Crash recovery
+
+Each committed segment is appended as one JSON line to `{stem}.transcript.partial`. On normal stop, the partial is atomically promoted to `{stem}.transcript` (pretty JSON, matches offline schema) and the partial is deleted. On app launch, `LiveTranscriptWriter.scanAndPromoteOrphans` walks day directories and promotes any `.partial` without a corresponding `.transcript`, logging the count to `RecorderStore.recoveredPartialCount` for the UI banner.
+
+### Toggle
+
+`UserDefaults` key `CharlieWidget.liveTranscription.enabled` (default `true`). Controlled by the Settings toggle. Changes take effect on the next recording — mid-recording toggles are ignored.
+
+### CLI
+
+```bash
+charlie-widget record live-transcript            # current liveSegments as JSON
+charlie-widget record live-transcript --tail 20  # last N segments
+charlie-widget record live-status                # recording + live transcription state
+```
+
+## Rolling Summary
+
+While recording, `RollingSummarizer` consumes newly-committed segments via `TranscriptionEngine.onSegmentsCommitted` and flushes a window summary when ALL of these hold:
+
+- A speaker change has occurred since the last flush
+- ≥ 90 seconds elapsed since last flush
+- ≥ 200 new characters of text accumulated
+
+OR a 5-minute hard ceiling is hit (guards against long monologues).
+
+### Output
+
+`{stem}.live-summary.json` is written atomically on every flush. Schema:
+
+```json
+{
+  "recordingId": "UUID",
+  "runningBullets": ["[00:32] we discussed the migration timeline", "..."],
+  "windows": [
+    {
+      "startOffset": 0.0,
+      "endOffset": 142.3,
+      "segmentCount": 18,
+      "bullets": ["...", "..."],
+      "speakersPresent": ["mic", "system"]
+    }
+  ],
+  "lastUpdatedAt": "2026-04-17T14:30:22Z"
+}
+```
+
+### Providers
+
+Protocol: `WindowSummaryProvider.summarizeWindow(segments:priorRunningBullets:)`.
+- `MockWindowSummaryProvider` (current): extracts 2-4 snippets per window, appends 1 running bullet per flush tagged with the window's start offset.
+- Future: Bedrock Claude Haiku — same prompt family as `BedrockSummaryProvider.buildPrompt` but window-scoped with prior running bullets as context.
+
+Running bullets are capped at 50 (oldest dropped) so long recordings don't unbounded-grow.
+
+### CLI
+
+```bash
+charlie-widget record live-summary               # dump current live summary JSON
+```
 
 ## Speaker Diarization (Phase 4)
 
@@ -161,6 +226,38 @@ protocol SummaryProvider: Sendable {
 - **BedrockSummaryProvider** (stubbed): Full prompt template for Claude Haiku defined (groups by meeting, extracts action items, handles multi-language). ~$0.04/day.
 - Output: `daily-summary.json` in the day's recording directory
 
+## Voice Command (Hotkey → Transcribe → iTerm)
+
+Press a global hotkey to record a voice command, transcribe it via WhisperKit, and send the text to Claude Code in iTerm.
+
+### Flow
+1. **Option+V** (default) → starts mic recording, shows toast
+2. **Option+V** again → stops recording → transcribes offline → sends to iTerm via AppleScript
+3. Toast shows transcribed text on success
+
+### Architecture
+- **HotkeyManager** — Carbon `RegisterEventHotKey` API (no Accessibility permission needed)
+- **VoiceCommandService** — state machine (idle → recording → transcribing → idle)
+- **VoiceMicRecorder** — lightweight AVAudioEngine → 16kHz mono WAV (WhisperKit-ready, no format conversion needed)
+- Uses its own `TranscriptionEngine` instance (separate from RecorderStore)
+- Uses its own `AVAudioEngine` (independent of RecorderStore's AudioCaptureManager)
+
+### iTerm integration
+AppleScript `write text` sends the transcribed text to iTerm's current session (includes newline, so it submits to Claude Code). Creates a new window if none exists.
+
+### Permissions
+- **Microphone** — same as recorder
+- **Automation** — macOS prompts on first AppleScript send to iTerm. `NSAppleEventsUsageDescription` in Info.plist provides the dialog text.
+
+### Configuration (Settings tab)
+- **Hotkey recorder**: click "⌥V" button → press new shortcut → saved to UserDefaults
+- **Enable/disable toggle**: turns hotkey registration on/off
+- **Status display**: shows Ready / Recording / Transcribing / Disabled
+- Hotkey persisted across restarts via `CharlieWidget.voiceCommand.keyCode/modifiers/enabled`
+
+### Menu bar indicator
+Red dot shows during voice command recording (same indicator as recorder).
+
 ## CLI Reference
 
 ```bash
@@ -189,6 +286,12 @@ charlie-widget record diarize <id>                 # assign speaker labels (mock
 charlie-widget record identify <id>                # voice identification + translation
 charlie-widget record summary                      # today's daily summary
 charlie-widget record summary --date 2026-04-16    # specific date
+
+# Live state (during recording)
+charlie-widget record live-transcript              # current liveSegments as JSON
+charlie-widget record live-transcript --tail 20    # last 20 segments only
+charlie-widget record live-summary                 # current rolling summary
+charlie-widget record live-status                  # isLiveTranscribing, counts, enabled
 ```
 
 ## Data Storage
@@ -197,10 +300,12 @@ Location: `~/Library/Application Support/CharlieWidget/`
 
 ```
 recordings/2026-04-16/
-  recording-143022.m4a           # Audio (AAC 48kHz mono, or dual-track in both mode)
-  recording-143022.json          # Metadata (started_at, ended_at, duration, source, sample_rate)
-  recording-143022.transcript    # Transcript JSON (segments with speaker/language/translation)
-  daily-summary.json             # Daily summary (after running `record summary`)
+  recording-143022.m4a                 # Audio (AAC 48kHz mono, or dual-track in both mode)
+  recording-143022.json                # Metadata (started_at, ended_at, duration, source, sample_rate)
+  recording-143022.transcript          # Transcript JSON (segments with speaker/language/translation)
+  recording-143022.transcript.partial  # JSONL live segments during recording (atomically promoted to .transcript on stop)
+  recording-143022.live-summary.json   # Rolling summary (running bullets + per-window recaps)
+  daily-summary.json                   # Daily summary (after running `record summary`)
 
 speakers.json                    # Speaker name mappings (SpeakerManager)
 voiceprints.json                 # Enrolled voice print profiles (VoicePrintStore)
@@ -281,15 +386,27 @@ Sources/CharlieWidgetApp/Features/Recorder/
   TranslationService.swift     # TranslationProvider protocol + Mock + AWS Translate stub
   PostProcessingPipeline.swift # Voice identification + translation pipeline (standalone, composable)
   DailySummaryService.swift    # SummaryProvider protocol + Mock + Bedrock Claude stub + DailySummary model
+  LiveTranscriptWriter.swift   # JSONL append-only partial writer + orphan recovery
+  RollingSummarizer.swift      # Speaker-change+time+chars trigger, WindowSummaryProvider, LiveSummary schema
+
+Sources/CharlieWidgetApp/Features/VoiceCommand/
+  HotkeyManager.swift          # Carbon RegisterEventHotKey wrapper (global hotkey, no Accessibility permission)
+  VoiceCommandService.swift    # Hotkey → mic record → WhisperKit transcribe → AppleScript to iTerm
+
+Sources/CharlieWidgetApp/Features/Settings/
+  SettingsView.swift           # Settings tab: hotkey recorder, enable/disable toggle, status display
 ```
 
 ## Future Work
 
-- [ ] Connect live transcription UI in RecorderView (data is available, display not wired)
+- [ ] Connect live transcription UI in RecorderView (DONE — Phase 3)
 - [ ] UI buttons for diarize/identify/summary (currently CLI-only)
-- [ ] Implement real AWS Transcribe provider (replace mock diarization)
-- [ ] Implement sherpa-onnx voice print extraction (replace mock embeddings)
-- [ ] Implement Amazon Translate provider (replace mock translation)
-- [ ] Implement Bedrock Claude summary provider (replace mock summaries)
+- [ ] WhisperKit streaming mode (sliding window + token confirmation — fixes chunk-boundary breakage)
+- [ ] AWS Transcribe optional backend (for single-track 3+ speaker scenarios)
+- [ ] Pyannote / SpeakerKit local diarization (replace mock diarization)
+- [ ] VAD-aligned live chunking (currently fixed 5s)
+- [ ] Overlap-window chunking (lightweight chunk-boundary fix)
+- [ ] Second-pass offline re-transcription after recording for final quality
+- [ ] Battery-aware auto-disable of live transcription
+- [ ] Real BedrockWindowSummaryProvider (replace mock)
 - [ ] Speaker enrollment UI (record voice sample → create profile)
-- [ ] Merge SpeakerManager and VoicePrintStore (overlapping responsibility)
