@@ -5,6 +5,7 @@ enum DropdownTab: String, CaseIterable {
     case messages = "Messages"
     case sessions = "Sessions"
     case recorder = "Recorder"
+    case settings = "Settings"
 }
 
 struct HistoryView: View {
@@ -12,6 +13,9 @@ struct HistoryView: View {
     @Bindable var store: MessageStore
     var sessionStore: SessionStore
     var recorderStore: RecorderStore
+    var voiceCommandService: VoiceCommandService
+    var recorderHotkeyService: RecorderHotkeyService
+    var liveTranscriptWindow: LiveTranscriptWindowController
     @State private var selectedTab: DropdownTab = .messages
     @State private var selectedMessageID: UUID?
     @State private var copiedMessageID: UUID?
@@ -30,7 +34,9 @@ struct HistoryView: View {
             case .messages:
                 messagesTab
             case .recorder:
-                RecorderView(recorderStore: recorderStore)
+                RecorderView(recorderStore: recorderStore, liveTranscriptWindow: liveTranscriptWindow)
+            case .settings:
+                SettingsView(voiceCommandService: voiceCommandService, recorderHotkeyService: recorderHotkeyService, recorderStore: recorderStore)
             }
 
             Divider()
@@ -52,8 +58,13 @@ struct HistoryView: View {
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        Text(tab.rawValue)
-                            .font(.system(size: 12, weight: selectedTab == tab ? .semibold : .regular))
+                        if tab == .settings {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: 12, weight: selectedTab == tab ? .semibold : .regular))
+                        } else {
+                            Text(tab.rawValue)
+                                .font(.system(size: 12, weight: selectedTab == tab ? .semibold : .regular))
+                        }
                         badge(for: tab)
                     }
                     .frame(maxWidth: .infinity)
@@ -97,6 +108,8 @@ struct HistoryView: View {
                     .fill(Color.red)
                     .frame(width: 6, height: 6)
             }
+        case .settings:
+            EmptyView()
         }
     }
 

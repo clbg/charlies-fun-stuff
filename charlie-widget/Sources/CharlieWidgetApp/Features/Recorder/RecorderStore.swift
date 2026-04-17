@@ -65,6 +65,18 @@ final class RecorderStore: Sendable {
         UserDefaults.standard.object(forKey: Self.liveTranscriptionEnabledKey) as? Bool ?? true
     }
 
+    /// Per-speaker language overrides. Empty string / "auto" means auto-detect.
+    /// Any other ISO code (zh, en, ja, ...) is passed to WhisperKit, skipping detection.
+    static let micLanguageKey = "CharlieWidget.liveTranscription.micLanguage"
+    static let systemLanguageKey = "CharlieWidget.liveTranscription.systemLanguage"
+
+    var micLanguage: String {
+        UserDefaults.standard.string(forKey: Self.micLanguageKey) ?? "auto"
+    }
+    var systemLanguage: String {
+        UserDefaults.standard.string(forKey: Self.systemLanguageKey) ?? "auto"
+    }
+
     /// JSONL partial writer for the current recording, if any.
     private var liveTranscriptWriter: LiveTranscriptWriter?
 
@@ -174,6 +186,12 @@ final class RecorderStore: Sendable {
                     }
                     self.rollingSummarizer?.ingest(newSegments)
                 }
+
+                // Apply user language overrides before starting live transcription
+                transcriptionEngine.setLanguageOverrides([
+                    "mic": micLanguage,
+                    "system": systemLanguage,
+                ])
 
                 Task { [weak self] in
                     do {

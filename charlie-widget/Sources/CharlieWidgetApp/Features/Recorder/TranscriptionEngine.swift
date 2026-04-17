@@ -45,6 +45,36 @@ final class TranscriptionEngine {
         var ingestedSampleCount: Int64 = 0  // cumulative samples seen for this speaker
     }
 
+    /// Per-speaker locked language. Once a speaker's language is detected with
+    /// high confidence (or set by user override), all subsequent chunks for that
+    /// speaker pass `language:` explicitly, skipping Whisper's unreliable
+    /// per-chunk detection on short (5s) windows.
+    private var lockedLanguages: [String: String] = [:]
+
+    /// User overrides by speaker label, set via `setLanguageOverrides(_:)`.
+    /// A value of `"auto"` or `nil` means "detect". Anything else locks the language.
+    private var languageOverrides: [String: String] = [:]
+
+    /// Log-prob threshold (linear prob) for locking an auto-detected language.
+    private let languageLockProbability: Float = 0.6
+
+    /// Set user language overrides. Called by RecorderStore at recording start
+    /// from Settings UserDefaults. Keys are speaker labels ("mic", "system").
+    /// Value "auto" or empty string means auto-detect for that speaker.
+    func setLanguageOverrides(_ overrides: [String: String]) {
+        var locked: [String: String] = [:]
+        var effective: [String: String] = [:]
+        for (speaker, lang) in overrides {
+            let trimmed = lang.trimmingCharacters(in: .whitespaces).lowercased()
+            if !trimmed.isEmpty && trimmed != "auto" {
+                effective[speaker] = trimmed
+                locked[speaker] = trimmed
+            }
+        }
+        languageOverrides = effective
+        lockedLanguages = locked
+    }
+
     private var liveTranscriptionTask: Task<Void, Never>?
 
     /// Cap on segments kept in RAM. Older ones are trimmed; disk copy is authoritative.
@@ -75,6 +105,9 @@ final class TranscriptionEngine {
         totalLiveSegmentCount = 0
         livePartialText = ""
         liveBuffers.withLock { $0 = [:] }
+        // Reset language locks to user overrides only — auto-detected locks from a
+        // previous recording should not leak in (different meeting, different people)
+        lockedLanguages = languageOverrides
         isLiveTranscribing = true
 
         // Start a background loop that periodically transcribes buffered audio
@@ -156,17 +189,20 @@ final class TranscriptionEngine {
         let startSampleCount = endSampleCount - Int64(samples.count)
         let chunkStartTime = Double(startSampleCount) / Self.whisperSampleRate
 
+        // Resolve language for this chunk — prefer locked > one-shot detect on first ≥15s chunk
+        let hintLanguage = await resolveLanguage(for: speaker, samples: samples, kit: kit)
+
         do {
             let results: [TranscriptionResult] = try await kit.transcribe(
                 audioArray: samples,
                 decodeOptions: DecodingOptions(
                     task: .transcribe,
-                    language: nil,
+                    language: hintLanguage,
                     wordTimestamps: false
                 )
             )
 
-            let language = results.first?.language ?? "en"
+            let language = results.first?.language ?? hintLanguage ?? "en"
             let newSegments: [TranscriptSegment] = results.flatMap { result in
                 result.segments.compactMap { seg in
                     let cleaned = TranscriptionEngine.cleanText(seg.text)
@@ -197,6 +233,42 @@ final class TranscriptionEngine {
         } catch {
             NSLog("[TranscriptionEngine] live chunk transcription error (speaker=\(speaker)): \(error)")
         }
+    }
+
+    /// Returns the language to pass to WhisperKit for this chunk, or nil to let
+    /// Whisper auto-detect. Strategy:
+    /// 1. If the speaker has a locked language (user override or previously detected
+    ///    with high confidence), return it — skips Whisper's unreliable per-chunk LID.
+    /// 2. Otherwise, if this chunk is ≥15s, run `detectLangauge` once and lock the
+    ///    result if its probability > languageLockProbability. Returns the detected
+    ///    language for this chunk regardless (better than nil on the 15s window).
+    /// 3. Otherwise return nil (lets Whisper auto-detect, will be flaky on short audio).
+    private func resolveLanguage(for speaker: String, samples: [Float], kit: WhisperKit) async -> String? {
+        if let locked = lockedLanguages[speaker] {
+            return locked
+        }
+        // Only spend on language detection once we have enough audio for it to be reliable.
+        // Whisper's LID uses a 30s mel window; 15s is the smallest window we've seen
+        // perform acceptably in community reports.
+        let detectMinFrames = Int(15 * Self.whisperSampleRate)
+        guard samples.count >= detectMinFrames else { return nil }
+        do {
+            let (lang, probs) = try await kit.detectLangauge(audioArray: samples)
+            let prob = probs[lang] ?? 0
+            NSLog("[TranscriptionEngine] detected language for \(speaker): \(lang) (prob=\(prob))")
+            if prob >= languageLockProbability {
+                lockedLanguages[speaker] = lang
+            }
+            return lang
+        } catch {
+            NSLog("[TranscriptionEngine] detectLangauge failed for \(speaker): \(error)")
+            return nil
+        }
+    }
+
+    /// Reset the language cache mid-recording — e.g. user corrected the Settings override.
+    func resetLanguageLocks() {
+        lockedLanguages = languageOverrides
     }
 
     /// Transcribe an audio file and return transcript segments.

@@ -16,6 +16,19 @@ struct SettingsView: View {
     @State private var eventMonitor: Any?
 
     @AppStorage("CharlieWidget.liveTranscription.enabled") private var liveTranscriptionEnabled: Bool = true
+    @AppStorage("CharlieWidget.liveTranscription.micLanguage") private var micLanguage: String = "auto"
+    @AppStorage("CharlieWidget.liveTranscription.systemLanguage") private var systemLanguage: String = "auto"
+
+    private static let languageChoices: [(code: String, label: String)] = [
+        ("auto", "Auto-detect"),
+        ("en", "English"),
+        ("zh", "Chinese"),
+        ("ja", "Japanese"),
+        ("ko", "Korean"),
+        ("es", "Spanish"),
+        ("fr", "French"),
+        ("de", "German"),
+    ]
 
     var body: some View {
         ScrollView {
@@ -59,9 +72,35 @@ struct SettingsView: View {
 
                 liveTranscriptionToggleRow
 
+                Divider().padding(.horizontal, 12)
+
+                languageRow(label: "Mic Language", icon: "mic", selection: $micLanguage)
+
+                Divider().padding(.horizontal, 12)
+
+                languageRow(label: "System Language", icon: "speaker.wave.2", selection: $systemLanguage)
+
                 liveTranscriptionFooter
             }
         }
+    }
+
+    private func languageRow(label: String, icon: String, selection: Binding<String>) -> some View {
+        HStack {
+            Label(label, systemImage: icon)
+                .font(.system(size: 12))
+            Spacer()
+            Picker("", selection: selection) {
+                ForEach(Self.languageChoices, id: \.code) { choice in
+                    Text(choice.label).tag(choice.code)
+                }
+            }
+            .pickerStyle(.menu)
+            .controlSize(.small)
+            .frame(maxWidth: 140)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 
     // MARK: - Transcription Section

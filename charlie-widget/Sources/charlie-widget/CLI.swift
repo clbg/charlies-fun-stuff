@@ -24,6 +24,8 @@ struct CLI {
             await handleRecord(Array(args.dropFirst()))
         case "voice":
             await handleVoice(Array(args.dropFirst()))
+        case "bubble":
+            await handleBubble(Array(args.dropFirst()))
         default:
             fputs("Unknown command: \(subcommand)\n", stderr)
             printUsage()
@@ -356,6 +358,20 @@ struct CLI {
             let json = "{\"command\":\"record_live_status\"}\n"
             await sendAndPrintResponse(json)
 
+        case "pin":
+            let action: String = {
+                if args.count > 1 {
+                    switch args[1] {
+                    case "show", "on", "open": return "show"
+                    case "hide", "off", "close": return "hide"
+                    default: return "toggle"
+                    }
+                }
+                return "toggle"
+            }()
+            let json = "{\"command\":\"record_pin\",\"action\":\"\(action)\"}\n"
+            await sendAndPrintResponse(json)
+
         default:
             fputs("Unknown record action: \(action)\n", stderr)
             fputs("Usage: charlie-widget record <start|stop|status|list|transcribe|diarize|identify|summary>\n", stderr)
@@ -395,6 +411,33 @@ struct CLI {
         default:
             fputs("Unknown voice action: \(action)\n", stderr)
             fputs("Usage: charlie-widget voice <start|stop|status>\n", stderr)
+            exit(1)
+        }
+    }
+
+    // MARK: - Bubble subcommand
+
+    private static func handleBubble(_ args: [String]) async {
+        guard let action = args.first else {
+            fputs("Usage: charlie-widget bubble <on|off|status>\n", stderr)
+            exit(1)
+        }
+
+        switch action {
+        case "on":
+            let json = "{\"command\":\"bubble_on\"}\n"
+            await sendAndExpectOK(json)
+            print("Bubble overlay enabled")
+        case "off":
+            let json = "{\"command\":\"bubble_off\"}\n"
+            await sendAndExpectOK(json)
+            print("Bubble overlay disabled")
+        case "status":
+            let json = "{\"command\":\"bubble_status\"}\n"
+            await sendAndPrintResponse(json)
+        default:
+            fputs("Unknown bubble action: \(action)\n", stderr)
+            fputs("Usage: charlie-widget bubble <on|off|status>\n", stderr)
             exit(1)
         }
     }
@@ -532,6 +575,10 @@ struct CLI {
           charlie-widget record live-transcript --tail 20  Last N segments only
           charlie-widget record live-summary          Current rolling summary (JSON)
           charlie-widget record live-status           Live state (flags + counts)
+          charlie-widget record pin [show|hide|toggle]  Toggle pinned floating transcript window
+          charlie-widget bubble on             Enable bubble screensaver overlay
+          charlie-widget bubble off            Disable bubble screensaver overlay
+          charlie-widget bubble status         Show bubble overlay status
           charlie-widget voice start           Start voice command recording
           charlie-widget voice stop            Stop, transcribe, send to iTerm
           charlie-widget voice status          Current voice command state

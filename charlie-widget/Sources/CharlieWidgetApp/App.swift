@@ -11,11 +11,13 @@ struct CharlieWidgetApp: App {
     @State private var voiceCommandService = VoiceCommandService()
     @State private var hotkeyManager = HotkeyManager()
     @State private var recorderHotkeyService = RecorderHotkeyService()
+    @State private var liveTranscriptWindow = LiveTranscriptWindowController()
+    @State private var bubbleController = BubbleOverlayController()
     private let server = SocketServer()
 
     var body: some Scene {
         MenuBarExtra {
-            HistoryView(store: store, sessionStore: sessionStore, recorderStore: recorderStore, voiceCommandService: voiceCommandService, recorderHotkeyService: recorderHotkeyService)
+            HistoryView(store: store, sessionStore: sessionStore, recorderStore: recorderStore, voiceCommandService: voiceCommandService, recorderHotkeyService: recorderHotkeyService, liveTranscriptWindow: liveTranscriptWindow)
                 .onAppear {
                     NSApp?.setActivationPolicy(.accessory)
                 }
@@ -41,6 +43,7 @@ struct CharlieWidgetApp: App {
         let store = self.store
         let server = self.server
         let recorderStore = self.recorderStore
+        let liveTranscriptWindow = self.liveTranscriptWindow
 
         server.onToast = { title, subtitle, body, level in
             store.addMessage(title: title, subtitle: subtitle, body: body, level: level)
@@ -276,13 +279,51 @@ struct CharlieWidgetApp: App {
             let winCount = recorderStore.liveSummary?.windows.count ?? 0
             let bulletCount = recorderStore.liveSummary?.runningBullets.count ?? 0
             let recovered = recorderStore.recoveredPartialCount
+            let pinned = liveTranscriptWindow.isVisible
             let payload = """
-            {"enabled":\(enabled),"is_live_transcribing":\(isLive),"segment_count":\(segCount),"window_count":\(winCount),"running_bullet_count":\(bulletCount),"recovered_partial_count":\(recovered)}
+            {"enabled":\(enabled),"is_live_transcribing":\(isLive),"segment_count":\(segCount),"window_count":\(winCount),"running_bullet_count":\(bulletCount),"recovered_partial_count":\(recovered),"pinned":\(pinned)}
             """
             server.send(payload + "\n", to: connection)
         }
 
+        server.onRecordPin = { action, connection in
+            switch action {
+            case "show":
+                liveTranscriptWindow.show(store: recorderStore)
+            case "hide":
+                liveTranscriptWindow.hide()
+            default:
+                liveTranscriptWindow.toggle(store: recorderStore)
+            }
+            server.send("{\"ok\":true,\"pinned\":\(liveTranscriptWindow.isVisible)}\n", to: connection)
+        }
+
+        let bubbleController = self.bubbleController
+
+        server.onBubbleOn = { connection in
+            bubbleController.isEnabled = true
+            server.send("{\"ok\":true}\n", to: connection)
+        }
+
+        server.onBubbleOff = { connection in
+            bubbleController.isEnabled = false
+            server.send("{\"ok\":true}\n", to: connection)
+        }
+
+        server.onBubbleStatus = { connection in
+            let enabled = bubbleController.isEnabled
+            let count = bubbleController.bubbles.count
+            server.send("{\"enabled\":\(enabled),\"bubble_count\":\(count)}\n", to: connection)
+        }
+
         server.start()
+
+        bubbleController.observeSessions(sessionStore)
+
+        // Restore pinned transcript window if it was visible on last quit
+        Task { @MainActor in
+            liveTranscriptWindow.restoreIfNeeded(store: recorderStore)
+        }
 
         voiceCommandService.setup(messageStore: store, hotkeyManager: hotkeyManager)
     }

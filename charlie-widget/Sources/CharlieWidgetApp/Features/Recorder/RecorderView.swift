@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RecorderView: View {
     var recorderStore: RecorderStore
+    var liveTranscriptWindow: LiveTranscriptWindowController
     @State private var selectedSource: AudioSource = .both
     @State private var expandedTranscriptId: UUID?
     @State private var renamingId: UUID?
@@ -71,12 +72,26 @@ struct RecorderView: View {
 
     private var liveTranscriptPanel: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Live transcript")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-                .padding(.horizontal, 12)
-                .padding(.top, 6)
+            HStack {
+                Text("Live transcript")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                Spacer()
+                Button {
+                    liveTranscriptWindow.toggle(store: recorderStore)
+                } label: {
+                    Image(systemName: liveTranscriptWindow.isVisible ? "pin.slash.fill" : "pin.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(liveTranscriptWindow.isVisible ? Color.accentColor : Color.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(liveTranscriptWindow.isVisible
+                      ? "Unpin (hide floating window)"
+                      : "Pin transcript to floating window")
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 6)
 
             ScrollViewReader { proxy in
                 ScrollView {

@@ -39,6 +39,10 @@ final class SocketServer: Sendable {
     var onRecordLiveTranscript: (@MainActor @Sendable (Int?, NWConnection) -> Void)?
     var onRecordLiveSummary: (@MainActor @Sendable (NWConnection) -> Void)?
     var onRecordLiveStatus: (@MainActor @Sendable (NWConnection) -> Void)?
+    var onRecordPin: (@MainActor @Sendable (String, NWConnection) -> Void)?  // action: "show"|"hide"|"toggle"
+    var onBubbleOn: (@MainActor @Sendable (NWConnection) -> Void)?
+    var onBubbleOff: (@MainActor @Sendable (NWConnection) -> Void)?
+    var onBubbleStatus: (@MainActor @Sendable (NWConnection) -> Void)?
 
     // MARK: - Private state
 
@@ -261,6 +265,19 @@ final class SocketServer: Sendable {
 
         case "record_live_status":
             onRecordLiveStatus?(connection)
+
+        case "record_pin":
+            let action = json["action"] as? String ?? "toggle"
+            onRecordPin?(action, connection)
+
+        case "bubble_on":
+            onBubbleOn?(connection)
+
+        case "bubble_off":
+            onBubbleOff?(connection)
+
+        case "bubble_status":
+            onBubbleStatus?(connection)
 
         default:
             send("{\"error\":\"unknown command: \(command)\"}\n", to: connection)
