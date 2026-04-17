@@ -33,7 +33,17 @@ actor SpeechRecognizer {
     /// Download (if needed) and load the Whisper model.
     func initialize() async throws {
         print("[STT] Loading WhisperKit model...")
-        kit = try await WhisperKit(model: "large-v3-v20240930_626MB", verbose: false)
+
+        let cachedPath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/huggingface/models/argmaxinc/whisperkit-coreml/openai_whisper-large-v3-v20240930_626MB")
+            .path
+
+        if FileManager.default.fileExists(atPath: cachedPath) {
+            print("[STT] Using cached model at \(cachedPath)")
+            kit = try await WhisperKit(WhisperKitConfig(modelFolder: cachedPath, verbose: false))
+        } else {
+            kit = try await WhisperKit(model: "large-v3-v20240930_626MB", verbose: false)
+        }
         print("[STT] WhisperKit ready")
     }
 
