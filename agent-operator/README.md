@@ -28,19 +28,30 @@ Phone (RJ11) → HT802 (FXS ATA) → Asterisk (PBX)
 - Linphone (SIP softphone, for dev testing)
 - `claude` CLI in PATH
 
-## Quick Start
+## Quick Start (Phase 0 — no SIP)
 
 ```bash
-# 1. Install Asterisk and configure
-brew install asterisk
-make sip-config    # copies asterisk/*.conf to /opt/homebrew/etc/asterisk/
-make sip-up        # starts Asterisk
+make build
+swift run AgentOperatorApp --listen            # 8s default
+swift run AgentOperatorApp --listen --seconds 12
+```
+
+Speak into your Mac mic — WhisperKit transcribes → Claude answers → prints to terminal.
+
+## Quick Start (Phase 1 — with SIP)
+
+> **Note**: Asterisk has no Homebrew formula on macOS. Use FreeSWITCH (`brew install freeswitch`) or Docker Asterisk. See `asterisk/` for config files (need format conversion for FreeSWITCH).
+
+```bash
+# 1. Install FreeSWITCH (or Docker Asterisk)
+brew install freeswitch
+# TODO: convert asterisk/ configs to FreeSWITCH format
 
 # 2. Build and run
 make build
 swift run AgentOperatorApp
 
-# 3. Configure Linphone
+# 3. Configure Linphone or baresip (brew install baresip)
 #    SIP account: linphone / linphone123 @ 127.0.0.1:5060
 #    Dial 6000 — speak into mic — see Claude response in terminal
 ```

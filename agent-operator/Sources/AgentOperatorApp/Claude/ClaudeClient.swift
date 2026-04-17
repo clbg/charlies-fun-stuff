@@ -72,7 +72,7 @@ actor ClaudeClient {
         process.arguments = [
             "--bare",
             "-p", prompt,
-            "--output-format", "stream-json",
+            "--output-format", "text",
             "--allowed-tools", allowedTools,
         ]
 
@@ -83,21 +83,18 @@ actor ClaudeClient {
 
         try process.run()
 
-        let resultText: String? = try await withThrowingTaskGroup(of: String?.self) { group in
-            // Task 1 — read stdout and parse stream-json
+        let resultText: String = try await withThrowingTaskGroup(of: String.self) { group in
             group.addTask {
-                try await self.parseStream(from: stdoutPipe.fileHandleForReading)
+                let data = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+                return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             }
 
-            // Task 2 — enforce timeout
             group.addTask {
                 try await Task.sleep(nanoseconds: UInt64(self.timeout * 1_000_000_000))
                 process.terminate()
                 throw Error.timedOut
             }
 
-            // Return the first successful value (the parser result).
-            // If the timeout fires first, its thrown error propagates.
             let value = try await group.next()!
             group.cancelAll()
             return value
@@ -111,10 +108,10 @@ actor ClaudeClient {
             throw Error.processFailure(exitCode: process.terminationStatus, stderr: stderrString)
         }
 
-        guard let text = resultText else {
+        if resultText.isEmpty {
             throw Error.noResultEvent
         }
-        return text
+        return resultText
     }
 
     // MARK: - Private helpers
@@ -163,6 +160,7 @@ actor ClaudeClient {
     private static func defaultClaudePath() -> String {
         // Try common locations.
         let candidates = [
+            "\(FileManager.default.homeDirectoryForCurrentUser.path)/.local/bin/claude",
             "/usr/local/bin/claude",
             "/opt/homebrew/bin/claude",
         ]
@@ -171,7 +169,6 @@ actor ClaudeClient {
                 return path
             }
         }
-        // Fall back — let Process resolve via PATH at runtime.
-        return "/usr/local/bin/claude"
+        return candidates[0]
     }
 }
