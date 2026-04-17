@@ -132,7 +132,7 @@ charlie-widget sessions --clear      # remove all session files
 
 ### What it does
 
-Background audio recording with transcription, speaker diarization, translation, and daily summaries. Captures system audio (including Zoom meetings) and microphone input. Designed for an AWS corporate environment.
+Background audio recording with real-time transcription, speaker diarization, translation, and daily summaries. Captures system audio (including Zoom meetings) and microphone input. All six implementation phases are complete.
 
 ### Architecture: Local-First + AWS Cloud
 
@@ -141,10 +141,10 @@ Two-layer approach to minimize cost and maximize privacy:
 **Local (on-device, free):**
 - Audio capture: ScreenCaptureKit (system/app audio) + AVAudioEngine (mic input)
 - Transcription: WhisperKit (CoreML-optimized Whisper, SPM package)
-  - `tiny`/`base` model for real-time preview during recording
-  - `small`/`medium` model for high-quality offline batch transcription
+  - Real-time streaming transcription during recording (per-speaker chunking)
+  - Offline batch transcription for high-quality post-recording results
 - Translation: Apple Translation framework (macOS 15+, on-device, EN↔JA)
-- Speaker voice identification (V2): sherpa-onnx with WeSpeaker CAM++ (~29 MB ONNX, C API)
+- Speaker voice identification: sherpa-onnx with WeSpeaker CAM++ (~29 MB ONNX, C API)
 
 **AWS Cloud:**
 - Speaker diarization: Amazon Transcribe (built-in, up to 30 speakers, $0.024/min)
@@ -165,18 +165,43 @@ Two-layer approach to minimize cost and maximize privacy:
 - Record/Stop toggle — click to start/stop background recording
 - Recording indicator: red dot when recording
 - Recorder status visible in dropdown (new tab or section)
+- Global hotkey for record toggle (`RecorderHotkeyService`)
 
 ### CLI
 
 ```bash
+# Recording lifecycle
 charlie-widget record start              # start recording (system audio + mic)
-charlie-widget record start --mic-only   # mic only
+charlie-widget record start --mic        # mic only
+charlie-widget record start --system     # system audio only
 charlie-widget record stop               # stop recording
 charlie-widget record status             # current recording state + duration
 charlie-widget record list               # list today's recordings
-charlie-widget record transcribe <id>    # run offline transcription on a recording
-charlie-widget record summary            # generate daily summary
-charlie-widget record summary --date 2026-04-15  # summary for specific date
+
+# Playback
+charlie-widget record play               # play latest (both tracks mixed)
+charlie-widget record play --mic         # play mic track only
+charlie-widget record play --system      # play system track only
+charlie-widget record play <id>          # play specific recording
+
+# Management
+charlie-widget record delete <id>        # delete a recording and all its files
+charlie-widget record rename <id> <name> # rename a recording
+
+# Post-processing pipeline
+charlie-widget record transcribe <id>              # offline transcription
+charlie-widget record transcribe <id> --lang zh    # with language hint
+charlie-widget record diarize <id>                 # assign speaker labels
+charlie-widget record identify <id>                # voice identification + translation
+charlie-widget record summary                      # generate today's daily summary
+charlie-widget record summary --date 2026-04-15    # summary for specific date
+
+# Live session (during active recording)
+charlie-widget record live-transcript              # current live transcript segments (JSON)
+charlie-widget record live-transcript --tail 20    # last N segments only
+charlie-widget record live-summary                 # current rolling summary (JSON)
+charlie-widget record live-status                  # live state (flags + counts)
+charlie-widget record pin [show|hide|toggle]       # toggle pinned floating transcript window
 ```
 
 ### Data Storage
@@ -185,10 +210,12 @@ charlie-widget record summary --date 2026-04-15  # summary for specific date
 ```
 recordings/
   2026-04-15/
-    recording-143022.m4a           # Audio (AAC, compressed)
-    recording-143022.json          # Metadata
-    recording-143022.transcript    # Transcript with timestamps + speakers
-    daily-summary.md               # LLM-generated daily summary
+    recording-143022.m4a                 # Audio (AAC, compressed)
+    recording-143022.json                # Metadata
+    recording-143022.transcript          # Transcript with timestamps + speakers
+    recording-143022.transcript.partial  # JSONL crash recovery (promoted to .transcript on stop)
+    recording-143022.live-summary.json   # Rolling summary generated during recording
+    daily-summary.json                   # LLM-generated daily summary
 ```
 
 - Metadata schema:
@@ -233,16 +260,23 @@ recordings/
   }
   ```
 
+### Real-Time Transcription
+- Wired into the recording pipeline with per-speaker chunking
+- Crash recovery: `.transcript.partial` (JSONL) written during recording, atomically promoted to `.transcript` on clean stop; orphaned partials recovered on next launch (`LiveTranscriptWriter`)
+- Rolling summarizer triggered by speaker changes, time gaps, and character thresholds (`RollingSummarizer`)
+- Per-speaker language detection cache with Settings override
+- Pinned floating NSPanel (`LiveTranscriptWindow`) shows live transcript during recording
+
 ### Speaker Management
 
-**MVP (no ML dependencies):**
+**MVP (implemented):**
 - Amazon Transcribe provides per-session speaker labels (`spk_0`, `spk_1`, …)
 - User manually labels speakers in UI after diarization completes
 - App stores speaker→label mappings per meeting
 - For recurring meetings, suggest previous labels based on meeting context
 - Trusted speakers get highlighted in transcript
 
-**V2 (sherpa-onnx voice prints):**
+**V2 (implemented — sherpa-onnx voice prints):**
 - sherpa-onnx with WeSpeaker CAM++ model (~29 MB ONNX, C API callable from Swift)
 - Extract speaker embeddings per labeled segment, store as voice prints
 - On future meetings, auto-match speakers via cosine similarity
@@ -253,15 +287,15 @@ recordings/
 - Triggered manually (`record summary`) or scheduled (end of day)
 - Sends all day's transcripts to Bedrock Claude Haiku 4.5
 - Output includes: meeting summaries, key decisions, action items, notable quotes
-- Saved as markdown in daily recordings folder
+- Saved as JSON in daily recordings folder
 
-### Implementation Phases
-1. **Core Recording** — ScreenCaptureKit + AVAudioEngine, record/stop, save audio files
-2. **Local Transcription** — WhisperKit integration, batch transcription after recording
-3. **Real-Time Transcription** — Streaming whisper with tiny model during recording
-4. **Speaker Diarization** — Amazon Transcribe integration for speaker separation
-5. **Trusted Voices + Translation** — MVP: manual speaker labeling in UI + label suggestions for recurring meetings; V2: sherpa-onnx voice prints for auto-matching. Apple Translation for EN↔JA.
-6. **Daily Summary** — Bedrock Claude API for end-of-day summarization
+### Implementation Phases (all complete)
+1. **Core Recording** (done) — ScreenCaptureKit + AVAudioEngine, record/stop, save audio files
+2. **Local Transcription** (done) — WhisperKit integration, batch transcription after recording
+3. **Real-Time Transcription** (done) — Streaming whisper during recording with per-speaker chunking, crash recovery, rolling summarizer, pinned transcript window
+4. **Speaker Diarization** (done) — Amazon Transcribe integration for speaker separation
+5. **Trusted Voices + Translation** (done) — Manual speaker labeling in UI + label suggestions for recurring meetings; sherpa-onnx voice prints for auto-matching. Apple Translation for EN↔JA. Per-speaker language detection cache.
+6. **Daily Summary** (done) — Bedrock Claude API for end-of-day summarization
 
 ### Key Technical Decisions
 - Audio format: AAC in .m4a container (smaller than WAV/CAF, adequate for speech)
@@ -272,8 +306,44 @@ recordings/
 
 ### Known Risks
 - ScreenCaptureKit/Translation framework availability with CommandLineTools-only SDK (needs verification)
-- AWS Connect Voice ID is EOL May 2026 — no AWS-native speaker ID alternative
 - V2 speaker ID depends on sherpa-onnx C API stability and WeSpeaker model accuracy for mixed EN/JA speech
+
+## Feature 4: Bubble Overlay (Screensaver)
+
+### What it does
+
+A full-screen transparent overlay that shows floating animated bubbles reflecting the state of AI coding sessions. Pending sessions produce warm-toned (amber/coral) bubbles; idle/done sessions produce cool-toned (cyan/blue) bubbles. Running sessions produce no bubbles.
+
+### Behavior
+- Bubbles are **state-driven, not event-driven** — each pending/idle session has exactly one bubble on screen
+- Bubbles persist until the session transitions to `running` or disappears
+- Each bubble drifts randomly, bounces off screen edges, and shows the agent letter (C/G/X/K) inside
+- Max 12 bubbles on screen; oldest removed when cap hit
+- Click a bubble to dismiss it (dismissed bubbles don't reappear until session state changes)
+- Overlay window: borderless, transparent, click-through except on bubbles (custom `hitTest`), `.floating` level, all spaces
+- Off by default, toggled via CLI
+
+### CLI
+
+```bash
+charlie-widget bubble on      # enable overlay
+charlie-widget bubble off     # disable overlay
+charlie-widget bubble status  # JSON: {"enabled": true, "bubble_count": 2}
+```
+
+### Architecture
+
+- `BubbleModel` — keyed by session ID, stores position/velocity/size/warmth
+- `BubbleOverlayView` — SwiftUI view using `TimelineView(.animation)` for 60fps rendering
+- `BubbleOverlayController` — `@Observable` controller, observes `SessionStore` every 500ms, syncs bubbles to session states (pending→warm, idle→cool, running→remove)
+- Window managed by controller: full-screen NSWindow, click-through, all spaces
+- Socket commands: `bubble_on`, `bubble_off`, `bubble_status`
+
+### Design Decisions
+
+1. **State-driven, not event-driven.** Bubbles map 1:1 to sessions in pending/idle state. When you approve a prompt (pending→running), the bubble disappears immediately. No manual cleanup needed.
+2. **No auto-fade.** Bubbles persist as long as the session state warrants them. The user should act on pending prompts, not wait for them to disappear.
+3. **Click-through with hit testing.** The overlay uses a custom `NSWindow` subclass with `hitTest` that only responds to clicks within bubble radii. Clicking empty space passes through to windows underneath. Dismissed bubbles are tracked in `dismissedIds` and don't reappear until the session transitions to a different state.
 
 ## Project Structure
 
@@ -293,15 +363,32 @@ charlie-widget/
 │   │   │   │   ├── Session.swift       # Data model (AgentKind, SessionState, Session)
 │   │   │   │   ├── SessionStore.swift  # FSEvents watcher + PID checking + sweep timer
 │   │   │   │   └── SessionRow.swift    # Session row view
-│   │   │   └── AudioRecorder/
-│   │   │       ├── AudioCaptureManager.swift    # ScreenCaptureKit + AVAudioEngine
-│   │   │       ├── RecorderStore.swift          # Recording state management
-│   │   │       ├── TranscriptionEngine.swift    # WhisperKit integration
-│   │   │       ├── DiarizationService.swift     # Amazon Transcribe integration
-│   │   │       ├── TranslationService.swift     # Apple Translation + Amazon Translate
-│   │   │       ├── SpeakerStore.swift           # Voice print storage + matching
-│   │   │       ├── DailySummaryService.swift    # Bedrock Claude summarization
-│   │   │       └── RecorderView.swift           # UI in dropdown
+│   │   │   ├── Bubble/
+│   │   │   │   ├── BubbleModel.swift          # Data model (keyed by session ID)
+│   │   │   │   ├── BubbleOverlayView.swift    # SwiftUI animated view (TimelineView)
+│   │   │   │   └── BubbleOverlayWindow.swift  # Controller + NSWindow management
+│   │   │   ├── Recorder/
+│   │   │   │   ├── AudioCaptureManager.swift    # ScreenCaptureKit + AVAudioEngine
+│   │   │   │   ├── RecorderStore.swift          # Recording state management
+│   │   │   │   ├── Recording.swift              # Recording data model
+│   │   │   │   ├── RecorderView.swift           # UI in dropdown
+│   │   │   │   ├── RecorderHotkeyService.swift  # Global hotkey for record toggle
+│   │   │   │   ├── TranscriptionEngine.swift    # WhisperKit integration
+│   │   │   │   ├── DiarizationService.swift     # Amazon Transcribe integration
+│   │   │   │   ├── TranslationService.swift     # Apple Translation + Amazon Translate
+│   │   │   │   ├── SpeakerManager.swift         # Speaker label management
+│   │   │   │   ├── VoicePrintService.swift      # Voice print storage + matching
+│   │   │   │   ├── DailySummaryService.swift    # Bedrock Claude summarization
+│   │   │   │   ├── PostProcessingPipeline.swift # Post-diarization pipeline
+│   │   │   │   ├── RollingSummarizer.swift      # Rolling summary during recording
+│   │   │   │   ├── LiveTranscriptWindow.swift   # Pinned transcript window controller
+│   │   │   │   ├── LiveTranscriptPinnedView.swift # SwiftUI view for pinned window
+│   │   │   │   └── LiveTranscriptWriter.swift   # Partial transcript file + orphan recovery
+│   │   │   ├── VoiceCommand/
+│   │   │   │   ├── HotkeyManager.swift          # Global hotkey registration
+│   │   │   │   └── VoiceCommandService.swift    # Voice-to-text → iTerm
+│   │   │   └── Settings/
+│   │   │       └── SettingsView.swift           # Settings tab UI
 │   │   └── IPC/
 │   │       └── SocketServer.swift
 │   └── charlie-widget/            # CLI tool
@@ -357,8 +444,6 @@ make clean          # swift package clean
 11. Send toast while app not running — app auto-launches
 
 ## Future Features (TBD)
-
-Audio Recorder (Feature 3) is the next major feature under active development.
 
 - Clipboard manager
 - Quick notes

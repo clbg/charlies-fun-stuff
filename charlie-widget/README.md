@@ -112,8 +112,20 @@ charlie-widget record stop               # stop recording
 charlie-widget record status             # current state + elapsed time
 charlie-widget record list               # list today's recordings (JSON)
 charlie-widget record play               # play latest recording
+charlie-widget record play --mic         # play mic track only
+charlie-widget record play --system      # play system track only
+charlie-widget record play <id>          # play specific recording
 charlie-widget record delete <id>        # delete recording and all associated files
 charlie-widget record rename <id> <name> # set a friendly name
+
+# Live transcription & pinned window
+charlie-widget record live-transcript         # current segments (JSON)
+charlie-widget record live-transcript --tail 20  # last N segments
+charlie-widget record live-summary            # rolling summary (JSON)
+charlie-widget record live-status             # live state (flags + counts)
+charlie-widget record pin                     # toggle pinned transcript window
+charlie-widget record pin show                # show transcript window
+charlie-widget record pin hide                # hide transcript window
 
 # Processing pipeline
 charlie-widget record transcribe <id>              # transcription (auto language detect)
@@ -127,12 +139,44 @@ charlie-widget record summary --date 2026-04-16    # specific date
 - **Screen Recording permission** required for system audio capture (ScreenCaptureKit). Granted once in System Settings > Privacy.
 - **Multi-track:** In both mode, system and mic are written as separate tracks in one .m4a. The `play` command mixes them automatically. Most GUI players only play track 1 — use `record play` or `mpv` for both.
 - **Playback** requires [mpv](https://mpv.io/) (`brew install mpv`).
-- **Transcription** uses WhisperKit `large-v3` model (~626MB, downloaded on first run). Auto-detects language — handles mixed Chinese/English/Japanese. Multi-track recordings are transcribed per-track with speaker labels.
+- **Transcription** uses WhisperKit `large-v3` model (~626MB, downloaded on first run). Auto-detects language — handles mixed Chinese/English/Japanese. Language detection is configurable per speaker via the Settings tab. Multi-track recordings are transcribed per-track with speaker labels.
 - **Pipeline:** Phase 4–6 (diarization, voice ID, summary) use mock providers. Swap in real AWS/ML implementations when ready.
 - Recordings stored at `~/Library/Application Support/CharlieWidget/recordings/YYYY-MM-DD/`
 - Recorder tab shows source picker, level meter, today's recordings, and inline transcript viewer
+- **Pinned transcript window** floats above other windows for at-a-glance live transcription. Toggle via `record pin [show|hide|toggle]`.
+
+### Settings Tab
+
+The Settings tab (gear icon in the menu bar dropdown) configures recorder and voice command behavior:
+
+- **Voice Command:** hotkey to trigger, enable/disable toggle, multi-CC session target selection
+- **Recorder Hotkeys:** per-source hotkey bindings for mic, system audio, and both
+- **Transcription:** real-time transcription toggle (default on), per-speaker language override for mic and system channels independently (auto/en/zh/ja/ko/es/fr/de)
 
 See [docs/audio-recorder/design.md](docs/audio-recorder/design.md) for full technical details.
+
+## Bubble Overlay (Screensaver)
+
+A full-screen transparent overlay with floating animated bubbles that reflect the state of your AI coding sessions. Like a Windows screensaver, but driven by real session status.
+
+```bash
+charlie-widget bubble on      # enable overlay
+charlie-widget bubble off     # disable overlay
+charlie-widget bubble status  # show status (JSON: enabled, bubble_count)
+```
+
+- **pending** sessions → warm-toned bubble (amber/coral gradient)
+- **idle** (done) sessions → cool-toned bubble (cyan/blue gradient)
+- **running** sessions → no bubble
+- Each bubble shows the agent letter (C/G/X/K) inside
+- Bubbles drift and bounce off screen edges
+- Bubbles persist until the session state changes (e.g., you approve a pending prompt → running → bubble disappears)
+- Max 12 bubbles on screen
+- Click a bubble to dismiss it (dismissed bubbles don't reappear until the session state changes)
+- Overlay is click-through except on bubbles, appears on all spaces, above normal windows
+- Off by default
+
+See [docs/cc-monitor/design.md](docs/cc-monitor/design.md) for architecture details.
 
 ## How it works
 
@@ -172,7 +216,7 @@ make build         # debug build
 make release       # release build
 make test          # swift test
 make test-toast    # send a test toast via CLI
-make test-recorder # run recorder integration tests (27 assertions)
+make test-recorder # run recorder integration tests (30 assertions)
 make run-app       # run app in debug mode
 make clean         # clean build artifacts
 ```

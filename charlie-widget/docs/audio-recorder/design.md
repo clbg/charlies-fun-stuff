@@ -112,6 +112,10 @@ Chunk start time = `(totalIngestedSamples - chunkLength) / 16000`. Uses cumulati
 
 Each committed segment is appended as one JSON line to `{stem}.transcript.partial`. On normal stop, the partial is atomically promoted to `{stem}.transcript` (pretty JSON, matches offline schema) and the partial is deleted. On app launch, `LiveTranscriptWriter.scanAndPromoteOrphans` walks day directories and promotes any `.partial` without a corresponding `.transcript`, logging the count to `RecorderStore.recoveredPartialCount` for the UI banner.
 
+### Language detection
+
+Per-speaker language cache stored in `TranscriptionEngine.lockedLanguages`. When the first chunk of >= 15 seconds is available for a speaker, `WhisperKit.detectLanguage()` is called. If the top language probability exceeds 0.6, that language is locked for the speaker for the remainder of the recording. User overrides from Settings (mic/system language pickers) skip detection entirely and use the chosen language from the start. All locked languages reset on each new recording, since different meetings involve different speakers.
+
 ### Toggle
 
 `UserDefaults` key `CharlieWidget.liveTranscription.enabled` (default `true`). Controlled by the Settings toggle. Changes take effect on the next recording — mid-recording toggles are ignored.
@@ -162,6 +166,27 @@ Protocol: `WindowSummaryProvider.summarizeWindow(segments:priorRunningBullets:)`
 - Future: Bedrock Claude Haiku — same prompt family as `BedrockSummaryProvider.buildPrompt` but window-scoped with prior running bullets as context.
 
 Running bullets are capped at 50 (oldest dropped) so long recordings don't unbounded-grow.
+
+## Pinned Floating Window
+
+NSPanel-based floating window for live transcript, designed to stay visible over all workspaces without stealing focus.
+
+### Window behavior
+- NSPanel with `.floating` level, `.nonactivatingPanel` style mask (no focus steal from active app)
+- Pin button in RecorderView live transcript header opens the pinned window
+- X button = hide (preserves state); does not destroy the window
+- Frame position/size and last-visible state persisted to UserDefaults
+- Restores automatically on app launch if the window was visible at last quit
+
+### macOS 15 workaround
+Minimal `.collectionBehavior = [.canJoinAllSpaces]` to avoid CGS deadlock. Combining `.fullScreenAuxiliary` or `.moveToActiveSpace` with `.utilityWindow` on macOS 15 triggers a Core Graphics Services deadlock during space transitions.
+
+### CLI
+```bash
+charlie-widget record pin                          # toggle pinned floating window
+charlie-widget record pin show                     # show the window
+charlie-widget record pin hide                     # hide the window
+```
 
 ### CLI
 
@@ -254,6 +279,10 @@ AppleScript `write text` sends the transcribed text to iTerm's current session (
 - **Enable/disable toggle**: turns hotkey registration on/off
 - **Status display**: shows Ready / Recording / Transcribing / Disabled
 - Hotkey persisted across restarts via `CharlieWidget.voiceCommand.keyCode/modifiers/enabled`
+- **Live transcription language overrides**: separate language picker for mic and system channels
+  - Options: Auto-detect / English / Chinese / Japanese / Korean / Spanish / French / German
+  - Per-speaker language cache: auto-detected with >60% confidence threshold on ≥15s audio, or user override from Settings
+  - Persisted via UserDefaults keys `CharlieWidget.liveTranscription.micLanguage` / `systemLanguage`
 
 ### Menu bar indicator
 Red dot shows during voice command recording (same indicator as recorder).
@@ -292,6 +321,9 @@ charlie-widget record live-transcript              # current liveSegments as JSO
 charlie-widget record live-transcript --tail 20    # last 20 segments only
 charlie-widget record live-summary                 # current rolling summary
 charlie-widget record live-status                  # isLiveTranscribing, counts, enabled
+charlie-widget record pin                          # toggle pinned floating window
+charlie-widget record pin show                     # show the window
+charlie-widget record pin hide                     # hide the window
 ```
 
 ## Data Storage
@@ -388,6 +420,8 @@ Sources/CharlieWidgetApp/Features/Recorder/
   DailySummaryService.swift    # SummaryProvider protocol + Mock + Bedrock Claude stub + DailySummary model
   LiveTranscriptWriter.swift   # JSONL append-only partial writer + orphan recovery
   RollingSummarizer.swift      # Speaker-change+time+chars trigger, WindowSummaryProvider, LiveSummary schema
+  LiveTranscriptWindow.swift       # Pinned floating NSPanel controller (frame persistence, show/hide/toggle)
+  LiveTranscriptPinnedView.swift   # SwiftUI view for pinned window (auto-scroll, speaker chips, pulse indicator)
 
 Sources/CharlieWidgetApp/Features/VoiceCommand/
   HotkeyManager.swift          # Carbon RegisterEventHotKey wrapper (global hotkey, no Accessibility permission)
