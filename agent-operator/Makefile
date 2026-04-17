@@ -84,22 +84,20 @@ test:
 clean:
 	swift package clean
 
-# ── Asterisk / SIP targets ──────────────────────────────────
+# ── FreeSWITCH / SIP targets ────────────────────────────────
 
-ASTERISK_CONF_DIR = /opt/homebrew/etc/asterisk
-
-sip-up: sip-config
-	brew services start asterisk
-
-sip-down:
-	brew services stop asterisk
+FREESWITCH_CONF_DIR = /opt/homebrew/etc/freeswitch
 
 sip-config:
-	cp asterisk/pjsip.conf $(ASTERISK_CONF_DIR)/pjsip.conf
-	cp asterisk/extensions.conf $(ASTERISK_CONF_DIR)/extensions.conf
-	cp asterisk/ari.conf $(ASTERISK_CONF_DIR)/ari.conf
-	cp asterisk/http.conf $(ASTERISK_CONF_DIR)/http.conf
-	cp asterisk/modules.conf $(ASTERISK_CONF_DIR)/modules.conf
+	mkdir -p $(FREESWITCH_CONF_DIR)/directory/default
+	cp freeswitch/1001.xml $(FREESWITCH_CONF_DIR)/directory/default/1001.xml
+	cp freeswitch/01_voicebot.xml $(FREESWITCH_CONF_DIR)/dialplan/default/01_voicebot.xml
+
+sip-up: sip-config
+	brew services start freeswitch
+
+sip-down:
+	brew services stop freeswitch
 
 sip-reload:
-	asterisk -rx "core reload"
+	/opt/homebrew/opt/freeswitch/bin/fs_cli -x "reloadxml"

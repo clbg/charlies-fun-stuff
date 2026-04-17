@@ -1,137 +1,65 @@
 import Foundation
 
-// MARK: - RTPListener delegate helper
-
-/// Extension to set the delegate on the actor from outside.
-/// Actor-isolated methods added in the same module can access the property.
-extension RTPListener {
-    func setAudioDelegate(_ delegate: RTPAudioDelegate?) {
-        self.delegate = delegate
-    }
-}
-
 // MARK: - CallPipeline
 
 /// Orchestrator that wires together the full voice-agent pipeline:
 ///
-///   Phone -> Asterisk/ARI -> RTP (u-law) -> RTPListener (16kHz float32)
-///     -> SpeechRecognizer (WhisperKit) -> ClaudeClient -> stdout
+///   Phone -> FreeSWITCH (records to WAV) -> CHANNEL_HANGUP
+///     -> WAVReader (16kHz float32) -> SpeechRecognizer (WhisperKit)
+///     -> ClaudeClient -> stdout
 ///
-/// Implements `ARIDelegate` to react to call lifecycle events and
-/// `RTPAudioDelegate` to feed audio into the speech recognizer.
+/// Implements `ESLDelegate` to react to call lifecycle events.
+/// When a call to extension 6000 ends, reads the recorded WAV file,
+/// transcribes it via WhisperKit, and sends the text to Claude.
 final class CallPipeline: Sendable {
 
     // MARK: - Components
 
-    private let ariClient: ARIClient
-    private let rtpListener: RTPListener
+    private let eslClient: ESLClient
     private let speechRecognizer: SpeechRecognizer
     private let claudeClient: ClaudeClient
 
-    /// Interval between transcription attempts (seconds).
-    private let transcriptionInterval: TimeInterval
-
-    /// Handle for the background transcription loop task.
-    private let loopHandle = LoopHandle()
-
-    /// Mutable state behind a lock for `Sendable` compliance.
-    private final class LoopHandle: @unchecked Sendable {
-        private let lock = NSLock()
-        private var _task: Task<Void, Never>?
-
-        var task: Task<Void, Never>? {
-            get { lock.withLock { _task } }
-            set { lock.withLock { _task = newValue } }
-        }
-    }
-
     // MARK: - Init
 
-    init(
-        ariConfig: ARIClient.Config = .local,
-        rtpPort: UInt16 = 7078,
-        transcriptionInterval: TimeInterval = 5
-    ) {
-        self.ariClient = ARIClient(config: ariConfig)
-        self.rtpListener = RTPListener(port: rtpPort)
+    init(eslConfig: ESLClient.Config = .local) {
+        self.eslClient = ESLClient(config: eslConfig)
         self.speechRecognizer = SpeechRecognizer()
         self.claudeClient = ClaudeClient()
-        self.transcriptionInterval = transcriptionInterval
     }
 
     // MARK: - Lifecycle
 
-    /// Connect to Asterisk ARI and begin listening for calls.
-    func start() async {
-        ariClient.delegate = self
-        await rtpListener.setAudioDelegate(self)
-        ariClient.connect()
-        print("[Pipeline] Started — waiting for calls")
+    /// Connect to FreeSWITCH ESL and begin listening for calls.
+    func start() async throws {
+        eslClient.delegate = self
+        try await eslClient.connect()
+
+        // Pre-initialize WhisperKit so it's ready when the first call ends.
+        do {
+            try await speechRecognizer.initialize()
+        } catch {
+            print("[Pipeline] Failed to initialize WhisperKit: \(error)")
+        }
+
+        print("[Pipeline] Started — waiting for calls on extension 6000")
     }
 
     /// Tear down all components.
     func stop() async {
-        loopHandle.task?.cancel()
-        loopHandle.task = nil
-        ariClient.disconnect()
-        await rtpListener.stop()
+        eslClient.disconnect()
         await speechRecognizer.reset()
         print("[Pipeline] Stopped")
     }
-
-    // MARK: - Transcription loop
-
-    /// Periodically drain the speech buffer, transcribe, and send to Claude.
-    private func startTranscriptionLoop() {
-        loopHandle.task = Task { [weak self] in
-            guard let self else { return }
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: UInt64(self.transcriptionInterval * 1_000_000_000))
-                guard !Task.isCancelled else { break }
-
-                do {
-                    if let text = try await self.speechRecognizer.transcribe() {
-                        print("[STT] Recognized: \(text)")
-                        let response = try await self.claudeClient.ask(text)
-                        print("[Claude] \(response)")
-                    }
-                } catch {
-                    print("[Pipeline] Transcription/Claude error: \(error)")
-                }
-            }
-        }
-    }
-
-    private func stopTranscriptionLoop() {
-        loopHandle.task?.cancel()
-        loopHandle.task = nil
-    }
 }
 
-// MARK: - ARIDelegate
+// MARK: - ESLDelegate
 
-extension CallPipeline: ARIDelegate {
+extension CallPipeline: ESLDelegate {
 
     func callStarted(channelId: String) {
         print("[Pipeline] Call started — channel \(channelId)")
-
-        Task {
-            // Start RTP listener to receive audio.
-            do {
-                try await rtpListener.start()
-            } catch {
-                print("[Pipeline] Failed to start RTP listener: \(error)")
-            }
-
-            // Initialize WhisperKit (downloads model on first run).
-            do {
-                try await speechRecognizer.initialize()
-            } catch {
-                print("[Pipeline] Failed to initialize WhisperKit: \(error)")
-            }
-
-            // Begin periodic transcription.
-            startTranscriptionLoop()
+        if let path = eslClient.lastRecordingPath {
+            print("[Pipeline] Recording will be at: \(path)")
         }
     }
 
@@ -139,20 +67,50 @@ extension CallPipeline: ARIDelegate {
         print("[Pipeline] Call ended — channel \(channelId)")
 
         Task {
-            stopTranscriptionLoop()
-            await rtpListener.stop()
-            await speechRecognizer.reset()
+            await processRecording()
         }
     }
-}
 
-// MARK: - RTPAudioDelegate
+    /// Read the WAV recording, transcribe with WhisperKit, and send to Claude.
+    private func processRecording() async {
+        guard let recordingPath = eslClient.lastRecordingPath else {
+            print("[Pipeline] No recording path available")
+            return
+        }
 
-extension CallPipeline: RTPAudioDelegate {
+        print("[Pipeline] Reading recording: \(recordingPath)")
 
-    func didReceiveAudio(samples: [Float], sampleRate: Int) {
-        Task {
+        // Small delay to let FreeSWITCH flush the file.
+        try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5 s
+
+        do {
+            // Read WAV file as 16 kHz float32 samples.
+            let samples = try WAVReader.readFloat32(from: recordingPath)
+            guard !samples.isEmpty else {
+                print("[Pipeline] Recording is empty")
+                return
+            }
+            print("[Pipeline] Read \(samples.count) samples (\(String(format: "%.1f", Double(samples.count) / 16_000.0))s of audio)")
+
+            // Feed to SpeechRecognizer.
             await speechRecognizer.appendAudio(samples: samples)
+
+            // Transcribe.
+            if let text = try await speechRecognizer.transcribe() {
+                print("[STT] Recognized: \(text)")
+
+                // Send to Claude.
+                let response = try await claudeClient.ask(text)
+                print("[Claude] \(response)")
+            } else {
+                print("[Pipeline] No speech detected in recording")
+            }
+
+            // Reset the recognizer buffer for the next call.
+            await speechRecognizer.reset()
+
+        } catch {
+            print("[Pipeline] Error processing recording: \(error)")
         }
     }
 }

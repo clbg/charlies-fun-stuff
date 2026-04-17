@@ -1,0 +1,11 @@
+<include>
+  <extension name="voicebot">
+    <condition field="destination_number" expression="^6000$">
+      <action application="answer"/>
+      <action application="sleep" data="500"/>
+      <action application="set" data="RECORD_STEREO=false"/>
+      <action application="set" data="record_sample_rate=16000"/>
+      <action application="record" data="/tmp/voicebot_${uuid}.wav 600 200"/>
+    </condition>
+  </extension>
+</include>

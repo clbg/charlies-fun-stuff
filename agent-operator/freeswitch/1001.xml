@@ -1,0 +1,12 @@
+<include>
+  <user id="1001">
+    <params>
+      <param name="password" value="1234"/>
+    </params>
+    <variables>
+      <variable name="user_context" value="default"/>
+      <variable name="effective_caller_id_name" value="Softphone"/>
+      <variable name="effective_caller_id_number" value="1001"/>
+    </variables>
+  </user>
+</include>
