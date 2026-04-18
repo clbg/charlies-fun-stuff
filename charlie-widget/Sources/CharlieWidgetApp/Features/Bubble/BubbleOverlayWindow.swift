@@ -31,6 +31,10 @@ final class BubbleOverlayController {
     // MARK: - Session Observation
 
     func observeSessions(_ store: SessionStore) {
+        if isEnabled {
+            showWindow()
+            startAnimation()
+        }
         observationTask?.cancel()
         observationTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -83,7 +87,7 @@ final class BubbleOverlayController {
     }
 
     private func addBubble(sessionId: String, agentLetter: String, isWarm: Bool) {
-        guard let screen = NSScreen.main else { return }
+        guard let screen = NSScreen.screens.first else { return }
         let frame = screen.visibleFrame
         let margin: CGFloat = 60
 
@@ -127,7 +131,7 @@ final class BubbleOverlayController {
     }
 
     private func tick() {
-        guard let screen = NSScreen.main else { return }
+        guard let screen = NSScreen.screens.first else { return }
         let frame = screen.visibleFrame
 
         for i in bubbles.indices {
@@ -150,10 +154,10 @@ final class BubbleOverlayController {
 
     private func showWindow() {
         if window != nil { return }
-        guard let screen = NSScreen.main else { return }
+        guard let screen = NSScreen.screens.first else { return }
 
         let w = BubbleWindow(
-            contentRect: screen.frame,
+            contentRect: .zero,
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
@@ -164,6 +168,7 @@ final class BubbleOverlayController {
         w.level = .floating
         w.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         w.hasShadow = false
+        w.setFrame(screen.frame, display: true)
 
         let contentView = BubbleContentView(frame: w.frame)
         contentView.bubbleController = self
