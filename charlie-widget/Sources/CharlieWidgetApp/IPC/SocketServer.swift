@@ -43,6 +43,9 @@ final class SocketServer: Sendable {
     var onBubbleOn: (@MainActor @Sendable (NWConnection) -> Void)?
     var onBubbleOff: (@MainActor @Sendable (NWConnection) -> Void)?
     var onBubbleStatus: (@MainActor @Sendable (NWConnection) -> Void)?
+    var onMusicOn: (@MainActor @Sendable (NWConnection) -> Void)?
+    var onMusicOff: (@MainActor @Sendable (NWConnection) -> Void)?
+    var onMusicStatus: (@MainActor @Sendable (NWConnection) -> Void)?
 
     // MARK: - Private state
 
@@ -278,6 +281,15 @@ final class SocketServer: Sendable {
 
         case "bubble_status":
             onBubbleStatus?(connection)
+
+        case "music_on":
+            onMusicOn?(connection)
+
+        case "music_off":
+            onMusicOff?(connection)
+
+        case "music_status":
+            onMusicStatus?(connection)
 
         default:
             send("{\"error\":\"unknown command: \(command)\"}\n", to: connection)

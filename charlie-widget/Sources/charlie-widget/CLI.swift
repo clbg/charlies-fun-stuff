@@ -26,6 +26,8 @@ struct CLI {
             await handleVoice(Array(args.dropFirst()))
         case "bubble":
             await handleBubble(Array(args.dropFirst()))
+        case "music":
+            await handleMusic(Array(args.dropFirst()))
         default:
             fputs("Unknown command: \(subcommand)\n", stderr)
             printUsage()
@@ -442,6 +444,33 @@ struct CLI {
         }
     }
 
+    // MARK: - Music subcommand
+
+    private static func handleMusic(_ args: [String]) async {
+        guard let action = args.first else {
+            fputs("Usage: charlie-widget music <on|off|status>\n", stderr)
+            exit(1)
+        }
+
+        switch action {
+        case "on":
+            let json = "{\"command\":\"music_on\"}\n"
+            await sendAndExpectOK(json)
+            print("Music enabled")
+        case "off":
+            let json = "{\"command\":\"music_off\"}\n"
+            await sendAndExpectOK(json)
+            print("Music disabled")
+        case "status":
+            let json = "{\"command\":\"music_status\"}\n"
+            await sendAndPrintResponse(json)
+        default:
+            fputs("Unknown music action: \(action)\n", stderr)
+            fputs("Usage: charlie-widget music <on|off|status>\n", stderr)
+            exit(1)
+        }
+    }
+
     // MARK: - Socket communication
 
     private static func sendAndExpectOK(_ message: String) async {
@@ -579,6 +608,9 @@ struct CLI {
           charlie-widget bubble on             Enable bubble screensaver overlay
           charlie-widget bubble off            Disable bubble screensaver overlay
           charlie-widget bubble status         Show bubble overlay status
+          charlie-widget music on              Enable session music cues
+          charlie-widget music off             Disable session music cues
+          charlie-widget music status          Show music status and script path
           charlie-widget voice start           Start voice command recording
           charlie-widget voice stop            Stop, transcribe, send to iTerm
           charlie-widget voice status          Current voice command state

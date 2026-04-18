@@ -9,10 +9,14 @@ final class SessionStore: Sendable {
 
     private(set) var sessions: [Session] = []
 
+    var onAggregateTransition: (@MainActor @Sendable (_ mood: String) -> Void)?
+
     private var dispatchSource: (any DispatchSourceFileSystemObject)?
     private var directoryFD: Int32 = -1
     private var debounceTask: Task<Void, Never>?
     private var sweepTask: Task<Void, Never>?
+    private var wasAnyPending: Bool = false
+    private var wasAllIdle: Bool = true
 
     // MARK: Computed
 
@@ -154,6 +158,19 @@ final class SessionStore: Sendable {
         }
 
         sessions = newSessions.sorted { $0.lastUpdated > $1.lastUpdated }
+
+        // Aggregate state transition detection
+        let allIdle = !sessions.isEmpty && sessions.allSatisfy { $0.state == .idle }
+        let anyPending = sessions.contains { $0.state == .pending }
+
+        if anyPending && !wasAnyPending {
+            onAggregateTransition?("tense")
+        } else if allIdle && !wasAllIdle {
+            onAggregateTransition?("calm")
+        }
+
+        wasAnyPending = anyPending
+        wasAllIdle = allIdle || sessions.isEmpty
     }
 
     // MARK: Clear
@@ -167,5 +184,7 @@ final class SessionStore: Sendable {
             }
         }
         sessions = []
+        wasAnyPending = false
+        wasAllIdle = true
     }
 }

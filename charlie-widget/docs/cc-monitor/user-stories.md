@@ -120,9 +120,24 @@ Removed in favor of the tabbed UI — Sessions tab itself serves as the live sta
 - Bubbles drift randomly, bounce off screen edges
 - Bubbles persist until session state changes (no auto-fade)
 - Click a bubble to dismiss it; dismissed bubbles don't reappear until session state changes
+- Hover the mouse cursor over a bubble to dismiss it (global mouse-move monitor, same behavior as click dismiss)
 - Overlay is click-through except on bubbles, appears on all spaces
 - On by default, toggled via CLI: `charlie-widget bubble on/off/status`
-- Max 12 bubbles on screen
+- Enabled/disabled state persisted to UserDefaults — survives app restarts
+- Max 30 bubbles on screen
+
+### US-11: Music Cues on Session State Transitions
+
+**As a** user with AI agent sessions running in the background,
+**I want to** hear ambient music that changes when sessions need attention or finish their work,
+**so that** I have an audio cue without needing to watch the screen.
+
+**Acceptance Criteria:**
+- When the first session transitions to `pending` (none were pending before), play an attention-drawing ambient track
+- When all sessions settle to `idle` (at least one was non-idle before), play a calm/resolved ambient track
+- Running sessions produce no music change
+- Music is triggered by aggregate state transitions in `SessionStore.onAggregateTransition`, not per-session events
+- Replaces the old approach of calling `play-random.sh` from Claude Code hooks (which could not track aggregate state across multiple sessions)
 
 ---
 

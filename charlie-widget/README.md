@@ -171,12 +171,28 @@ charlie-widget bubble status  # show status (JSON: enabled, bubble_count)
 - Each bubble shows the agent letter (C/G/X/K) inside
 - Bubbles drift and bounce off screen edges
 - Bubbles persist until the session state changes (e.g., you approve a pending prompt → running → bubble disappears)
-- Max 12 bubbles on screen
-- Click a bubble to dismiss it (dismissed bubbles don't reappear until the session state changes)
+- Max 30 bubbles on screen
+- Click a bubble to dismiss it, or move cursor over any bubble to dismiss all
+- Dismissed bubbles don't reappear until the session state changes
 - Overlay is click-through except on bubbles, appears on all spaces, above normal windows
-- On by default
+- On by default, enabled state persists across app restarts
 
 See [docs/cc-monitor/design.md](docs/cc-monitor/design.md) for architecture details.
+
+## Music Cues
+
+Plays ambient music triggered by aggregate session state transitions.
+
+```bash
+charlie-widget music on       # enable session music cues
+charlie-widget music off      # disable session music cues
+charlie-widget music status   # show music status and script path
+```
+
+- All sessions idle → plays "calm" music
+- Any session pending → plays "tense" music
+- Runs external `play-random.sh` script (configurable)
+- Enabled by default, persisted to UserDefaults
 
 ## How it works
 

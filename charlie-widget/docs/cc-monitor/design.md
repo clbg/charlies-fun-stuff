@@ -91,6 +91,12 @@ final class SessionStore {
     var pendingCount: Int
     var idleCount: Int
 
+    // Aggregate state tracking (for external consumers like MusicController)
+    private var wasAnyPending = false
+    private var wasAllIdle = false
+    var onAggregateTransition: (@MainActor @Sendable (_ mood: String) -> Void)?
+    // Fires "tense" when any session becomes pending, "calm" when all become idle
+
     // Lifecycle
     func startWatching()           // DispatchSource FSEvents on sessions dir
     func stopWatching()
@@ -98,6 +104,8 @@ final class SessionStore {
 
     // Core
     func reload()                  // scan dir, parse JSON, check PIDs, delete dead
+                                   // after reconciling, compare wasAnyPending/wasAllIdle
+                                   // to current state and fire onAggregateTransition
 }
 ```
 
@@ -278,6 +286,11 @@ BubbleOverlayView (SwiftUI, TimelineView(.animation))
 BubbleWindow (custom NSWindow subclass, click-through via hitTest, .floating, all spaces)
     │  mouseDown: hit-test bubble radii → dismissBubble(id:)
     │  BubbleContentView: hitTest returns self only on bubble area, nil otherwise
+    │
+Global mouse monitor (NSEvent.addGlobalMonitorForEvents .mouseMoved)
+    │  On mouse move → check if cursor is within any bubble's radius
+    │  If hovering a bubble → dismissBubble(id:) (same as click dismiss)
+    │  Provides effortless dismiss — just wave the cursor over a bubble
 ```
 
 ### Bubble Lifecycle
@@ -291,9 +304,30 @@ BubbleWindow (custom NSWindow subclass, click-through via hitTest, .floating, al
 - **Click to dismiss**: User can click a bubble to remove it. Dismissed IDs are tracked in `dismissedIds` set. A dismissed bubble won't reappear for the same session until it transitions to `running` first (which clears the dismiss record), then back to `pending`/`idle`
 
 ### Socket Commands
-- `bubble_on` → enables overlay, shows window, starts animation
-- `bubble_off` → disables overlay, hides window, clears all bubbles
+- `bubble_on` → enables overlay, shows window, starts animation; persists to UserDefaults
+- `bubble_off` → disables overlay, hides window, clears all bubbles; persists to UserDefaults
 - `bubble_status` → returns `{"enabled": bool, "bubble_count": int}`
+
+Bubble enabled/disabled state is persisted to `UserDefaults.standard` (`bubbleOverlayEnabled`). On app launch the overlay restores its last known state, so the user's preference survives restarts.
+
+## MusicController Integration
+
+Ambient background music that responds to aggregate session state transitions, providing an audio cue layer on top of the visual bubble overlay.
+
+**Wiring:** At app startup, `SessionStore.onAggregateTransition` is set to call `MusicController.play(mood:)`:
+
+```swift
+sessionStore.onAggregateTransition = { mood in
+    musicController.play(mood: mood)
+}
+```
+
+This replaces the earlier approach of calling `play-random.sh` directly from Claude Code hooks. The hook-based approach could not track aggregate state across multiple sessions. By moving music control into the widget via `onAggregateTransition`, the widget knows when the *first* session becomes pending and when *all* sessions settle to idle.
+
+**Mood mapping:**
+- `"tense"` → attention-drawing ambient track (a session needs approval)
+- `"calm"` → resolved ambient track (all work is done)
+- Running sessions produce no music change
 
 ## Key Decisions
 

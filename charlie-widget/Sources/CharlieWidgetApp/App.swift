@@ -13,6 +13,7 @@ struct CharlieWidgetApp: App {
     @State private var recorderHotkeyService = RecorderHotkeyService()
     @State private var liveTranscriptWindow = LiveTranscriptWindowController()
     @State private var bubbleController = BubbleOverlayController()
+    @State private var musicController = MusicController()
     private let server = SocketServer()
 
     var body: some Scene {
@@ -314,6 +315,30 @@ struct CharlieWidgetApp: App {
             let enabled = bubbleController.isEnabled
             let count = bubbleController.bubbles.count
             server.send("{\"enabled\":\(enabled),\"bubble_count\":\(count)}\n", to: connection)
+        }
+
+        let musicController = self.musicController
+
+        server.onMusicOn = { connection in
+            musicController.isEnabled = true
+            server.send("{\"ok\":true}\n", to: connection)
+        }
+
+        server.onMusicOff = { connection in
+            musicController.isEnabled = false
+            server.send("{\"ok\":true}\n", to: connection)
+        }
+
+        server.onMusicStatus = { connection in
+            let enabled = musicController.isEnabled
+            let path = musicController.scriptPath
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+            server.send("{\"enabled\":\(enabled),\"script_path\":\"\(path)\"}\n", to: connection)
+        }
+
+        sessionStore.onAggregateTransition = { mood in
+            musicController.play(mood: mood)
         }
 
         server.start()

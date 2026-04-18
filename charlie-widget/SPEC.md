@@ -315,10 +315,11 @@ A full-screen transparent overlay that shows floating animated bubbles reflectin
 - Bubbles are **state-driven, not event-driven** — each pending/idle session has exactly one bubble on screen
 - Bubbles persist until the session transitions to `running` or disappears
 - Each bubble drifts randomly, bounces off screen edges, and shows the agent letter (C/G/X/K) inside
-- Max 12 bubbles on screen; oldest removed when cap hit
-- Click a bubble to dismiss it (dismissed bubbles don't reappear until session state changes)
+- Max 30 bubbles on screen; oldest removed when cap hit
+- Click a bubble to dismiss it, or move cursor over any bubble to dismiss all
+- Dismissed bubbles don't reappear until session state changes
 - Overlay window: borderless, transparent, click-through except on bubbles (custom `hitTest`), `.floating` level, all spaces
-- On by default, toggled via CLI
+- On by default, toggled via CLI; enabled state persisted to UserDefaults across app restarts
 
 ### CLI
 
@@ -342,6 +343,27 @@ charlie-widget bubble status  # JSON: {"enabled": true, "bubble_count": 2}
 2. **No auto-fade.** Bubbles persist as long as the session state warrants them. The user should act on pending prompts, not wait for them to disappear.
 3. **Click-through with hit testing.** The overlay uses a custom `NSWindow` subclass with `hitTest` that only responds to clicks within bubble radii. Clicking empty space passes through to windows underneath. Dismissed bubbles are tracked in `dismissedIds` and don't reappear until the session transitions to a different state.
 
+## Feature 5: Music Cues
+
+### What it does
+
+Plays ambient music triggered by aggregate session state transitions. When all sessions go idle, plays "calm" music; when any session enters pending, plays "tense" music. Runs an external `play-random.sh` script (configurable).
+
+### CLI
+
+```bash
+charlie-widget music on       # enable session music cues
+charlie-widget music off      # disable session music cues
+charlie-widget music status   # show music status and script path
+```
+
+### Architecture
+
+- Observes `SessionStore` aggregate state via `onAggregateTransition` callback
+- Triggers external script with mood argument ("calm" or "tense")
+- Enabled by default, persisted to UserDefaults
+- Socket commands: `music_on`, `music_off`, `music_status`
+
 ## Project Structure
 
 ```
@@ -358,12 +380,14 @@ charlie-widget/
 │   │   │   │   └── MessageStore.swift
 │   │   │   ├── Sessions/
 │   │   │   │   ├── Session.swift       # Data model (AgentKind, SessionState, Session)
-│   │   │   │   ├── SessionStore.swift  # FSEvents watcher + PID checking + sweep timer
+│   │   │   │   ├── SessionStore.swift  # FSEvents watcher + PID checking + sweep timer + onAggregateTransition callback
 │   │   │   │   └── SessionRow.swift    # Session row view
 │   │   │   ├── Bubble/
 │   │   │   │   ├── BubbleModel.swift          # Data model (keyed by session ID)
 │   │   │   │   ├── BubbleOverlayView.swift    # SwiftUI animated view (TimelineView)
 │   │   │   │   └── BubbleOverlayWindow.swift  # Controller + NSWindow management
+│   │   │   ├── Music/
+│   │   │   │   └── MusicController.swift    # Aggregate state observer + script launcher
 │   │   │   ├── Recorder/
 │   │   │   │   ├── AudioCaptureManager.swift    # ScreenCaptureKit + AVAudioEngine
 │   │   │   │   ├── RecorderStore.swift          # Recording state management

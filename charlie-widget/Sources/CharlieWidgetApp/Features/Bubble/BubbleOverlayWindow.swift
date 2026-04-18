@@ -6,10 +6,13 @@ import Observation
 @Observable
 final class BubbleOverlayController {
 
+    private static let enabledKey = "CharlieWidget.bubbleEnabled"
+
     private(set) var bubbles: [Bubble] = []
     private(set) var dismissedIds: Set<String> = []
-    var isEnabled: Bool = true {
+    var isEnabled: Bool = UserDefaults.standard.object(forKey: "CharlieWidget.bubbleEnabled") as? Bool ?? true {
         didSet {
+            UserDefaults.standard.set(isEnabled, forKey: Self.enabledKey)
             if isEnabled {
                 showWindow()
                 startAnimation()
@@ -26,7 +29,7 @@ final class BubbleOverlayController {
     private var animationTask: Task<Void, Never>?
     private var observationTask: Task<Void, Never>?
 
-    private static let maxBubbles = 12
+    private static let maxBubbles = 30
 
     // MARK: - Session Observation
 
@@ -50,6 +53,13 @@ final class BubbleOverlayController {
     func dismissBubble(id: String) {
         bubbles.removeAll { $0.id == id }
         dismissedIds.insert(id)
+    }
+
+    func dismissAll() {
+        for bubble in bubbles {
+            dismissedIds.insert(bubble.id)
+        }
+        bubbles.removeAll()
     }
 
     private func syncBubbles(with sessions: [Session]) {
@@ -89,7 +99,7 @@ final class BubbleOverlayController {
     private func addBubble(sessionId: String, agentLetter: String, isWarm: Bool) {
         guard let screen = NSScreen.screens.first else { return }
         let frame = screen.visibleFrame
-        let margin: CGFloat = 60
+        let margin: CGFloat = 180
 
         let bubble = Bubble(
             id: sessionId,
@@ -100,10 +110,10 @@ final class BubbleOverlayController {
                 y: .random(in: (frame.minY + margin)...(frame.maxY - margin))
             ),
             velocity: CGPoint(
-                x: .random(in: -1.5...1.5),
-                y: .random(in: -1.5...1.5)
+                x: .random(in: -0.5...0.5),
+                y: .random(in: -0.5...0.5)
             ),
-            size: .random(in: 35...55)
+            size: .random(in: 105...165)
         )
         bubbles.append(bubble)
 
@@ -213,10 +223,49 @@ private class BubbleWindow: NSWindow {
     override var canBecomeMain: Bool { false }
 }
 
-// MARK: - Overlay Content View (passes non-bubble clicks through)
+// MARK: - Overlay Content View (passes non-bubble clicks through, mouse-dismiss)
 
 private class BubbleContentView: NSView {
     weak var bubbleController: BubbleOverlayController?
+    nonisolated(unsafe) private var mouseMonitor: Any?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil {
+            startMouseMonitor()
+        } else {
+            stopMouseMonitor()
+        }
+    }
+
+    private func startMouseMonitor() {
+        stopMouseMonitor()
+        mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
+            Task { @MainActor in
+                self?.checkMouseOverBubble(event: event)
+            }
+        }
+    }
+
+    private func stopMouseMonitor() {
+        if let monitor = mouseMonitor {
+            NSEvent.removeMonitor(monitor)
+            mouseMonitor = nil
+        }
+    }
+
+    private func checkMouseOverBubble(event: NSEvent) {
+        guard let controller = bubbleController, !controller.bubbles.isEmpty else { return }
+        let loc = NSEvent.mouseLocation
+        for bubble in controller.bubbles {
+            let dx = loc.x - bubble.position.x
+            let dy = loc.y - bubble.position.y
+            if dx * dx + dy * dy <= bubble.size * bubble.size {
+                controller.dismissAll()
+                return
+            }
+        }
+    }
 
     override func hitTest(_ aPoint: NSPoint) -> NSView? {
         guard let controller = bubbleController else { return nil }
@@ -229,6 +278,12 @@ private class BubbleContentView: NSView {
             }
         }
         return nil
+    }
+
+    deinit {
+        if let monitor = mouseMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
     }
 }
 
