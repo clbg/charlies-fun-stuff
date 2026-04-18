@@ -121,7 +121,7 @@ Removed in favor of the tabbed UI — Sessions tab itself serves as the live sta
 - Bubbles persist until session state changes (no auto-fade)
 - Click a bubble to dismiss it; dismissed bubbles don't reappear until session state changes
 - Overlay is click-through except on bubbles, appears on all spaces
-- Off by default, toggled via CLI: `charlie-widget bubble on/off/status`
+- On by default, toggled via CLI: `charlie-widget bubble on/off/status`
 - Max 12 bubbles on screen
 
 ---
