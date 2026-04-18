@@ -6,6 +6,8 @@ struct SettingsView: View {
     var voiceCommandService: VoiceCommandService
     var recorderHotkeyService: RecorderHotkeyService
     var recorderStore: RecorderStore
+    var bubbleController: BubbleOverlayController
+    var musicController: MusicController
 
     enum HotkeyTarget: Hashable {
         case voiceCommand
@@ -33,6 +35,17 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
+                sectionHeader("Features")
+
+                bubbleToggleRow
+
+                Divider().padding(.horizontal, 12)
+
+                musicToggleRow
+
+                Divider().padding(.horizontal, 12)
+                    .padding(.bottom, 4)
+
                 sectionHeader("Voice Command")
 
                 toggleRow
@@ -125,6 +138,40 @@ struct SettingsView: View {
             .padding(.horizontal, 12)
             .padding(.bottom, 8)
             .fixedSize(horizontal: false, vertical: true)
+    }
+
+    // MARK: - Features Section
+
+    private var bubbleToggleRow: some View {
+        HStack {
+            Label("Bubble Overlay", systemImage: "circle.dotted")
+                .font(.system(size: 12))
+            Spacer()
+            Toggle("", isOn: Binding(
+                get: { bubbleController.isEnabled },
+                set: { bubbleController.isEnabled = $0 }
+            ))
+            .toggleStyle(.switch)
+            .controlSize(.small)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+
+    private var musicToggleRow: some View {
+        HStack {
+            Label("Music Cues", systemImage: "music.note")
+                .font(.system(size: 12))
+            Spacer()
+            Toggle("", isOn: Binding(
+                get: { musicController.isEnabled },
+                set: { musicController.isEnabled = $0 }
+            ))
+            .toggleStyle(.switch)
+            .controlSize(.small)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 
     // MARK: - Voice Command Section

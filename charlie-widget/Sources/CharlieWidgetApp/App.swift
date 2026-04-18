@@ -18,7 +18,7 @@ struct CharlieWidgetApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            HistoryView(store: store, sessionStore: sessionStore, recorderStore: recorderStore, voiceCommandService: voiceCommandService, recorderHotkeyService: recorderHotkeyService, liveTranscriptWindow: liveTranscriptWindow)
+            HistoryView(store: store, sessionStore: sessionStore, recorderStore: recorderStore, voiceCommandService: voiceCommandService, recorderHotkeyService: recorderHotkeyService, liveTranscriptWindow: liveTranscriptWindow, bubbleController: bubbleController, musicController: musicController)
                 .onAppear {
                     NSApp?.setActivationPolicy(.accessory)
                 }
