@@ -24,6 +24,13 @@ That's it. The script checks/installs Node.js, pnpm, and Claude CLI, then launch
 - **Streaming** — status indicators (Connecting → Thinking → Streaming) with elapsed timer
 - **Export** — copy as Markdown or download as self-contained HTML
 - **Iron** — merge all branches back into one enriched document
+- **Node Iron** — consolidate a single subtree without creating a new session
+- **Iron ↑** — merge any branch back into its parent's response
+- **Delete Branch** — prune dead ends from the tree
+- **Annotations** — select text and add your own notes (amber-styled, separate from AI responses)
+- **Inline Editing** — double-click any response to edit it directly (Cmd+Enter to save)
+- **Session Persistence** — auto-saves to localStorage, survives refresh
+- **Export/Import JSON** — download a session as JSON, import it back later
 
 ## Architecture
 

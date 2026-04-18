@@ -73,7 +73,7 @@ A tree-structured conversation interface. Unlike linear chat (where follow-ups s
 - Previously expanded content preserved on re-expand (no re-fetch)
 - Keyboard: Enter to expand, Esc to collapse
 - Soft depth limit at 8 levels — shows "Continue deeper?" prompt beyond that
-- MVP is ephemeral: refreshing the page loses the tree (persistence is US-12)
+- Tree state persists across page refreshes (see US-18)
 
 ### US-6: Error Handling
 **As a** user,
@@ -180,6 +180,104 @@ A tree-structured conversation interface. Unlike linear chat (where follow-ups s
 - Embedded Next.js standalone server starts automatically
 - Custom app icon (wave motif)
 
+### US-18: Session Persistence
+**As a** user,
+**I want** my exploration sessions to survive page refreshes and browser restarts,
+**so that** I don't lose work.
+
+**Acceptance Criteria:**
+- All sessions auto-save to localStorage on every tree mutation (debounced 500ms)
+- On page load, restore all sessions from localStorage including tree state and collapsed node set
+- In-flight streams restored as "done" (streaming cannot resume after reload)
+- Graceful degradation: if localStorage is unavailable or data is corrupt, start fresh with no error
+- No manual "Save" button — persistence is automatic and invisible
+
+### US-19: Delete Node
+**As a** user,
+**I want to** delete a branch from my exploration tree,
+**so that** I can prune dead ends and keep the tree focused.
+
+**Acceptance Criteria:**
+- Delete button (✕) available on each non-root node (visible on hover)
+- Deleting a leaf node removes it immediately (no confirmation)
+- Deleting a node with children shows a confirmation dialog: "Delete this branch? N child nodes will be removed."
+- All descendant nodes are removed along with the parent
+- Cannot delete the root node
+- Deletion is reflected in localStorage immediately (US-18)
+
+### US-20: Node-Level Iron
+**As a** user,
+**I want to** iron a single subtree's branches back into that node's response,
+**so that** I can consolidate a branch without creating a new session.
+
+**Acceptance Criteria:**
+- "Iron" button available on any non-leaf node where all children are done (visible on hover)
+- Collects branch content from the subtree and sends to LLM for merging
+- Result replaces the node's `responseMarkdown`; all children of that node are removed
+- Does NOT create a new session (unlike session-level Iron, US-10)
+- Shows "Ironing" spinner while in progress
+- The ironed node can be further explored (select text, drill deeper)
+- Disabled while any children are still streaming
+
+### US-21: Iron ↑ (Merge Into Parent)
+**As a** user,
+**I want to** merge any branch back up into its parent's response,
+**so that** I can enrich the parent without creating a new session.
+
+**Acceptance Criteria:**
+- "Iron ↑" button available on any done non-root node (visible on hover)
+- Sends the parent's response + the child branch content (including sub-branches) to the LLM
+- Result replaces the parent's `responseMarkdown`; the child node and its descendants are removed
+- Shows "Ironing" spinner while in progress
+- Works on both AI responses and annotations
+
+### US-22: Annotations
+**As a** user,
+**I want to** add my own notes to selected text,
+**so that** I can record my thoughts alongside AI responses.
+
+**Acceptance Criteria:**
+- "Add note" button in the selection toolbar (amber-colored)
+- Opens a textarea for the user to write their thoughts
+- Saved as a `TreeNode` with `isAnnotation: true` — no LLM call
+- Rendered with amber border/background and 📝 prefix
+- Annotations are included as `<user_note>` tags during Iron to preserve the user's voice
+- Can be edited inline (US-24) and deleted (US-19)
+
+### US-23: Iron With Instructions
+**As a** user,
+**I want to** give style/focus instructions when ironing,
+**so that** I can control the tone and emphasis of the merged output.
+
+**Acceptance Criteria:**
+- Iron panel appears with an instruction text field (e.g., "keep it concise", "academic tone")
+- When ironing down (↓), can select/deselect which child branches to include
+- Instructions are appended to the LLM prompt
+- Works for both Iron ↑ and Iron ↓
+
+### US-24: Inline Editing
+**As a** user,
+**I want to** edit any response or annotation directly,
+**so that** I can fix errors, improve phrasing, or refine content.
+
+**Acceptance Criteria:**
+- Double-click any response to enter edit mode (textarea with raw markdown)
+- "Edit" button appears on hover (top-right corner)
+- Cmd+Enter saves, Escape cancels
+- Works on both AI responses and annotations
+- Edits are persisted to localStorage immediately
+
+### US-25: Export/Import JSON
+**As a** user,
+**I want to** export a session as JSON and import it back later,
+**so that** I can archive, share, and restore explorations.
+
+**Acceptance Criteria:**
+- "Export JSON" button in toolbar — downloads a `.json` file with full session data
+- "Import" button in toolbar — opens file picker for `.json` files
+- Imported session appears as a new session in the session picker
+- Round-trip: export → import produces an identical session (tree structure, annotations, edits preserved)
+
 ---
 
 ## Enhancement Stories (Post-MVP)
@@ -192,9 +290,6 @@ A sidebar or breadcrumb showing the full tree structure for orientation in deep 
 
 ### US-17: Custom Persona / Context
 Set a system-level context like "explain at a high-school level" or "focus on code examples" that applies to all responses.
-
-### US-18: Session Persistence
-Save exploration state to localStorage so refreshing doesn't lose work.
 
 ---
 

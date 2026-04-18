@@ -5,6 +5,96 @@ import { nanoid } from "nanoid";
 import type { TreeNode, ContextEntry } from "@/lib/types";
 import { buildContext } from "@/lib/context";
 
+// ── Persistence ─────────────────────────────────────
+
+const STORAGE_KEY = "undercurrent-sessions";
+const SESSION_ID_KEY = "undercurrent-current-session";
+
+interface SerializedSession {
+  id: string;
+  label: string;
+  rootInput: string | null;
+  rootNode: TreeNode | null;
+  collapsedIds: string[];
+}
+
+function serializeSessions(sessions: Session[]): string {
+  const serialized: SerializedSession[] = sessions.map((s) => ({
+    ...s,
+    collapsedIds: [...s.collapsedIds],
+  }));
+  return JSON.stringify(serialized);
+}
+
+function deserializeSessions(json: string): Session[] {
+  const parsed: SerializedSession[] = JSON.parse(json);
+  return parsed.map((s) => ({
+    ...s,
+    collapsedIds: new Set(s.collapsedIds),
+    rootNode: s.rootNode ? sanitizeRestoredNode(s.rootNode) : null,
+  }));
+}
+
+function sanitizeRestoredNode(node: TreeNode): TreeNode {
+  return {
+    ...node,
+    status:
+      node.status === "done" || node.status === "error"
+        ? node.status
+        : "done",
+    children: node.children.map(sanitizeRestoredNode),
+  };
+}
+
+// ── Tree helpers (module-level) ─────────────────────
+
+function findInTree(
+  node: TreeNode | null,
+  id: string
+): TreeNode | undefined {
+  if (!node) return undefined;
+  if (node.id === id) return node;
+  for (const child of node.children) {
+    const found = findInTree(child, id);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+function deepUpdateNode(
+  node: TreeNode,
+  targetId: string,
+  updater: (n: TreeNode) => TreeNode
+): TreeNode {
+  if (node.id === targetId) return updater(node);
+  const updatedChildren = node.children.map((child) =>
+    deepUpdateNode(child, targetId, updater)
+  );
+  if (updatedChildren.every((c, i) => c === node.children[i])) return node;
+  return { ...node, children: updatedChildren };
+}
+
+function deepDeleteNode(node: TreeNode, targetId: string): TreeNode {
+  const filtered = node.children.filter((c) => c.id !== targetId);
+  if (filtered.length !== node.children.length) {
+    return { ...node, children: filtered };
+  }
+  const updated = node.children.map((c) => deepDeleteNode(c, targetId));
+  if (updated.every((c, i) => c === node.children[i])) return node;
+  return { ...node, children: updated };
+}
+
+function collectDescendantIds(node: TreeNode): Set<string> {
+  const ids = new Set<string>();
+  for (const c of node.children) {
+    ids.add(c.id);
+    for (const id of collectDescendantIds(c)) ids.add(id);
+  }
+  return ids;
+}
+
+// ── Types ───────────────────────────────────────────
+
 export interface Session {
   id: string;
   label: string;
@@ -14,15 +104,12 @@ export interface Session {
 }
 
 export interface ExploreTree {
-  // Session management
   sessions: Session[];
   currentSessionId: string;
   switchSession: (id: string) => void;
   newSession: () => void;
-  /** Create a new session pre-filled with text (used by Iron) */
   newSessionFrom: (label: string, text: string) => void;
 
-  // Current session state
   rootInput: string | null;
   rootNode: TreeNode | null;
   collapsedIds: Set<string>;
@@ -36,6 +123,17 @@ export interface ExploreTree {
   toggleCollapse: (nodeId: string) => void;
   collapseAll: () => void;
   findNode: (id: string) => TreeNode | undefined;
+  deleteNode: (nodeId: string) => void;
+  replaceWithIron: (nodeId: string, markdown: string) => void;
+  ironUpNode: (nodeId: string, newParentMarkdown: string) => void;
+  addAnnotation: (
+    parentId: string,
+    anchorParagraphIndex: number,
+    selectedText: string,
+    note: string
+  ) => void;
+  editNode: (nodeId: string, newMarkdown: string) => void;
+  importSession: (json: string) => void;
 }
 
 function makeSession(): Session {
@@ -48,13 +146,14 @@ function makeSession(): Session {
   };
 }
 
+// ── Hook ────────────────────────────────────────────
+
 export function useExploreTree(): ExploreTree {
   const [sessions, setSessions] = useState<Session[]>(() => [makeSession()]);
   const [currentSessionId, setCurrentSessionId] = useState(
     () => sessions[0].id
   );
 
-  // Mutable ref for findNode (avoids stale closures)
   const sessionsRef = useRef(sessions);
   sessionsRef.current = sessions;
 
@@ -64,6 +163,40 @@ export function useExploreTree(): ExploreTree {
       sessionsRef.current[0],
     [currentSessionId]
   );
+
+  // ── Persistence: load ─────────────────────────────
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return;
+      const restored = deserializeSessions(stored);
+      if (restored.length === 0) return;
+      setSessions(restored);
+      const savedId = localStorage.getItem(SESSION_ID_KEY);
+      if (savedId && restored.some((s) => s.id === savedId)) {
+        setCurrentSessionId(savedId);
+      } else {
+        setCurrentSessionId(restored[0].id);
+      }
+    } catch {
+      // Corrupt data — start fresh
+    }
+  }, []);
+
+  // ── Persistence: save (debounced) ─────────────────
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      try {
+        localStorage.setItem(STORAGE_KEY, serializeSessions(sessions));
+        localStorage.setItem(SESSION_ID_KEY, currentSessionId);
+      } catch {
+        // Storage full or unavailable
+      }
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [sessions, currentSessionId]);
 
   // ── Session management ────────────────────────────
 
@@ -83,10 +216,9 @@ export function useExploreTree(): ExploreTree {
     s.rootInput = text;
     setSessions((prev) => [...prev, s]);
     setCurrentSessionId(s.id);
-    // Auto-submit will be triggered by effect below
   }, []);
 
-  // ── Tree helpers ──────────────────────────────────
+  // ── Tree state helpers ────────────────────────────
 
   const updateSession = useCallback(
     (updater: (s: Session) => Session) => {
@@ -107,22 +239,9 @@ export function useExploreTree(): ExploreTree {
     [updateSession]
   );
 
-  const findNodeInTree = useCallback(
-    (node: TreeNode | null, id: string): TreeNode | undefined => {
-      if (!node) return undefined;
-      if (node.id === id) return node;
-      for (const child of node.children) {
-        const found = findNodeInTree(child, id);
-        if (found) return found;
-      }
-      return undefined;
-    },
-    []
-  );
-
   const findNode = useCallback(
-    (id: string) => findNodeInTree(getCurrent().rootNode, id),
-    [findNodeInTree, getCurrent]
+    (id: string) => findInTree(getCurrent().rootNode, id),
+    [getCurrent]
   );
 
   // ── Streaming ─────────────────────────────────────
@@ -268,8 +387,13 @@ export function useExploreTree(): ExploreTree {
       }));
 
       const context = buildContext(current.rootInput!, child, findNode);
-      // Go deeper → haiku (fast), Ask about → sonnet (better reasoning)
-      startStream(child, context, selectedText, question, question ? "sonnet" : "haiku");
+      startStream(
+        child,
+        context,
+        selectedText,
+        question,
+        question ? "sonnet" : "haiku"
+      );
     },
     [updateNode, startStream, current.rootInput, findNode]
   );
@@ -299,6 +423,121 @@ export function useExploreTree(): ExploreTree {
     });
   }, [updateSession]);
 
+  const deleteNode = useCallback(
+    (nodeId: string) => {
+      updateSession((s) => {
+        if (!s.rootNode || s.rootNode.id === nodeId) return s;
+        const target = findInTree(s.rootNode, nodeId);
+        if (!target) return s;
+        const idsToRemove = collectDescendantIds(target);
+        idsToRemove.add(nodeId);
+        const newCollapsed = new Set(s.collapsedIds);
+        for (const id of idsToRemove) newCollapsed.delete(id);
+        return {
+          ...s,
+          rootNode: deepDeleteNode(s.rootNode, nodeId),
+          collapsedIds: newCollapsed,
+        };
+      });
+    },
+    [updateSession]
+  );
+
+  const replaceWithIron = useCallback(
+    (nodeId: string, markdown: string) => {
+      updateSession((s) => {
+        if (!s.rootNode) return s;
+        const target = findInTree(s.rootNode, nodeId);
+        if (!target) return s;
+        const descendantIds = collectDescendantIds(target);
+        const newRoot = deepUpdateNode(s.rootNode, nodeId, (n) => ({
+          ...n,
+          responseMarkdown: markdown,
+          children: [],
+          status: "done" as const,
+        }));
+        const newCollapsed = new Set(s.collapsedIds);
+        for (const id of descendantIds) newCollapsed.delete(id);
+        newCollapsed.delete(nodeId);
+        return { ...s, rootNode: newRoot, collapsedIds: newCollapsed };
+      });
+    },
+    [updateSession]
+  );
+
+  const ironUpNode = useCallback(
+    (nodeId: string, newParentMarkdown: string) => {
+      updateSession((s) => {
+        if (!s.rootNode) return s;
+        const target = findInTree(s.rootNode, nodeId);
+        if (!target || !target.parentId) return s;
+        const parentId = target.parentId;
+        const descendantIds = collectDescendantIds(target);
+        descendantIds.add(nodeId);
+        let newRoot = deepUpdateNode(s.rootNode, parentId, (parent) => ({
+          ...parent,
+          responseMarkdown: newParentMarkdown,
+          children: parent.children.filter((c) => c.id !== nodeId),
+        }));
+        const newCollapsed = new Set(s.collapsedIds);
+        for (const id of descendantIds) newCollapsed.delete(id);
+        return { ...s, rootNode: newRoot, collapsedIds: newCollapsed };
+      });
+    },
+    [updateSession]
+  );
+
+  const addAnnotation = useCallback(
+    (
+      parentId: string,
+      anchorParagraphIndex: number,
+      selectedText: string,
+      note: string
+    ) => {
+      const child: TreeNode = {
+        id: nanoid(),
+        parentId,
+        anchorParagraphIndex,
+        selectedText,
+        responseMarkdown: note,
+        children: [],
+        status: "done",
+        isAnnotation: true,
+      };
+      updateNode(parentId, (parent) => ({
+        ...parent,
+        children: [...parent.children, child],
+      }));
+    },
+    [updateNode]
+  );
+
+  const editNode = useCallback(
+    (nodeId: string, newMarkdown: string) => {
+      updateNode(nodeId, (n) => ({
+        ...n,
+        responseMarkdown: newMarkdown,
+      }));
+    },
+    [updateNode]
+  );
+
+  const importSession = useCallback(
+    (json: string) => {
+      const data = JSON.parse(json);
+      const s: Session = {
+        id: nanoid(),
+        label: data.label || "Imported",
+        rootInput: data.rootInput,
+        rootNode: data.rootNode ? sanitizeRestoredNode(data.rootNode) : null,
+        collapsedIds: new Set(data.collapsedIds || []),
+      };
+      setSessions((prev) => [...prev, s]);
+      setCurrentSessionId(s.id);
+    },
+    []
+  );
+
   return {
     sessions,
     currentSessionId,
@@ -313,18 +552,11 @@ export function useExploreTree(): ExploreTree {
     toggleCollapse,
     collapseAll,
     findNode,
+    deleteNode,
+    replaceWithIron,
+    ironUpNode,
+    addAnnotation,
+    editNode,
+    importSession,
   };
-}
-
-function deepUpdateNode(
-  node: TreeNode,
-  targetId: string,
-  updater: (n: TreeNode) => TreeNode
-): TreeNode {
-  if (node.id === targetId) return updater(node);
-  const updatedChildren = node.children.map((child) =>
-    deepUpdateNode(child, targetId, updater)
-  );
-  if (updatedChildren === node.children) return node;
-  return { ...node, children: updatedChildren };
 }

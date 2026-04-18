@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import type { Engine } from "@/lib/types";
+import type { Engine, TreeNode } from "@/lib/types";
+import { collectSubtreeContent, collectIronUpContent } from "@/lib/export";
 import { InputBar } from "@/components/InputBar";
 import { ResponseNode } from "@/components/ResponseNode";
 import { SelectionToolbar } from "@/components/SelectionToolbar";
@@ -11,8 +12,54 @@ import { WelcomeScreen } from "@/components/WelcomeScreen";
 import { useExploreTree } from "@/hooks/useExploreTree";
 import { useSelection } from "@/hooks/useSelection";
 
+function countDescendants(node: TreeNode): number {
+  let count = 0;
+  for (const c of node.children) {
+    count += 1 + countDescendants(c);
+  }
+  return count;
+}
+
+async function ironViaSSE(
+  treeContent: string,
+  mode: string,
+  instruction?: string
+): Promise<string> {
+  const nodeId = `iron-${mode}-${Date.now()}`;
+  const res = await fetch("/api/flatten", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ treeContent, nodeId, mode, instruction }),
+  });
+
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("No response body");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let result = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const json = JSON.parse(line.slice(6));
+      if (json.type === "chunk") result += json.text;
+    }
+  }
+
+  return result;
+}
+
 export default function Home() {
   const [engine, setEngine] = useState<Engine | null>(null);
+  const [ironingNodeId, setIroningNodeId] = useState<string | null>(null);
   const tree = useExploreTree();
   const { selection, clearSelection } = useSelection();
 
@@ -33,7 +80,18 @@ export default function Home() {
     tree.addChild(nodeId, paragraphIndex, text, question);
   };
 
-  /** Iron result → new session with the flattened text as root */
+  const handleAddNote = useCallback(
+    (
+      nodeId: string,
+      paragraphIndex: number,
+      text: string,
+      note: string
+    ) => {
+      tree.addAnnotation(nodeId, paragraphIndex, text, note);
+    },
+    [tree]
+  );
+
   const handleFlattenResult = useCallback(
     (markdown: string) => {
       const label = "Ironed: " + (tree.rootInput?.slice(0, 30) || "doc");
@@ -42,19 +100,81 @@ export default function Home() {
     [tree]
   );
 
-  // ── Welcome screen ─────────────────────────────────
+  const handleDeleteNode = useCallback(
+    (nodeId: string) => {
+      const node = tree.findNode(nodeId);
+      if (!node) return;
+      if (node.children.length > 0) {
+        const count = countDescendants(node);
+        if (
+          !window.confirm(
+            `Delete this branch? ${count} child node${count > 1 ? "s" : ""} will be removed.`
+          )
+        )
+          return;
+      }
+      tree.deleteNode(nodeId);
+    },
+    [tree]
+  );
+
+  const handleIronNode = useCallback(
+    async (nodeId: string) => {
+      const node = tree.findNode(nodeId);
+      if (!node || node.children.length === 0) return;
+
+      setIroningNodeId(nodeId);
+      try {
+        const treeContent = collectSubtreeContent(node);
+        const result = await ironViaSSE(treeContent, "iron-down");
+        tree.replaceWithIron(nodeId, result);
+      } catch {
+        // Iron failed
+      } finally {
+        setIroningNodeId(null);
+      }
+    },
+    [tree]
+  );
+
+  const handleIronUpNode = useCallback(
+    async (nodeId: string) => {
+      const node = tree.findNode(nodeId);
+      if (!node || !node.parentId) return;
+      const parent = tree.findNode(node.parentId);
+      if (!parent) return;
+
+      setIroningNodeId(nodeId);
+      try {
+        const treeContent = collectIronUpContent(parent, node);
+        const result = await ironViaSSE(treeContent, "iron-up");
+        tree.ironUpNode(nodeId, result);
+      } catch {
+        // Iron failed
+      } finally {
+        setIroningNodeId(null);
+      }
+    },
+    [tree]
+  );
+
+  const handleEditNode = useCallback(
+    (nodeId: string, newMarkdown: string) => {
+      tree.editNode(nodeId, newMarkdown);
+    },
+    [tree]
+  );
+
   if (!engine) {
     return <WelcomeScreen onStart={setEngine} />;
   }
 
-  // ── Main UI ────────────────────────────────────────
   return (
     <div className="flex flex-1 flex-col bg-zinc-50 pt-8 font-sans dark:bg-zinc-950">
-      {/* Header */}
-      <header className="border-b border-zinc-200 bg-white px-6 py-4 pl-20 dark:border-zinc-800 dark:bg-zinc-900">
+      <header className="sticky top-0 z-40 border-b border-zinc-200 px-6 py-3 backdrop-blur-sm bg-white/80 dark:border-zinc-800 dark:bg-zinc-900/80">
         <div className="mx-auto flex max-w-3xl items-center justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+            <h1 className="text-sm font-medium tracking-wide uppercase text-zinc-400 dark:text-zinc-500">
               Undercurrent
             </h1>
             <SessionPicker
@@ -74,13 +194,14 @@ export default function Home() {
           <Toolbar
             rootInput={tree.rootInput}
             rootNode={tree.rootNode}
+            collapsedIds={tree.collapsedIds}
             onCollapseAll={tree.collapseAll}
             onFlattenResult={handleFlattenResult}
+            onImportSession={tree.importSession}
           />
         </div>
       </header>
 
-      {/* Main content */}
       <main className="flex-1 overflow-y-auto px-6 py-8">
         <div className="mx-auto max-w-3xl">
           <InputBar
@@ -90,14 +211,19 @@ export default function Home() {
 
           {tree.rootNode && (
             <div className="mt-8">
-              <div className="mb-4 rounded-lg bg-white px-4 py-3 text-sm text-zinc-600 shadow-sm dark:bg-zinc-900 dark:text-zinc-400">
+              <div className="mb-4 text-xs text-zinc-400 dark:text-zinc-500 italic">
                 {tree.rootInput}
               </div>
-              <div className="rounded-xl bg-white p-6 shadow-sm dark:bg-zinc-900">
+              <div className="max-w-3xl">
                 <ResponseNode
                   node={tree.rootNode}
                   collapsedIds={tree.collapsedIds}
                   onToggleCollapse={tree.toggleCollapse}
+                  onDeleteNode={handleDeleteNode}
+                  onIronNode={handleIronNode}
+                  onIronUpNode={handleIronUpNode}
+                  onEditNode={handleEditNode}
+                  ironingNodeId={ironingNodeId}
                 />
               </div>
             </div>
@@ -105,8 +231,8 @@ export default function Home() {
 
           {!tree.rootNode && (
             <div className="mt-32 text-center text-zinc-400 dark:text-zinc-600">
-              <p className="text-4xl mb-4">〰</p>
-              <p className="text-sm">What&apos;s beneath the surface?</p>
+              <p className="text-6xl mb-4">〰</p>
+              <p className="text-xs tracking-widest uppercase text-zinc-300">What&apos;s beneath the surface?</p>
             </div>
           )}
         </div>
@@ -116,6 +242,7 @@ export default function Home() {
         selection={selection}
         onGoDeeper={handleGoDeeper}
         onAskAbout={handleAskAbout}
+        onAddNote={handleAddNote}
         onDismiss={clearSelection}
       />
     </div>

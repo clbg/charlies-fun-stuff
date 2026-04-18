@@ -29,6 +29,7 @@ interface TreeNode {
   status: 'spawning' | 'thinking' | 'streaming' | 'done' | 'error';
   error?: string;
   startedAt?: number;            // Date.now() when request started
+  isAnnotation?: boolean;        // true = user-authored note, not AI response
 }
 
 interface Session {
@@ -39,6 +40,7 @@ interface Session {
   collapsedIds: Set<string>;     // which nodes are collapsed
 }
 // Sessions managed by useExploreTree hook. Iron creates a new session.
+// Persisted to localStorage on every mutation; loaded on app startup.
 ```
 
 ## Component Tree
@@ -62,7 +64,7 @@ interface Session {
       </CollapsibleBlock>
     )}
   </ResponseNode>
-  <SelectionToolbar />             // floating, appears on text selection (US-2)
+  <SelectionToolbar />             // floating: Go deeper | Ask about this | Add note (US-2, US-22)
 ```
 
 ## API Contract
@@ -102,7 +104,7 @@ data: {"type":"error","message":"CLI not found"}
 
 ### POST /api/flatten
 
-Iron/flatten endpoint. Takes tree content (collected from all branches), returns SSE stream of the merged document.
+Iron/flatten endpoint. Takes tree content (collected from all branches), returns SSE stream of the merged document. Used for both session-level Iron (all branches → new session) and node-level Iron (subtree branches → replaces node's response in-place).
 
 ### GET /api/engines
 
@@ -122,7 +124,21 @@ Returns engine availability: `{ "claude": true }`
 
 6. **Fast model for drill-down**: Root questions use default model (Opus). Drill-down uses `--model sonnet` for faster responses. Controlled by `fast` flag in API request.
 
-7. **Sessions**: Multiple sessions managed in `useExploreTree`. Iron creates a new session with the flattened text as root input (auto-submitted). Sessions are ephemeral (no persistence yet).
+7. **Sessions**: Multiple sessions managed in `useExploreTree`. Iron creates a new session with the flattened text as root input (auto-submitted). Sessions auto-persist to localStorage on every mutation (debounced 500ms) and restore on page load.
+
+9. **Delete node**: Removes a node and all its descendants. Confirmation dialog shown when node has children. Cannot delete root node.
+
+10. **Node-level Iron**: Available on any node with children (all in "done" status). Collects subtree content, sends to `/api/flatten`, replaces node's `responseMarkdown` with the ironed result and removes all children. Does NOT create a new session — mutates in-place.
+
+11. **Iron ↑ (merge into parent)**: Any non-root node can be ironed upward — its response (and any sub-branches) are woven into the parent's `responseMarkdown`, and the node is removed. Uses a dedicated prompt template via `mode: "iron-up"` on `/api/flatten`.
+
+12. **Annotations**: User-authored notes attached to selected text. Created via "Add note" in the selection toolbar. Stored as `TreeNode` with `isAnnotation: true`, `status: "done"`, no LLM call. Rendered with amber border and 📝 prefix. Included as `<user_note>` tags during Iron to preserve the user's voice.
+
+13. **Inline editing**: Double-click any response node to enter edit mode (textarea). Cmd+Enter saves, Escape cancels. Works on both AI responses and annotations.
+
+14. **Export/Import JSON**: Export a full session (tree + collapsedIds) as `.json` file. Import creates a new session from the file. Enables round-trip archival.
+
+15. **Iron with instructions**: `/api/flatten` accepts an optional `instruction` parameter appended to the prompt (e.g., "keep it concise", "academic tone"). Supported for all Iron modes.
 
 8. **Electron packaging**: `output: "standalone"` builds a minimal Next.js server. `server-bundle/` contains the dereferenced (no symlinks) standalone output. Electron `main.js` resolves the user's full shell PATH before spawning node/claude.
 
@@ -161,7 +177,8 @@ undercurrent/
 │   │   ├── SelectionToolbar.tsx
 │   │   ├── StatusIndicator.tsx   // Connecting/Thinking + timer
 │   │   ├── SessionPicker.tsx     // session dropdown
-│   │   ├── Toolbar.tsx           // Collapse/Export/Iron
+│   │   ├── Toolbar.tsx           // Collapse/Export/Iron/Import
+│   │   ├── IronPanel.tsx         // Iron config: instructions + branch selection
 │   │   └── WelcomeScreen.tsx     // engine selection
 │   ├── lib/
 │   │   ├── engine.ts             // CLI spawn + fast model option
@@ -170,6 +187,6 @@ undercurrent/
 │   │   ├── prompt.ts             // prompt templates
 │   │   └── types.ts
 │   └── hooks/
-│       ├── useExploreTree.ts     // tree state + session management
+│       ├── useExploreTree.ts     // tree state + session management + localStorage persistence
 │       └── useSelection.ts       // text selection detection
 ```
