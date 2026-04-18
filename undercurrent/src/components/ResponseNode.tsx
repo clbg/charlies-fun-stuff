@@ -113,7 +113,7 @@ export function ResponseNode({
               {node.status === "done" && (
                 <button
                   onClick={() => startEditing(node.id, node.responseMarkdown)}
-                  className="absolute top-1 right-1 w-6 h-6 p-1 rounded text-zinc-300 hover:text-zinc-500 dark:text-zinc-600 dark:hover:text-zinc-400 opacity-0 group-hover/content:opacity-100 transition-all"
+                  className="absolute top-1 right-1 w-6 h-6 p-1 rounded text-zinc-300 hover:text-zinc-500 dark:text-zinc-600 dark:hover:text-zinc-400 opacity-30 group-hover/content:opacity-100 transition-all"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
