@@ -40,6 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# override root gitignore's Python `lib/` rule — our src/lib/ is app code
+!src/lib/
+
 # electron build
 /electron-resources/
 /server-bundle/
