@@ -109,6 +109,7 @@ export interface ExploreTree {
   switchSession: (id: string) => void;
   newSession: () => void;
   newSessionFrom: (label: string, text: string) => void;
+  deleteSession: (id: string) => void;
 
   rootInput: string | null;
   rootNode: TreeNode | null;
@@ -217,6 +218,28 @@ export function useExploreTree(): ExploreTree {
     setSessions((prev) => [...prev, s]);
     setCurrentSessionId(s.id);
   }, []);
+
+  const deleteSession = useCallback(
+    (id: string) => {
+      setSessions((prev) => {
+        if (prev.length <= 1) {
+          // Can't delete the last session — replace with a fresh one
+          const fresh = makeSession();
+          setCurrentSessionId(fresh.id);
+          return [fresh];
+        }
+        const next = prev.filter((s) => s.id !== id);
+        // If we're deleting the current session, switch to a neighbor
+        if (id === currentSessionId) {
+          const oldIndex = prev.findIndex((s) => s.id === id);
+          const newIndex = Math.min(oldIndex, next.length - 1);
+          setCurrentSessionId(next[newIndex].id);
+        }
+        return next;
+      });
+    },
+    [currentSessionId]
+  );
 
   // ── Tree state helpers ────────────────────────────
 
@@ -544,6 +567,7 @@ export function useExploreTree(): ExploreTree {
     switchSession,
     newSession,
     newSessionFrom,
+    deleteSession,
     rootInput: current.rootInput,
     rootNode: current.rootNode,
     collapsedIds: current.collapsedIds,

@@ -1,15 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import type { TreeNode } from "@/lib/types";
 import type { ReactNode } from "react";
+import { IronPanel } from "./IronPanel";
 
 interface CollapsibleBlockProps {
   node: TreeNode;
   isCollapsed: boolean;
   onToggle: () => void;
   onDelete: () => void;
-  onIron: () => void;
-  onIronUp: () => void;
+  onIron: (instruction: string, excludeNodeIds: string[]) => void;
+  onIronUp: (instruction: string, excludeNodeIds: string[]) => void;
   isIroning: boolean;
   depth: number;
   children: ReactNode;
@@ -37,6 +39,8 @@ export function CollapsibleBlock({
   depth,
   children,
 }: CollapsibleBlockProps) {
+  const [ironPanelMode, setIronPanelMode] = useState<"up" | "down" | null>(null);
+
   const isAnnotation = !!node.isAnnotation;
   const borderColor = isAnnotation
     ? "border-amber-400"
@@ -97,7 +101,7 @@ export function CollapsibleBlock({
         <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
           {isDone && !isIroning && (
             <button
-              onClick={onIronUp}
+              onClick={() => setIronPanelMode(ironPanelMode === "up" ? null : "up")}
               className="rounded px-1.5 py-0.5 text-xs text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 transition-colors"
               title="Merge this branch into parent"
             >
@@ -106,7 +110,7 @@ export function CollapsibleBlock({
           )}
           {allChildrenDone && isDone && !isIroning && (
             <button
-              onClick={onIron}
+              onClick={() => setIronPanelMode(ironPanelMode === "down" ? null : "down")}
               className="rounded px-1.5 py-0.5 text-xs text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 transition-colors"
               title="Merge children into this node"
             >
@@ -127,6 +131,23 @@ export function CollapsibleBlock({
           </button>
         </div>
       </div>
+
+      {/* Iron Panel */}
+      {ironPanelMode && (
+        <IronPanel
+          mode={ironPanelMode}
+          childNodes={node.children}
+          onSubmit={(instruction, excludeIds) => {
+            if (ironPanelMode === "up") {
+              onIronUp(instruction, excludeIds);
+            } else {
+              onIron(instruction, excludeIds);
+            }
+            setIronPanelMode(null);
+          }}
+          onCancel={() => setIronPanelMode(null)}
+        />
+      )}
 
       {/* Content */}
       {!isCollapsed && <div className="mt-1">{children}</div>}

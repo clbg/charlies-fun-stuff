@@ -119,14 +119,14 @@ export default function Home() {
   );
 
   const handleIronNode = useCallback(
-    async (nodeId: string) => {
+    async (nodeId: string, instruction: string, excludeNodeIds: string[]) => {
       const node = tree.findNode(nodeId);
       if (!node || node.children.length === 0) return;
 
       setIroningNodeId(nodeId);
       try {
-        const treeContent = collectSubtreeContent(node);
-        const result = await ironViaSSE(treeContent, "iron-down");
+        const treeContent = collectSubtreeContent(node, excludeNodeIds);
+        const result = await ironViaSSE(treeContent, "iron-down", instruction || undefined);
         tree.replaceWithIron(nodeId, result);
       } catch {
         // Iron failed
@@ -138,7 +138,7 @@ export default function Home() {
   );
 
   const handleIronUpNode = useCallback(
-    async (nodeId: string) => {
+    async (nodeId: string, instruction: string, excludeNodeIds: string[]) => {
       const node = tree.findNode(nodeId);
       if (!node || !node.parentId) return;
       const parent = tree.findNode(node.parentId);
@@ -146,8 +146,8 @@ export default function Home() {
 
       setIroningNodeId(nodeId);
       try {
-        const treeContent = collectIronUpContent(parent, node);
-        const result = await ironViaSSE(treeContent, "iron-up");
+        const treeContent = collectIronUpContent(parent, node, excludeNodeIds);
+        const result = await ironViaSSE(treeContent, "iron-up", instruction || undefined);
         tree.ironUpNode(nodeId, result);
       } catch {
         // Iron failed
@@ -182,6 +182,7 @@ export default function Home() {
               currentId={tree.currentSessionId}
               onSwitch={tree.switchSession}
               onNew={tree.newSession}
+              onDelete={tree.deleteSession}
             />
             <button
               onClick={() => setEngine(null)}

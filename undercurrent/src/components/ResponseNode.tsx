@@ -11,8 +11,8 @@ interface ResponseNodeProps {
   collapsedIds: Set<string>;
   onToggleCollapse: (nodeId: string) => void;
   onDeleteNode: (nodeId: string) => void;
-  onIronNode: (nodeId: string) => void;
-  onIronUpNode: (nodeId: string) => void;
+  onIronNode: (nodeId: string, instruction: string, excludeNodeIds: string[]) => void;
+  onIronUpNode: (nodeId: string, instruction: string, excludeNodeIds: string[]) => void;
   onEditNode: (nodeId: string, newMarkdown: string) => void;
   ironingNodeId: string | null;
   depth?: number;
@@ -144,8 +144,8 @@ export function ResponseNode({
                         isCollapsed={collapsedIds.has(child.id)}
                         onToggle={() => onToggleCollapse(child.id)}
                         onDelete={() => onDeleteNode(child.id)}
-                        onIron={() => onIronNode(child.id)}
-                        onIronUp={() => onIronUpNode(child.id)}
+                        onIron={(instruction, excludeNodeIds) => onIronNode(child.id, instruction, excludeNodeIds)}
+                        onIronUp={(instruction, excludeNodeIds) => onIronUpNode(child.id, instruction, excludeNodeIds)}
                         isIroning={ironingNodeId === child.id}
                         depth={depth + 1}
                       >
