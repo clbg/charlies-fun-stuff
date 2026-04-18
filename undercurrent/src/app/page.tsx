@@ -170,7 +170,8 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-zinc-50 pt-8 font-sans dark:bg-zinc-950">
+    <div className="flex flex-1 flex-col bg-zinc-50 font-sans dark:bg-zinc-950">
+      <div className="drag-region h-8 flex-shrink-0" />
       <header className="drag-region sticky top-0 z-40 border-b border-zinc-200 px-6 py-3 backdrop-blur-sm bg-white/80 dark:border-zinc-800 dark:bg-zinc-900/80">
         <div className="mx-auto flex max-w-3xl items-center justify-between">
           <div className="flex items-center gap-3">
