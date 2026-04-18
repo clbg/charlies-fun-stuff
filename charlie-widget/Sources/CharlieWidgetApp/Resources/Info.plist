@@ -10,5 +10,7 @@
     <true/>
     <key>NSMicrophoneUsageDescription</key>
     <string>CharlieWidget records audio for transcription and meeting notes.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>CharlieWidget sends transcribed voice commands to iTerm.</string>
 </dict>
 </plist>

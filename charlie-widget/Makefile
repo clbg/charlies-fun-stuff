@@ -50,6 +50,8 @@ install: release icon
 	    <true/>\n\
 	    <key>NSMicrophoneUsageDescription</key>\n\
 	    <string>CharlieWidget records audio for transcription and meeting notes.</string>\n\
+	    <key>NSAppleEventsUsageDescription</key>\n\
+	    <string>CharlieWidget sends transcribed voice commands to iTerm.</string>\n\
 	</dict>\n\
 	</plist>\n" > $(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/Info.plist
 	@# Code sign with stable identity so TCC permissions persist across rebuilds
