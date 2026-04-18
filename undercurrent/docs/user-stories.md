@@ -155,8 +155,9 @@ A tree-structured conversation interface. Unlike linear chat (where follow-ups s
 
 **Acceptance Criteria:**
 - Root questions use the default model (Opus — deep, thorough)
-- Drill-down ("Go deeper" / "Ask about this") uses `--model sonnet` (faster)
-- No user configuration needed — automatic based on depth
+- "Go deeper" uses `--model haiku` (fast drill-down)
+- "Ask about this" uses `--model sonnet` (better reasoning for custom questions)
+- No user configuration needed — automatic based on action type
 
 ### US-13: Welcome Screen & Engine Selection
 **As a** user,
@@ -298,7 +299,7 @@ Set a system-level context like "explain at a high-school level" or "focus on co
 ### TS-1: Prompt Engineering & Output Format
 - "Go deeper" prompt: given context chain + selected text, generate an explanation
 - "Ask about this" prompt: given context chain + selected text + user question, generate an answer
-- Root requests use default model; drill-down uses `--model sonnet` for speed
+- Root requests use default model; "Go deeper" uses `--model haiku` for speed, "Ask about this" uses `--model sonnet` for reasoning
 - Output is plain text/markdown (no special markers needed since user drives selection)
 - Handle multi-paragraph responses gracefully
 

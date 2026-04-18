@@ -23,12 +23,14 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 ARCH=$(uname -m)
 
+VERSION=$(node -p "require('$PROJECT_DIR/package.json').version")
+
 if [ $# -ge 1 ]; then
   DMG_PATH="$1"
 elif [ "$ARCH" = "arm64" ]; then
-  DMG_PATH="$PROJECT_DIR/dist/Undercurrent-0.1.0-arm64.dmg"
+  DMG_PATH="$PROJECT_DIR/dist/Undercurrent-${VERSION}-arm64.dmg"
 else
-  DMG_PATH="$PROJECT_DIR/dist/Undercurrent-0.1.0.dmg"
+  DMG_PATH="$PROJECT_DIR/dist/Undercurrent-${VERSION}.dmg"
 fi
 
 if [ ! -f "$DMG_PATH" ]; then

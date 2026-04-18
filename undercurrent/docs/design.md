@@ -49,21 +49,22 @@ interface Session {
 <App>
   <WelcomeScreen />                // engine selection (US-13)
   — or after engine chosen: —
-  <Header>
+  <header>                         // inline in page.tsx (not a separate component)
     <SessionPicker />              // dropdown to switch sessions (US-11)
-    <EngineBadge />                // click to switch engine
+    <button>{engine}</button>      // plain button to switch engine
     <Toolbar />                    // Collapse all | Copy MD | Export HTML | Iron
-  </Header>
+  </header>
   <InputBar />                     // top-level input (US-1)
   <ResponseNode node={root}>       // recursive component
     <StatusIndicator />            // Connecting/Thinking + elapsed timer (US-7)
-    <Markdown content={node.responseMarkdown} />
+    <HighlightedParagraph />       // renders each paragraph with selection highlighting
     {childrenAtParagraph.map(child =>
       <CollapsibleBlock>           // expand/collapse wrapper (US-5)
         <ResponseNode node={child} />  // recurse
       </CollapsibleBlock>
     )}
   </ResponseNode>
+  <IronPanel />                    // Iron config: instructions + branch selection
   <SelectionToolbar />             // floating: Go deeper | Ask about this | Add note (US-2, US-22)
 ```
 
@@ -82,11 +83,11 @@ interface Session {
   ],
   "selection": "the text user selected",
   "question": "optional user question",
-  "fast": true,
+  "model": "haiku" | "sonnet",
   "nodeId": "abc123"
 }
 ```
-- `fast: true` → uses `--model sonnet` (drill-down). Omitted for root questions (uses default Opus).
+- `model`: `"haiku"` for "Go deeper" (fast drill-down), `"sonnet"` for "Ask about this" (better reasoning). Omitted for root questions (uses default Opus).
 - `nodeId` → tracks the spawned process for abort.
 
 **Response:** SSE stream
@@ -108,7 +109,7 @@ Iron/flatten endpoint. Takes tree content (collected from all branches), returns
 
 ### GET /api/engines
 
-Returns engine availability: `{ "claude": true }`
+Returns engine availability and backend type: `{ "claude": true, "backend": "bedrock" | "cli" }`
 
 ## Key Decisions
 
@@ -122,7 +123,7 @@ Returns engine availability: `{ "claude": true }`
 
 5. **Process management**: Track spawned processes by node ID. On collapse or abort, SIGTERM the child process.
 
-6. **Fast model for drill-down**: Root questions use default model (Opus). Drill-down uses `--model sonnet` for faster responses. Controlled by `fast` flag in API request.
+6. **Fast model for drill-down**: Root questions use default model (Opus). "Go deeper" uses `--model haiku` for fast drill-down. "Ask about this" uses `--model sonnet` for better reasoning. Controlled by `model` field in API request.
 
 7. **Sessions**: Multiple sessions managed in `useExploreTree`. Iron creates a new session with the flattened text as root input (auto-submitted). Sessions auto-persist to localStorage on every mutation (debounced 500ms) and restore on page load.
 
@@ -174,6 +175,7 @@ undercurrent/
 │   │   ├── InputBar.tsx
 │   │   ├── ResponseNode.tsx      // recursive tree node
 │   │   ├── CollapsibleBlock.tsx
+│   │   ├── HighlightedParagraph.tsx // paragraph rendering with selection highlighting
 │   │   ├── SelectionToolbar.tsx
 │   │   ├── StatusIndicator.tsx   // Connecting/Thinking + timer
 │   │   ├── SessionPicker.tsx     // session dropdown
@@ -181,7 +183,8 @@ undercurrent/
 │   │   ├── IronPanel.tsx         // Iron config: instructions + branch selection
 │   │   └── WelcomeScreen.tsx     // engine selection
 │   ├── lib/
-│   │   ├── engine.ts             // CLI spawn + fast model option
+│   │   ├── engine.ts             // CLI spawn + model option
+│   │   ├── bedrock-engine.ts     // AWS Bedrock engine backend
 │   │   ├── context.ts            // context chain builder
 │   │   ├── export.ts             // Markdown + HTML export
 │   │   ├── prompt.ts             // prompt templates
