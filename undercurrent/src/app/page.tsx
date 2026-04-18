@@ -95,7 +95,7 @@ export default function Home() {
   const handleFlattenResult = useCallback(
     (markdown: string) => {
       const label = "Ironed: " + (tree.rootInput?.slice(0, 30) || "doc");
-      tree.newSessionFrom(label, markdown);
+      tree.newSessionWithResult(label, tree.rootInput || "Ironed document", markdown);
     },
     [tree]
   );

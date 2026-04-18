@@ -109,6 +109,7 @@ export interface ExploreTree {
   switchSession: (id: string) => void;
   newSession: () => void;
   newSessionFrom: (label: string, text: string) => void;
+  newSessionWithResult: (label: string, originalInput: string, markdown: string) => void;
   deleteSession: (id: string) => void;
 
   rootInput: string | null;
@@ -215,6 +216,23 @@ export function useExploreTree(): ExploreTree {
     const s = makeSession();
     s.label = label;
     s.rootInput = text;
+    setSessions((prev) => [...prev, s]);
+    setCurrentSessionId(s.id);
+  }, []);
+
+  const newSessionWithResult = useCallback((label: string, originalInput: string, markdown: string) => {
+    const s = makeSession();
+    s.label = label;
+    s.rootInput = originalInput;
+    s.rootNode = {
+      id: nanoid(),
+      parentId: null,
+      anchorParagraphIndex: 0,
+      selectedText: originalInput,
+      responseMarkdown: markdown,
+      children: [],
+      status: "done",
+    };
     setSessions((prev) => [...prev, s]);
     setCurrentSessionId(s.id);
   }, []);
@@ -567,6 +585,7 @@ export function useExploreTree(): ExploreTree {
     switchSession,
     newSession,
     newSessionFrom,
+    newSessionWithResult,
     deleteSession,
     rootInput: current.rootInput,
     rootNode: current.rootNode,
