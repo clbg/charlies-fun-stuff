@@ -31,7 +31,7 @@ function normalizeScheduleItems(card) {
 
     const time = truncateText(item.time ?? "", 22);
     const title = truncateText(item.title ?? "", card.kind === "cover" ? 56 : 28);
-    const meta = truncateText(item.meta ?? "", card.kind === "cover" ? 70 : 48);
+    const meta = truncateText(item.meta ?? "", card.kind === "cover" ? 70 : 56);
     const note = truncateText(item.note ?? "", card.kind === "cover" ? 70 : 36);
 
     return { time, title, meta, note };
