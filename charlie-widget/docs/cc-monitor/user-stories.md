@@ -105,6 +105,27 @@ Removed in favor of the tabbed UI — Sessions tab itself serves as the live sta
 
 ---
 
+### US-10: Bubble Overlay for Session State Awareness
+
+**As a** user with multiple AI agent sessions,
+**I want to** see floating animated bubbles on my screen reflecting session states,
+**so that** I have ambient, at-a-glance awareness of pending approvals and completed tasks without checking the menu bar.
+
+**Acceptance Criteria:**
+- Full-screen transparent overlay with floating bubbles
+- Each pending session → one warm-toned bubble (amber/coral gradient)
+- Each idle session → one cool-toned bubble (cyan/blue gradient)
+- Running sessions → no bubble
+- Bubbles show agent letter (C/G/X/K) inside
+- Bubbles drift randomly, bounce off screen edges
+- Bubbles persist until session state changes (no auto-fade)
+- Click a bubble to dismiss it; dismissed bubbles don't reappear until session state changes
+- Overlay is click-through except on bubbles, appears on all spaces
+- Off by default, toggled via CLI: `charlie-widget bubble on/off/status`
+- Max 12 bubbles on screen
+
+---
+
 ## Technical Stories (Internal)
 
 ### TS-1: State File Protocol

@@ -259,6 +259,42 @@ Added to `~/.claude/settings.json` under `hooks`:
 
 All hooks are `async: true` — fire-and-forget, never block the agent.
 
+## Bubble Overlay
+
+### Architecture
+
+```
+SessionStore (@Observable)
+    │
+    │ observeSessions() — polls every 500ms
+    ▼
+BubbleOverlayController (@Observable)
+    │  syncBubbles(): pending/idle sessions → bubbles, running → remove
+    │  tick(): 60fps position updates, edge bouncing
+    ▼
+BubbleOverlayView (SwiftUI, TimelineView(.animation))
+    │  Renders bubbles with radial gradient + agent letter
+    ▼
+BubbleWindow (custom NSWindow subclass, click-through via hitTest, .floating, all spaces)
+    │  mouseDown: hit-test bubble radii → dismissBubble(id:)
+    │  BubbleContentView: hitTest returns self only on bubble area, nil otherwise
+```
+
+### Bubble Lifecycle
+- **Sync, not events**: Every 500ms, controller reads `SessionStore.sessions` and reconciles:
+  - Session in `.pending` → warm bubble (if not already present)
+  - Session in `.idle` → cool bubble (if not already present, or update warm→cool)
+  - Session in `.running` → remove bubble for that session
+  - Session disappeared → remove bubble
+- Bubbles are keyed by `sessionId` — one bubble per session, no duplicates
+- No auto-fade — bubbles persist until the session state warrants removal
+- **Click to dismiss**: User can click a bubble to remove it. Dismissed IDs are tracked in `dismissedIds` set. A dismissed bubble won't reappear for the same session until it transitions to `running` first (which clears the dismiss record), then back to `pending`/`idle`
+
+### Socket Commands
+- `bubble_on` → enables overlay, shows window, starts animation
+- `bubble_off` → disables overlay, hides window, clears all bubbles
+- `bubble_status` → returns `{"enabled": bool, "bubble_count": int}`
+
 ## Key Decisions
 
 1. **File-based IPC, not socket.** Sessions are updated by external processes (hooks, wrappers) that may not be Swift. Writing a JSON file is universally simple. The widget watches via FSEvents — near-instant reaction without polling.
