@@ -174,7 +174,7 @@ charlie-widget bubble status  # show status (JSON: enabled, bubble_count)
 - Max 12 bubbles on screen
 - Click a bubble to dismiss it (dismissed bubbles don't reappear until the session state changes)
 - Overlay is click-through except on bubbles, appears on all spaces, above normal windows
-- Off by default
+- On by default
 
 See [docs/cc-monitor/design.md](docs/cc-monitor/design.md) for architecture details.
 

@@ -96,15 +96,12 @@ Monitors all running AI coding agent sessions (Claude Code, Codex CLI, Gemini CL
 - 5-minute TTL fallback for sessions without PID
 - 60-second periodic sweep timer catches dead sessions between FSEvents
 
-### Known Limitations
-- **"pending" covers both approval wait and execution.** Claude Code has no `ToolApproved` hook event. PreToolUse fires before approval, PostToolUse fires after execution completes. For long-running tools (e.g. Bash), the dot stays orange the entire execution time, not just during the approval wait. If Claude Code adds an intermediate event, use it to transition pending→running at approval time.
-
 ### Agent Integration
 - Hook script `cc-monitor-hook.sh` reads hook JSON from stdin
 - Finds Claude Code process PID by walking ancestor process tree
 - Configured in `~/.claude/settings.json` for events:
   - `UserPromptSubmit` → running
-  - `PreToolUse` → running (or pending if tool likely needs approval based on permission_mode)
+  - `PreToolUse` → running
   - `PostToolUse` → running
   - `Stop` → idle
   - `Notification(permission_prompt)` → pending
@@ -321,7 +318,7 @@ A full-screen transparent overlay that shows floating animated bubbles reflectin
 - Max 12 bubbles on screen; oldest removed when cap hit
 - Click a bubble to dismiss it (dismissed bubbles don't reappear until session state changes)
 - Overlay window: borderless, transparent, click-through except on bubbles (custom `hitTest`), `.floating` level, all spaces
-- Off by default, toggled via CLI
+- On by default, toggled via CLI
 
 ### CLI
 

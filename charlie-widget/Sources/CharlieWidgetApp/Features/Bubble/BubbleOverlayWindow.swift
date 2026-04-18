@@ -8,7 +8,7 @@ final class BubbleOverlayController {
 
     private(set) var bubbles: [Bubble] = []
     private(set) var dismissedIds: Set<String> = []
-    var isEnabled: Bool = false {
+    var isEnabled: Bool = true {
         didSet {
             if isEnabled {
                 showWindow()
