@@ -12,6 +12,12 @@ Unlike linear chat where follow-ups scroll to the bottom, Undercurrent lets you 
 
 That's it. The script checks/installs Node.js, pnpm, and Claude CLI, then launches the app and opens your browser.
 
+Already have dependencies? Skip straight to dev:
+
+```bash
+pnpm dev
+```
+
 > First time? You'll need to run `claude` once in your terminal to login.
 
 ## Features
