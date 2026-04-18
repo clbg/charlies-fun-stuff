@@ -28,6 +28,17 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+/* Electron window dragging */
+.drag-region {
+  -webkit-app-region: drag;
+}
+.drag-region button,
+.drag-region select,
+.drag-region input,
+.drag-region [data-no-drag] {
+  -webkit-app-region: no-drag;
+}
+
 /* Tailwind prose overrides for nested markdown */
 .prose pre {
   @apply rounded-lg;
