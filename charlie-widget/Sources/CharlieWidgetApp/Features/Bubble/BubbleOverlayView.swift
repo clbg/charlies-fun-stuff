@@ -5,13 +5,13 @@ struct BubbleOverlayView: View {
     let bubbles: [Bubble]
 
     var body: some View {
-        ZStack {
+        GeometryReader { geometry in
             ForEach(bubbles) { bubble in
                 BubbleDot(bubble: bubble)
-                    .position(bubble.position)
+                    .position(x: bubble.position.x,
+                              y: geometry.size.height - bubble.position.y)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
     }
 }
