@@ -44,7 +44,8 @@ export function WelcomeScreen({ onStart }: WelcomeScreenProps) {
   const selectedAvailable = availability[selected];
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center bg-zinc-50 px-6 pt-8 dark:bg-zinc-950">
+    <div className="flex flex-1 flex-col items-center justify-center bg-zinc-50 px-6 dark:bg-zinc-950">
+      <div className="drag-region fixed top-0 left-0 right-0 h-8" />
       <div className="w-full max-w-md">
         {/* Logo / title */}
         <div className="mb-10 text-center">
