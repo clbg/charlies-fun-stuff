@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quant-research-lab"
+version = "0.1.0"
+description = "Minimal research platform for quickly testing trading ideas."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+  { name = "Pengcheng" }
+]
+dependencies = [
+  "backtesting>=0.6.5",
+  "pandas>=2.0",
+]
+
+[project.scripts]
+quant-lab = "quant_lab.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

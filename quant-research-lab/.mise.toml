@@ -1,0 +1,27 @@
+[tools]
+python = "3.12"
+uv = "latest"
+
+[env]
+_.python.venv = { path = ".venv", create = true }
+UV_PYTHON = { value = "{{ tools.python.path }}", tools = true }
+
+[tasks.install]
+description = "Install Quant Lab in editable mode"
+run = "uv pip install -e ."
+
+[tasks.test]
+description = "Run smoke tests"
+run = "python -m unittest discover -s tests"
+
+[tasks.list-strategies]
+description = "List available strategies"
+run = "quant-lab list-strategies"
+
+[tasks.run-buy-and-hold]
+description = "Run the sample buy-and-hold experiment"
+run = "quant-lab run experiments/buy_and_hold_amzn.json"
+
+[tasks.run-dca]
+description = "Run the sample prefunded DCA experiment"
+run = "quant-lab run experiments/monthly_dca_prefunded_amzn.json"

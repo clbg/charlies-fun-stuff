@@ -1,0 +1,10 @@
+{
+  "name": "buy-and-hold amzn sample",
+  "data_path": "../data/sample/amzn_monthly.csv",
+  "initial_cash": 10000,
+  "trade_on_close": true,
+  "strategy": {
+    "name": "buy_and_hold",
+    "params": {}
+  }
+}

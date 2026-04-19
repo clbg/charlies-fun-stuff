@@ -1,0 +1,12 @@
+{
+  "name": "monthly dca prefunded amzn sample",
+  "data_path": "../data/sample/amzn_monthly.csv",
+  "initial_cash": 18000,
+  "trade_on_close": true,
+  "strategy": {
+    "name": "monthly_dca_prefunded",
+    "params": {
+      "contribution": 1000
+    }
+  }
+}
