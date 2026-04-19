@@ -15,9 +15,6 @@ actor SpeechRecognizer {
     /// Minimum samples before transcription is attempted (1.6 s at 16 kHz).
     private static let minSamples = 25_600
 
-    /// Regex that matches WhisperKit control tokens like `<|zh|>`, `<|0.00|>`, etc.
-    private static let controlTokenPattern = #/<\|[^|]*\|>/#
-
     /// Noise / silence markers injected by Whisper.
     private static let noiseMarkers: Set<String> = [
         "[BLANK_AUDIO]", "(BLANK_AUDIO)", "[SILENCE]", "(SILENCE)"
@@ -100,7 +97,7 @@ actor SpeechRecognizer {
     /// Strip WhisperKit control tokens and noise markers from raw output.
     private static func clean(_ text: String) -> String {
         // Remove control tokens: <|...|>
-        var result = text.replacing(controlTokenPattern, with: "")
+        var result = text.replacing(#/<\|[^|]*\|>/#, with: "")
 
         // Remove noise markers.
         for marker in noiseMarkers {
