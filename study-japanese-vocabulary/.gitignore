@@ -1,5 +1,6 @@
 # Virtual Environment
 sjv_env/
+.venv/
 
 # Output Files
 anki_cards.csv

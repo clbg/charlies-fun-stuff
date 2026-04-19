@@ -1,0 +1,17 @@
+[tools]
+python = "3.12"
+
+[env]
+_.python.venv = { path = ".venv", create = true, uv_create_args = ["--seed"] }
+
+[tasks.install]
+description = "Install Python dependencies into the mise-managed venv"
+run = "python -m pip install pdf2image Pillow requests"
+
+[tasks.crop]
+description = "Crop the PDF into individual card images"
+run = "python crop_cards.py"
+
+[tasks.create-anki]
+description = "Create Anki CSV and media files from cropped cards"
+run = "python create_anki_cards.py"

@@ -1,5 +1,7 @@
 # Virtual environment
 gre_env/
+sgv_env/
+.venv/
 venv/
 env/
 

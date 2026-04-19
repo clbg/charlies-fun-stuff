@@ -8,41 +8,26 @@ To set up the Python environment for running the card cropping script, follow th
 
 ### Prerequisites
 
-- **Python 3**: Ensure Python 3 is installed on your system. You can check this by running `python3 --version` in your terminal. If not installed, download it from [python.org](https://www.python.org/downloads/) or use a package manager like Homebrew on macOS (`brew install python3`).
+- `mise`
+- On macOS, `poppler` may be required for `pdf2image`:
+  ```
+  brew install poppler
+  ```
 
-### Steps to Set Up the Virtual Environment
+### Steps to Set Up the Environment
 
-1. **Create a Virtual Environment**:
-   Open a terminal and navigate to the project directory. Then, run the following command to create a virtual environment named `cah_env`:
+1. **Install the configured runtime**:
    ```
-   python3 -m venv cah_env
-   ```
-
-2. **Activate the Virtual Environment**:
-   Activate the virtual environment using the following command:
-   ```
-   source cah_env/bin/activate  # On macOS/Linux
-   ```
-   or
-   ```
-   cah_env\Scripts\activate  # On Windows
+   mise install
    ```
 
-   When activated, you should see `(cah_env)` prefixed to your terminal prompt, indicating you are now working inside the virtual environment.
-
-3. **Install Required Packages**:
-   Install the necessary Python packages for PDF processing and image manipulation:
+2. **Install Python dependencies**:
    ```
-   pip install pdf2image Pillow
+   mise run install
    ```
 
    - `pdf2image`: Converts PDF pages to images.
    - `Pillow`: Handles image cropping and saving.
-
-   **Note**: On macOS, you may also need to install `poppler` for `pdf2image` to work. You can install it using Homebrew:
-   ```
-   brew install poppler
-   ```
 
 ## Running the Scripts
 
@@ -53,7 +38,7 @@ To crop the cards from the PDF file into individual images:
 1. Ensure the PDF file `CAH_PrintPlay2022-RegularInk-FINAL-outlined.pdf` is in the project directory.
 2. Run the script:
    ```
-   python3 crop_cards.py
+   mise run crop
    ```
 
    The script will process the PDF, crop each page into individual card images based on a 5x4 grid with specified margins, and save them in the `cards_output` directory.
@@ -77,10 +62,10 @@ To process the card images and generate an Anki CSV file with extracted text, pr
 
 2. Run the script:
    ```
-   python3 create_anki_cards.py
+   mise run create-anki
    ```
 
-   The script will filter card images (currently set to process cards 41 to 45 for testing), use the OpenAI API for text extraction, pronunciation, translation, and audio generation, and create an Anki CSV file at `anki_cards.csv`. Ensure you have activated the virtual environment (`source cah_env/bin/activate` on macOS/Linux or `cah_env\Scripts\activate` on Windows) before running the script.
+   The script will filter card images (currently set to process cards 41 to 45 for testing), use the OpenAI API for text extraction, pronunciation, translation, and audio generation, and create an Anki CSV file at `anki_cards.csv`.
 
 ### Importing into Anki
 
@@ -135,7 +120,7 @@ Increase or decrease these values (in pixels) to adjust the cropping area, then 
 
 ## Git Ignore
 
-A `.gitignore` file is included to exclude the virtual environment (`cah_env/`), output directory (`cards_output/`), and other unnecessary files from version control.
+A `.gitignore` file is included to exclude the mise-managed virtual environment (`.venv/`), legacy virtual environment (`cah_env/`), output directory (`cards_output/`), and other unnecessary files from version control.
 
 ## License
 

@@ -5,33 +5,21 @@ This project helps beginners learn Japanese vocabulary by generating Anki cards 
 ## Getting Started
 
 ### Prerequisites
-- **Python 3**: Ensure Python 3 is installed. Check with `python3 --version`. If not installed, download from [python.org](https://www.python.org/downloads/) or use a package manager like Homebrew on macOS (`brew install python3`).
+- `mise`
 
 ## Environment Setup
 
-1. **Create a Virtual Environment**:
-   Navigate to the project directory and run:
+1. **Install the configured runtime**:
    ```
-   python3 -m venv sjv_env
-   ```
-
-2. **Activate the Virtual Environment**:
-   Activate it with:
-   ```
-   source sjv_env/bin/activate  # On macOS/Linux
-   ```
-   or
-   ```
-   sjv_env\Scripts\activate  # On Windows
+   mise install
    ```
 
-3. **Install Required Packages**:
-   Install necessary packages using the requirements.txt file:
+2. **Install Python dependencies**:
    ```
-   pip install -r requirements.txt
+   mise run install
    ```
 
-4. **Configure API Keys**:
+3. **Configure API Keys**:
    Copy the .env.example file to .env and add your API keys:
    ```
    cp .env.example .env
@@ -46,9 +34,8 @@ This project helps beginners learn Japanese vocabulary by generating Anki cards 
 ## Operation Steps
 
 1. **Generate Anki Cards**:
-   Ensure the virtual environment is activated, then run:
    ```
-   python3 generate_anki_cards.py
+   mise run generate
    ```
    This generates a CSV file (`output/anki_cards.csv`) formatted for Anki import.
 
@@ -59,34 +46,5 @@ This project helps beginners learn Japanese vocabulary by generating Anki cards 
 
 ## Notes
 - Output files are saved in the `output/` directory.
-- Debug mode can be enabled with the `--debug` flag to limit output to 5 rows.
-
-### Manage Environment Variables with direnv
-
-`direnv` is a tool that loads/unloads environment variables automatically per directory. This is useful for managing project-specific configurations like `PYTHONPATH`.
-
-**Installation:**
-
-*   **macOS (using Homebrew):**
-    ```bash
-    brew install direnv
-    ```
-*   **Other Systems:** Refer to the official `direnv` installation guide: [https://direnv.net/docs/installation.html](https://direnv.net/docs/installation.html)
-
-**Enable direnv:**
-
-After installing `direnv`, you need to hook it into your shell. Add the following line to your shell's configuration file (e.g., `~/.zshrc` for zsh, `~/.bashrc` for bash):
-
-```bash
-eval "$(direnv hook zsh)" # Or 'eval "$(direnv hook bash)"' for bash
-```
-Then, restart your shell or source your configuration file (e.g., `source ~/.zshrc`).
-
-**Usage:**
-
-Create a `.envrc` file in your project's root directory and add your environment variables. For example, to set `PYTHONPATH` to include `common_modules`:
-
-```bash
-export PYTHONPATH=$PYTHONPATH:./common_modules
-```
-After creating or modifying `.envrc`, run `direnv allow` in the terminal within that directory to load the variables.
+- Debug mode can be run with `mise run debug`.
+- The project venv is managed by mise at `.venv/`; do not recreate the old `sjv_env/`.

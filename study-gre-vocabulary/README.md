@@ -13,33 +13,21 @@ This project helps students learn GRE vocabulary by generating Anki cards with G
 ## Getting Started
 
 ### Prerequisites
-- **Python 3**: Ensure Python 3 is installed. Check with `python3 --version`. If not installed, download from [python.org](https://www.python.org/downloads/) or use a package manager like Homebrew on macOS (`brew install python3`).
+- `mise`
 
 ## Environment Setup
 
-1. **Create a Virtual Environment**:
-   Navigate to the project directory and run:
+1. **Install the configured runtime**:
    ```
-   python3 -m venv gre_env
-   ```
-
-2. **Activate the Virtual Environment**:
-   Activate it with:
-   ```
-   source gre_env/bin/activate  # On macOS/Linux
-   ```
-   or
-   ```
-   gre_env\Scripts\activate  # On Windows
+   mise install
    ```
 
-3. **Install Required Packages**:
-   Install necessary packages using the requirements.txt file:
+2. **Install Python dependencies**:
    ```
-   pip install -r requirements.txt
+   mise run install
    ```
 
-4. **Configure API Keys**:
+3. **Configure API Keys**:
    Copy the .env.example file to .env and add your API keys:
    ```
    cp .env.example .env
@@ -70,16 +58,15 @@ abscond,leave hurriedly and secretly,High Frequency,4
 1. **Place your CSV file** in the project directory (e.g., `gre_vocab.csv`)
 
 2. **Generate Anki Cards**:
-   Ensure the virtual environment is activated, then run:
    ```
-   python3 generate_anki_cards.py
+   mise run generate
    ```
    This generates a CSV file (`output/anki_cards.csv`) formatted for Anki import.
 
 3. **Debug Mode**:
    To test with a limited number of words:
    ```
-   python3 generate_anki_cards.py --debug 5
+   mise run debug
    ```
 
 4. **Import into Anki**:
@@ -95,4 +82,5 @@ https://github.com/Xatta-Trone/gre-words-collection/tree/main/word-list
 - Output files are saved in the `output/` directory.
 - Audio files are saved in `output/audio/` directory.
 - The script will skip words that have already been processed.
-- Debug mode can be enabled with the `--debug` flag to limit output to specified number of rows.
+- Debug mode can be run with `mise run debug`.
+- The project venv is managed by mise at `.venv/`; do not recreate the old `gre_env/` or `sgv_env/`.

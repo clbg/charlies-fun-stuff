@@ -1,5 +1,6 @@
 # Virtual Environment
 cah_env/
+.venv/
 
 # Output Directories
 cards_output/

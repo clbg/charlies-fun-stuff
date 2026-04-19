@@ -11,29 +11,22 @@ A TypeScript/Node.js application that monitors UR-NET vacancy API and sends Slac
   - Notifies about disappeared vacancies
   - Tracks room count increases/decreases
 - **TypeScript**: Full type safety and modern JavaScript features
-- **Environment Management**: Uses direnv for automatic environment setup
+- **Environment Management**: Uses npm scripts and `.env` for runtime configuration
 
 ## Setup
 
-1. **Environment Setup**:
-   ```bash
-   # Make sure you have direnv installed
-   # The .envrc file will automatically set up Node.js 18 environment
-   direnv allow
-   ```
-
-2. **Install Dependencies**:
+1. **Install Dependencies**:
    ```bash
    npm install
    ```
 
-3. **Environment Variables**:
+2. **Environment Variables**:
    Create a `.env` file with:
    ```
    SLACK_WEBHOOK_URL=your_slack_webhook_url_here
    ```
 
-4. **Build the Project**:
+3. **Build the Project**:
    ```bash
    npm run build
    ```
@@ -86,7 +79,6 @@ npm run watch
 ├── src/
 │   └── ur_vacancy_monitor.ts    # Main TypeScript source
 ├── dist/                        # Compiled JavaScript output
-├── .envrc                       # direnv configuration
 ├── package.json                 # Node.js dependencies and scripts
 ├── tsconfig.json               # TypeScript configuration
 └── vacancy_state.json          # Runtime state file (auto-generated)
@@ -99,6 +91,6 @@ This project was migrated from Python to TypeScript/Node.js while maintaining al
 - **Python pickle** → **JSON state file**
 - **requests** → **axios**
 - **Python logging** → **Custom logging with timestamps**
-- **Python environment** → **Node.js with direnv**
+- **Python environment** → **Node.js with npm scripts**
 
 The original Python version (`ur_vacancy_monitor.py`) is preserved for reference.
