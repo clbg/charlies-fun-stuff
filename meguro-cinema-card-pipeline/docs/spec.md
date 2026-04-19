@@ -119,12 +119,18 @@ Schedule item shape:
   - `time`: recommended `HH:MM-HH:MM`
   - `title`: main film or event title
   - `meta`: foreign title and Douban status line
-  - `note`: optional secondary note such as `在线预约可`, `完全入替`, `Talk Event`
+  - `note`: optional secondary note for only high-signal slot-specific context such as `Talk Event`, guest appearance, opening-night marker, or trilogy/day marker
 
 Missing metadata policy:
 - if foreign title is unavailable, omit it
 - if Douban rating is unavailable, omit it
 - do not render placeholder copy such as `未确认` or `暂无评分`
+- do not use `note` for routine operational noise such as `在线预约可`, `完全入替`, or `開場 9:30` unless it is unusually important for that specific card
+- prefer an empty `note` over low-value filler
+- if a card still needs more context, prefer using `subtitle` or `highlights` before adding noisy per-row notes
+- for cover-card schedule lines, prefer verified Chinese titles when they exist and still read naturally to a Chinese-speaking audience; otherwise fall back to Japanese titles
+- for cover-card schedule lines, prefer one concise per-day hook that explains why the day is notable, rather than listing the first few film titles followed by `...`
+- normalize card-visible Unicode roman numerals such as `Ⅰ`, `Ⅱ`, `Ⅲ`, `Ⅳ` to ASCII forms like `I`, `II`, `III`, `IV` before rendering, because the pinned JP/SC font subsets do not reliably cover those glyphs
 
 ### 2. Normalization layer
 
@@ -155,6 +161,7 @@ Current implementation guarantees:
 - max title, subtitle, schedule, and highlight lengths with deterministic truncation
 - fixed layer coordinates and fixed palette slots
 - daily schedule rows render as structured blocks: time range, title, metadata, note
+- card copy should already be normalized for unsupported glyphs before it reaches the renderer
 
 ### 4. Raster export
 

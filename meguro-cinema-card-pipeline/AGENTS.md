@@ -11,7 +11,8 @@ When working in this project:
 - keep rendering deterministic: same input JSON should produce the same output files
 - define all inputs via JSON contracts, not ad hoc prompt text
 - put implementation under `src/`
-- put generated files under `output/`
+- by default, put generated files under `output/`, but allow the vault skill to override `--out` with an absolute vault path when returning assets to Obsidian
 - keep the CLI callable from the vault skill with `pnpm run render -- --input ... --out ...`
+- the extra `--` after `pnpm run render` is intentional: it forwards subsequent flags to `node src/cli.mjs`, and the CLI tolerates that separator token explicitly
 
 Before changing renderer behavior, update `docs/spec.md`.
