@@ -173,6 +173,7 @@ charlie-widget bubble status  # show status (JSON: enabled, bubble_count)
 - Bubbles persist until the session state changes (e.g., you approve a pending prompt → running → bubble disappears)
 - Max 30 bubbles on screen
 - Click a bubble to dismiss it, or move cursor over any bubble to dismiss all
+- Any 5 keypresses within 2 seconds dismiss all bubbles (clears the screen while you type)
 - Dismissed bubbles don't reappear until the session state changes
 - Overlay is click-through except on bubbles, appears on all spaces, above normal windows
 - On by default, enabled state persists across app restarts

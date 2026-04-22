@@ -316,7 +316,8 @@ A full-screen transparent overlay that shows floating animated bubbles reflectin
 - Bubbles persist until the session transitions to `running` or disappears
 - Each bubble drifts randomly, bounces off screen edges, and shows the agent letter (C/G/X/K) inside
 - Max 30 bubbles on screen; oldest removed when cap hit
-- Click a bubble to dismiss it, or move cursor over any bubble to dismiss all
+- Click a bubble to dismiss it; moving cursor over any bubble dismisses all (intended — quickly clear the screen by waving the mouse)
+- Any 5 keypresses within 2 seconds dismiss all bubbles (auto-clears while typing)
 - Dismissed bubbles don't reappear until session state changes
 - Overlay window: borderless, transparent, click-through except on bubbles (custom `hitTest`), `.floating` level, all spaces
 - On by default, toggled via CLI; enabled state persisted to UserDefaults across app restarts

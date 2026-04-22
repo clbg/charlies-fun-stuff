@@ -289,8 +289,13 @@ BubbleWindow (custom NSWindow subclass, click-through via hitTest, .floating, al
     │
 Global mouse monitor (NSEvent.addGlobalMonitorForEvents .mouseMoved)
     │  On mouse move → check if cursor is within any bubble's radius
-    │  If hovering a bubble → dismissBubble(id:) (same as click dismiss)
+    │  If hovering a bubble → dismissAll() (wave cursor over any bubble to clear all)
     │  Provides effortless dismiss — just wave the cursor over a bubble
+    │
+Global keyboard monitor (NSEvent.addGlobalMonitorForEvents .keyDown)
+    │  Counts keypresses within a 2-second sliding window
+    │  ≥5 presses → dismissAll() + reset counter
+    │  Auto-clears bubbles when the user starts typing
 ```
 
 ### Bubble Lifecycle

@@ -16,8 +16,10 @@ final class BubbleOverlayController {
             if isEnabled {
                 showWindow()
                 startAnimation()
+                startKeyboardMonitor()
             } else {
                 stopAnimation()
+                stopKeyboardMonitor()
                 hideWindow()
                 bubbles.removeAll()
                 dismissedIds.removeAll()
@@ -28,8 +30,13 @@ final class BubbleOverlayController {
     private var window: NSWindow?
     private var animationTask: Task<Void, Never>?
     private var observationTask: Task<Void, Never>?
+    private var keyMonitor: Any?
+    private var keyCount = 0
+    private var lastKeyTime: Date?
 
     private static let maxBubbles = 30
+    private static let keyDismissThreshold = 5
+    private static let keyWindowSeconds: TimeInterval = 2
 
     // MARK: - Session Observation
 
@@ -37,6 +44,7 @@ final class BubbleOverlayController {
         if isEnabled {
             showWindow()
             startAnimation()
+            startKeyboardMonitor()
         }
         observationTask?.cancel()
         observationTask = Task { [weak self] in
@@ -119,6 +127,43 @@ final class BubbleOverlayController {
 
         if bubbles.count > Self.maxBubbles {
             bubbles.removeFirst(bubbles.count - Self.maxBubbles)
+        }
+    }
+
+    // MARK: - Keyboard Dismiss
+
+    private func startKeyboardMonitor() {
+        stopKeyboardMonitor()
+        keyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] _ in
+            Task { @MainActor in
+                self?.handleKeyPress()
+            }
+        }
+    }
+
+    private func stopKeyboardMonitor() {
+        if let monitor = keyMonitor {
+            NSEvent.removeMonitor(monitor)
+            keyMonitor = nil
+        }
+        keyCount = 0
+        lastKeyTime = nil
+    }
+
+    private func handleKeyPress() {
+        guard !bubbles.isEmpty else {
+            keyCount = 0
+            return
+        }
+        let now = Date()
+        if let last = lastKeyTime, now.timeIntervalSince(last) > Self.keyWindowSeconds {
+            keyCount = 0
+        }
+        lastKeyTime = now
+        keyCount += 1
+        if keyCount >= Self.keyDismissThreshold {
+            dismissAll()
+            keyCount = 0
         }
     }
 
