@@ -79,8 +79,11 @@ export async function analyze(text: string, env): Promise<Article> {
 - 修改 `grammar_points` → registry 文本变化 → registry hash 变化 → 自动失效
 - 命中 KV 时零 LLM 成本
 
-## 错误处理
+## 错误处理 / 可靠性
 
+- **重试**：Gemini 偶发 503（high demand）/ 429 / 5xx / 连接挂死，`callGemini` 最多重试 5 次（指数退避 0.8→1.6→3.2→6.4s），每次用 AbortController 设 60s 超时——挂死的请求快速失败再重试，不会一直卡住。这是"不断掉"的关键。
+- **模型**：用 `gemini-2.5-flash`（冷调用约 15-45s）。实测它严格遵守"只输出实词"规则，token 干净。`flash-lite` 快 4-5 倍但会把助词/标点也当 token 输出（视觉噪音），故不用——可靠 + 干净优先于速度。
+- **前端反馈**：分析时按钮显示"分析中… Ns"实时计时 + "首次分析约需 10–20 秒"提示，缓解长等待焦虑。
 - **JSON 解析失败**：Gemini JSON mode 下罕见；保留 `repairInnerQuotes`（CJK 间 `"` → `」`）作兜底，再失败打印 raw 抛错
 - **token surface 找不到**：`assignOffsets` warn 但保留 token（start=end=-1），渲染降级
 - **g_unregistered**：warn 列出所有未在 registry 的 surface，方便后续手动审视

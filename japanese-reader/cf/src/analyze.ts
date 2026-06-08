@@ -133,26 +133,66 @@ export function repairInnerQuotes(s: string): string {
 
 // ---------- Gemini call ----------
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export async function callGemini(text: string, env: Env): Promise<Article> {
   const registry = await loadGrammarRegistry(env);
-  const res = await fetch(GEMINI_URL, {
-    method: "POST",
-    headers: {
-      "x-goog-api-key": env.GEMINI_API_KEY,
-      "Content-Type": "application/json",
+  const body = JSON.stringify({
+    systemInstruction: { parts: [{ text: buildSystemPrompt(registry) }] },
+    contents: [{ role: "user", parts: [{ text }] }],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: RESPONSE_SCHEMA,
+      temperature: 0.2,
+      maxOutputTokens: 8000,
     },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: buildSystemPrompt(registry) }] },
-      contents: [{ role: "user", parts: [{ text }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: RESPONSE_SCHEMA,
-        temperature: 0.2,
-        maxOutputTokens: 8000,
-      },
-    }),
   });
 
+  // Reliability is the priority here: flash can take 15-45s, so a request may
+  // 503 (high demand), 429 (rate), 5xx, hang, or have the connection drop.
+  // Retry all of those with exponential backoff; bound each attempt with a
+  // timeout so a hung request fails fast and retries instead of blocking forever.
+  const MAX_ATTEMPTS = 5;
+  const ATTEMPT_TIMEOUT_MS = 60_000;
+  let res: Response | null = null;
+  let lastErr: unknown = null;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const ctl = new AbortController();
+    const to = setTimeout(() => ctl.abort(), ATTEMPT_TIMEOUT_MS);
+    try {
+      res = await fetch(GEMINI_URL, {
+        method: "POST",
+        headers: {
+          "x-goog-api-key": env.GEMINI_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body,
+        signal: ctl.signal,
+      });
+    } catch (e) {
+      // Network error / timeout abort — retry.
+      lastErr = e;
+      res = null;
+      if (attempt < MAX_ATTEMPTS) {
+        await sleep(800 * 2 ** (attempt - 1)); // 0.8s, 1.6s, 3.2s, 6.4s
+        continue;
+      }
+      break;
+    } finally {
+      clearTimeout(to);
+    }
+
+    if (res.ok) break;
+    const transient = res.status === 503 || res.status === 429 || res.status >= 500;
+    if (!transient || attempt === MAX_ATTEMPTS) break;
+    await sleep(800 * 2 ** (attempt - 1));
+  }
+
+  if (!res) {
+    const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+    throw new Error(`Gemini request failed after ${MAX_ATTEMPTS} attempts: ${msg}`);
+  }
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`Gemini HTTP ${res.status}: ${body.slice(0, 500)}`);

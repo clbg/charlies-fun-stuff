@@ -26,6 +26,7 @@ export function App() {
   );
   const [rawInput, setRawInput] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [articles, setArticles] = useState<ArticleSummary[]>([]);
   const [toast, setToast] = useState<string | null>(null);
@@ -70,6 +71,11 @@ export function App() {
       return;
     }
     setAnalyzing(true);
+    setElapsed(0);
+    // Analyze can take 10–20s (Gemini processes the 30K-token grammar registry).
+    // Show a live elapsed counter so the wait reads as progress, not a freeze.
+    const t0 = Date.now();
+    const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000);
     try {
       const result = await api.analyze(text);
       setArticle(result.data);
@@ -78,6 +84,7 @@ export function App() {
     } catch (e) {
       showToast("分析失败: " + (e instanceof Error ? e.message : String(e)));
     } finally {
+      window.clearInterval(timer);
       setAnalyzing(false);
     }
   };
@@ -178,9 +185,11 @@ export function App() {
           />
           <div className="input-actions">
             <button onClick={onAnalyze} disabled={analyzing}>
-              {analyzing ? "分析中..." : "Analyze"}
+              {analyzing ? `分析中… ${elapsed}s` : "Analyze"}
             </button>
-            <span className="hint">Gemini · Cloudflare</span>
+            <span className="hint">
+              {analyzing ? "首次分析约需 10–20 秒" : "Gemini · Cloudflare"}
+            </span>
           </div>
         </div>
 
