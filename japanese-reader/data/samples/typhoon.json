@@ -1,0 +1,647 @@
+{
+  "title": "台風6号のニュース",
+  "source": "NHK Easy（仿制示例）",
+  "sentences": [
+    {
+      "id": "s1",
+      "ja": "台風6号のニュースです。",
+      "zh": "这是关于第6号台风的新闻。",
+      "tokens": [
+        {
+          "surface": "台風",
+          "dict_form": "台風",
+          "reading": "たいふう",
+          "pos": "noun",
+          "meaning_zh": "台风",
+          "start": 0,
+          "end": 2
+        },
+        {
+          "surface": "ニュース",
+          "dict_form": "ニュース",
+          "reading": "ニュース",
+          "pos": "noun",
+          "meaning_zh": "新闻",
+          "start": 5,
+          "end": 9
+        }
+      ],
+      "grammar": []
+    },
+    {
+      "id": "s2",
+      "ja": "気象庁によると、台風は沖縄の近くを北に進んでいます。",
+      "zh": "据气象厅消息，台风正在冲绳附近向北移动。",
+      "tokens": [
+        {
+          "surface": "気象庁",
+          "dict_form": "気象庁",
+          "reading": "きしょうちょう",
+          "pos": "noun",
+          "meaning_zh": "气象厅",
+          "start": 0,
+          "end": 3
+        },
+        {
+          "surface": "台風",
+          "dict_form": "台風",
+          "reading": "たいふう",
+          "pos": "noun",
+          "meaning_zh": "台风",
+          "start": 8,
+          "end": 10
+        },
+        {
+          "surface": "沖縄",
+          "dict_form": "沖縄",
+          "reading": "おきなわ",
+          "pos": "noun",
+          "meaning_zh": "冲绳",
+          "start": 11,
+          "end": 13
+        },
+        {
+          "surface": "近く",
+          "dict_form": "近く",
+          "reading": "ちかく",
+          "pos": "noun",
+          "meaning_zh": "附近",
+          "start": 14,
+          "end": 16
+        },
+        {
+          "surface": "北",
+          "dict_form": "北",
+          "reading": "きた",
+          "pos": "noun",
+          "meaning_zh": "北",
+          "start": 17,
+          "end": 18
+        },
+        {
+          "surface": "進んでいます",
+          "dict_form": "進む",
+          "reading": "すすむ",
+          "pos": "verb",
+          "meaning_zh": "前进，移动",
+          "start": 19,
+          "end": 25
+        }
+      ],
+      "grammar": [
+        {
+          "canonical_id": "g_ni_yoru_to",
+          "surface": "気象庁によると",
+          "start": 0,
+          "end": 7,
+          "explanation": "信息来源：据气象厅消息"
+        },
+        {
+          "canonical_id": "g_wa_topic",
+          "surface": "台風は",
+          "start": 8,
+          "end": 11,
+          "explanation": "话题标记，提示主话题是台风"
+        },
+        {
+          "canonical_id": "g_wo_traverse",
+          "surface": "近くを",
+          "start": 15,
+          "end": 18,
+          "explanation": "を 表示移动经过的地点"
+        },
+        {
+          "canonical_id": "g_ni_direction",
+          "surface": "北に",
+          "start": 18,
+          "end": 20,
+          "explanation": "に 表示移动方向"
+        },
+        {
+          "canonical_id": "g_te_iru_progressive",
+          "surface": "進んでいます",
+          "start": 20,
+          "end": 26,
+          "explanation": "Vている 表示动作正在进行"
+        }
+      ]
+    },
+    {
+      "id": "s3",
+      "ja": "沖縄や奄美で、とても強い風が吹いています。",
+      "zh": "在冲绳和奄美，正在刮非常强的风。",
+      "tokens": [
+        {
+          "surface": "沖縄",
+          "dict_form": "沖縄",
+          "reading": "おきなわ",
+          "pos": "noun",
+          "meaning_zh": "冲绳",
+          "start": 0,
+          "end": 2
+        },
+        {
+          "surface": "奄美",
+          "dict_form": "奄美",
+          "reading": "あまみ",
+          "pos": "noun",
+          "meaning_zh": "奄美",
+          "start": 3,
+          "end": 5
+        },
+        {
+          "surface": "とても",
+          "dict_form": "とても",
+          "reading": "とても",
+          "pos": "adverb",
+          "meaning_zh": "非常",
+          "start": 7,
+          "end": 10
+        },
+        {
+          "surface": "強い",
+          "dict_form": "強い",
+          "reading": "つよい",
+          "pos": "i_adjective",
+          "meaning_zh": "强的",
+          "start": 10,
+          "end": 12
+        },
+        {
+          "surface": "風",
+          "dict_form": "風",
+          "reading": "かぜ",
+          "pos": "noun",
+          "meaning_zh": "风",
+          "start": 12,
+          "end": 13
+        },
+        {
+          "surface": "吹いています",
+          "dict_form": "吹く",
+          "reading": "ふく",
+          "pos": "verb",
+          "meaning_zh": "刮（风）",
+          "start": 14,
+          "end": 20
+        }
+      ],
+      "grammar": [
+        {
+          "canonical_id": "g_ya_listing",
+          "surface": "沖縄や奄美",
+          "start": 0,
+          "end": 5,
+          "explanation": "や 列举（非穷尽）"
+        },
+        {
+          "canonical_id": "g_de_location",
+          "surface": "奄美で",
+          "start": 3,
+          "end": 6,
+          "explanation": "で 表示动作发生地"
+        },
+        {
+          "canonical_id": "g_ga_subject",
+          "surface": "風が",
+          "start": 12,
+          "end": 14,
+          "explanation": "が 标记主语"
+        },
+        {
+          "canonical_id": "g_te_iru_progressive",
+          "surface": "吹いています",
+          "start": 14,
+          "end": 20,
+          "explanation": "Vている 正在进行"
+        }
+      ]
+    },
+    {
+      "id": "s4",
+      "ja": "走っているトラックが倒れるくらい強い風が吹くかもしれません。",
+      "zh": "可能会刮起强到连行驶中的卡车都会被吹倒的风。",
+      "tokens": [
+        {
+          "surface": "走っている",
+          "dict_form": "走る",
+          "reading": "はしる",
+          "pos": "verb",
+          "meaning_zh": "跑，行驶",
+          "start": 0,
+          "end": 5
+        },
+        {
+          "surface": "トラック",
+          "dict_form": "トラック",
+          "reading": "トラック",
+          "pos": "noun",
+          "meaning_zh": "卡车",
+          "start": 5,
+          "end": 9
+        },
+        {
+          "surface": "倒れる",
+          "dict_form": "倒れる",
+          "reading": "たおれる",
+          "pos": "verb",
+          "meaning_zh": "倒下",
+          "start": 10,
+          "end": 13
+        },
+        {
+          "surface": "強い",
+          "dict_form": "強い",
+          "reading": "つよい",
+          "pos": "i_adjective",
+          "meaning_zh": "强的",
+          "start": 16,
+          "end": 18
+        },
+        {
+          "surface": "風",
+          "dict_form": "風",
+          "reading": "かぜ",
+          "pos": "noun",
+          "meaning_zh": "风",
+          "start": 18,
+          "end": 19
+        },
+        {
+          "surface": "吹く",
+          "dict_form": "吹く",
+          "reading": "ふく",
+          "pos": "verb",
+          "meaning_zh": "刮（风）",
+          "start": 20,
+          "end": 22
+        }
+      ],
+      "grammar": [
+        {
+          "canonical_id": "g_te_iru_progressive",
+          "surface": "走っている",
+          "start": 0,
+          "end": 5,
+          "explanation": "Vている 正在进行（行驶中）"
+        },
+        {
+          "canonical_id": "g_modifying_clause",
+          "surface": "走っているトラック",
+          "start": 0,
+          "end": 9,
+          "explanation": "动词普通形修饰名词"
+        },
+        {
+          "canonical_id": "g_kurai_degree",
+          "surface": "倒れるくらい",
+          "start": 10,
+          "end": 16,
+          "explanation": "くらい 表示程度"
+        },
+        {
+          "canonical_id": "g_kamoshirenai",
+          "surface": "吹くかもしれません",
+          "start": 20,
+          "end": 29,
+          "explanation": "かもしれない 表示可能性"
+        }
+      ]
+    },
+    {
+      "id": "s5",
+      "ja": "とてもたくさん雨が降って、山が崩れたり、川の水があふれたりする心配もあります。",
+      "zh": "可能会下非常大的雨，也有山体滑坡、河水泛滥的危险。",
+      "tokens": [
+        {
+          "surface": "雨",
+          "dict_form": "雨",
+          "reading": "あめ",
+          "pos": "noun",
+          "meaning_zh": "雨",
+          "start": 7,
+          "end": 8
+        },
+        {
+          "surface": "降って",
+          "dict_form": "降る",
+          "reading": "ふる",
+          "pos": "verb",
+          "meaning_zh": "下（雨/雪）",
+          "start": 9,
+          "end": 12
+        },
+        {
+          "surface": "山",
+          "dict_form": "山",
+          "reading": "やま",
+          "pos": "noun",
+          "meaning_zh": "山",
+          "start": 13,
+          "end": 14
+        },
+        {
+          "surface": "崩れたり",
+          "dict_form": "崩れる",
+          "reading": "くずれる",
+          "pos": "verb",
+          "meaning_zh": "崩塌",
+          "start": 15,
+          "end": 19
+        },
+        {
+          "surface": "川",
+          "dict_form": "川",
+          "reading": "かわ",
+          "pos": "noun",
+          "meaning_zh": "河",
+          "start": 20,
+          "end": 21
+        },
+        {
+          "surface": "水",
+          "dict_form": "水",
+          "reading": "みず",
+          "pos": "noun",
+          "meaning_zh": "水",
+          "start": 22,
+          "end": 23
+        },
+        {
+          "surface": "あふれたり",
+          "dict_form": "あふれる",
+          "reading": "あふれる",
+          "pos": "verb",
+          "meaning_zh": "溢出，泛滥",
+          "start": 24,
+          "end": 29
+        },
+        {
+          "surface": "心配",
+          "dict_form": "心配",
+          "reading": "しんぱい",
+          "pos": "noun",
+          "meaning_zh": "担忧，担心",
+          "start": 31,
+          "end": 33
+        }
+      ],
+      "grammar": [
+        {
+          "canonical_id": "g_tari_tari",
+          "surface": "崩れたり、川の水があふれたりする",
+          "start": 15,
+          "end": 31,
+          "explanation": "Vたり Vたりする 列举情况"
+        },
+        {
+          "canonical_id": "g_shinpai_ga_aru",
+          "surface": "心配もあります",
+          "start": 31,
+          "end": 38,
+          "explanation": "有……的担忧/风险"
+        }
+      ]
+    },
+    {
+      "id": "s6",
+      "ja": "台風は、2日と3日は、西日本と東日本の近くに来そうです。",
+      "zh": "台风在2日和3日可能会接近西日本和东日本。",
+      "tokens": [
+        {
+          "surface": "台風",
+          "dict_form": "台風",
+          "reading": "たいふう",
+          "pos": "noun",
+          "meaning_zh": "台风",
+          "start": 0,
+          "end": 2
+        },
+        {
+          "surface": "西日本",
+          "dict_form": "西日本",
+          "reading": "にしにほん",
+          "pos": "noun",
+          "meaning_zh": "西日本",
+          "start": 11,
+          "end": 14
+        },
+        {
+          "surface": "東日本",
+          "dict_form": "東日本",
+          "reading": "ひがしにほん",
+          "pos": "noun",
+          "meaning_zh": "东日本",
+          "start": 15,
+          "end": 18
+        },
+        {
+          "surface": "近く",
+          "dict_form": "近く",
+          "reading": "ちかく",
+          "pos": "noun",
+          "meaning_zh": "附近",
+          "start": 19,
+          "end": 21
+        },
+        {
+          "surface": "来そうです",
+          "dict_form": "来る",
+          "reading": "くる",
+          "pos": "verb",
+          "meaning_zh": "来",
+          "start": 22,
+          "end": 27
+        }
+      ],
+      "grammar": [
+        {
+          "canonical_id": "g_souda_appearance",
+          "surface": "来そうです",
+          "start": 24,
+          "end": 29,
+          "explanation": "Vますstem そうだ 表示样态/预测"
+        }
+      ]
+    },
+    {
+      "id": "s7",
+      "ja": "台風の新しい情報を調べて、台風が近くに来る前に準備してください。",
+      "zh": "请查看台风的最新信息，并在台风靠近之前做好准备。",
+      "tokens": [
+        {
+          "surface": "台風",
+          "dict_form": "台風",
+          "reading": "たいふう",
+          "pos": "noun",
+          "meaning_zh": "台风",
+          "start": 0,
+          "end": 2
+        },
+        {
+          "surface": "新しい",
+          "dict_form": "新しい",
+          "reading": "あたらしい",
+          "pos": "i_adjective",
+          "meaning_zh": "新的",
+          "start": 3,
+          "end": 6
+        },
+        {
+          "surface": "情報",
+          "dict_form": "情報",
+          "reading": "じょうほう",
+          "pos": "noun",
+          "meaning_zh": "信息",
+          "start": 6,
+          "end": 8
+        },
+        {
+          "surface": "調べて",
+          "dict_form": "調べる",
+          "reading": "しらべる",
+          "pos": "verb",
+          "meaning_zh": "调查，查询",
+          "start": 9,
+          "end": 12
+        },
+        {
+          "surface": "近く",
+          "dict_form": "近く",
+          "reading": "ちかく",
+          "pos": "noun",
+          "meaning_zh": "附近",
+          "start": 16,
+          "end": 18
+        },
+        {
+          "surface": "来る",
+          "dict_form": "来る",
+          "reading": "くる",
+          "pos": "verb",
+          "meaning_zh": "来",
+          "start": 19,
+          "end": 21
+        },
+        {
+          "surface": "準備して",
+          "dict_form": "準備する",
+          "reading": "じゅんびする",
+          "pos": "verb",
+          "meaning_zh": "准备",
+          "start": 23,
+          "end": 27
+        }
+      ],
+      "grammar": [
+        {
+          "canonical_id": "g_mae_ni",
+          "surface": "来る前に",
+          "start": 20,
+          "end": 25,
+          "explanation": "V辞書形 前に：在……之前"
+        },
+        {
+          "canonical_id": "g_te_kudasai",
+          "surface": "準備してください",
+          "start": 24,
+          "end": 33,
+          "explanation": "Vてください：请……"
+        }
+      ]
+    },
+    {
+      "id": "s8",
+      "ja": "飛行機や新幹線などに乗る予定の人は、情報を調べましょう。",
+      "zh": "计划乘坐飞机、新干线等交通工具的人，请查询相关信息。",
+      "tokens": [
+        {
+          "surface": "飛行機",
+          "dict_form": "飛行機",
+          "reading": "ひこうき",
+          "pos": "noun",
+          "meaning_zh": "飞机",
+          "start": 0,
+          "end": 3
+        },
+        {
+          "surface": "新幹線",
+          "dict_form": "新幹線",
+          "reading": "しんかんせん",
+          "pos": "noun",
+          "meaning_zh": "新干线",
+          "start": 4,
+          "end": 7
+        },
+        {
+          "surface": "乗る",
+          "dict_form": "乗る",
+          "reading": "のる",
+          "pos": "verb",
+          "meaning_zh": "乘坐",
+          "start": 10,
+          "end": 12
+        },
+        {
+          "surface": "予定",
+          "dict_form": "予定",
+          "reading": "よてい",
+          "pos": "noun",
+          "meaning_zh": "计划，预定",
+          "start": 12,
+          "end": 14
+        },
+        {
+          "surface": "人",
+          "dict_form": "人",
+          "reading": "ひと",
+          "pos": "noun",
+          "meaning_zh": "人",
+          "start": 15,
+          "end": 16
+        },
+        {
+          "surface": "情報",
+          "dict_form": "情報",
+          "reading": "じょうほう",
+          "pos": "noun",
+          "meaning_zh": "信息",
+          "start": 18,
+          "end": 20
+        },
+        {
+          "surface": "調べましょう",
+          "dict_form": "調べる",
+          "reading": "しらべる",
+          "pos": "verb",
+          "meaning_zh": "调查，查询",
+          "start": 21,
+          "end": 27
+        }
+      ],
+      "grammar": [
+        {
+          "canonical_id": "g_ya_listing",
+          "surface": "飛行機や新幹線",
+          "start": 0,
+          "end": 7,
+          "explanation": "や 列举（非穷尽）"
+        },
+        {
+          "canonical_id": "g_yotei",
+          "surface": "乗る予定の人",
+          "start": 10,
+          "end": 16,
+          "explanation": "V辞書形 予定：计划……的"
+        },
+        {
+          "canonical_id": "g_mashou",
+          "surface": "調べましょう",
+          "start": 21,
+          "end": 27,
+          "explanation": "Vましょう：……吧（柔和提议）"
+        }
+      ]
+    }
+  ]
+}

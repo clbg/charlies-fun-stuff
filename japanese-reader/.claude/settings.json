@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__builder-mcp__ReadInternalWebsites",
+      "mcp__builder-mcp__InternalSearch",
+      "mcp__builder-mcp__InternalCodeSearch",
+      "mcp__cua-driver__get_window_state",
+      "mcp__cua-driver__list_windows",
+      "mcp__amazon-sharepoint-mcp__sharepoint_list_files",
+      "mcp__slack-mcp__search",
+      "mcp__slack-mcp__get_thread"
+    ]
+  }
+}

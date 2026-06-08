@@ -1,0 +1,1619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Japanese Reader · Prototype</title>
+<style>
+  :root {
+    --bg: #fafaf7;
+    --fg: #1a1a1a;
+    --muted: #777;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --grammar: #b45309;
+    --grammar-soft: #fef3c7;
+    --known: #94a3b8;
+    --fuzzy-bg: #fff7ed;
+    --unknown-bg: #fee2e2;
+    --border: #e5e7eb;
+    --panel: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #18181b;
+      --fg: #f4f4f5;
+      --muted: #a1a1aa;
+      --accent: #60a5fa;
+      --accent-soft: #1e3a8a;
+      --grammar: #fbbf24;
+      --grammar-soft: #422006;
+      --known: #52525b;
+      --fuzzy-bg: #422006;
+      --unknown-bg: #450a0a;
+      --border: #3f3f46;
+      --panel: #27272a;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "PingFang SC", sans-serif;
+    background: var(--bg); color: var(--fg);
+    line-height: 1.7;
+  }
+  .container { max-width: 760px; margin: 0 auto; padding: 24px 20px 80px; transition: margin-left 0.2s; }
+
+  /* ChatGPT-style article history sidebar */
+  #sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; width: 260px;
+    background: var(--panel); border-right: 1px solid var(--border);
+    transform: translateX(-100%); transition: transform 0.2s;
+    z-index: 50; display: flex; flex-direction: column;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.06);
+  }
+  #sidebar.open { transform: translateX(0); }
+  #sidebar .sb-head {
+    padding: 16px 14px 10px; font-size: 14px; font-weight: 600;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  #sidebar .sb-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .sb-item {
+    padding: 9px 10px; border-radius: 8px; cursor: pointer;
+    display: flex; align-items: center; gap: 8px; margin-bottom: 2px;
+  }
+  .sb-item:hover { background: var(--accent-soft); }
+  .sb-item.active { background: var(--accent-soft); }
+  .sb-item .sb-title {
+    flex: 1; font-size: 13px; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sb-item .sb-date { font-size: 10px; color: var(--muted); }
+  .sb-del {
+    flex: 0 0 auto; opacity: 0; border: none; background: transparent;
+    cursor: pointer; color: var(--muted); font-size: 14px; padding: 0 2px;
+  }
+  .sb-item:hover .sb-del { opacity: 0.6; }
+  .sb-del:hover { opacity: 1 !important; color: #dc2626; }
+  .sb-empty { color: var(--muted); font-size: 12px; padding: 12px 10px; }
+
+  #sidebarToggle {
+    position: fixed; top: 16px; left: 16px; z-index: 60;
+    width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
+    background: var(--panel); border: 1px solid var(--border); color: var(--fg);
+    font-size: 16px; display: flex; align-items: center; justify-content: center;
+    transition: left 0.2s;
+  }
+  /* When the sidebar is open, hide the ☰ button (close via the × inside).
+     This avoids the toggle overlapping the page title. */
+  body.sidebar-open #sidebarToggle { opacity: 0; pointer-events: none; }
+  body.sidebar-open .container { margin-left: 260px; }
+  @media (max-width: 1100px) {
+    body.sidebar-open .container { margin-left: 0; }
+  }
+
+  header { margin-bottom: 24px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
+    padding: 12px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    margin-bottom: 20px;
+  }
+  .controls label { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .controls input[type=range] { width: 140px; }
+  .threshold-value {
+    display: inline-block; min-width: 18px; text-align: center;
+    font-weight: 600; color: var(--fg); font-size: 14px;
+  }
+  .controls button {
+    background: var(--panel); border: 1px solid var(--border); color: var(--fg);
+    padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  .controls button:hover { background: var(--accent-soft); }
+
+  .input-area {
+    margin-bottom: 24px;
+    padding: 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  }
+  textarea {
+    width: 100%; min-height: 80px; resize: vertical;
+    border: 1px solid var(--border); border-radius: 6px; padding: 10px;
+    font-family: inherit; font-size: 14px; background: var(--bg); color: var(--fg);
+  }
+  .input-actions { display: flex; gap: 8px; margin-top: 8px; }
+  .input-actions button {
+    background: var(--accent); color: white; border: none;
+    padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;
+  }
+  .input-actions button.secondary {
+    background: var(--panel); color: var(--fg); border: 1px solid var(--border);
+  }
+  .input-actions .hint { color: var(--muted); font-size: 12px; align-self: center; margin-left: auto; }
+
+  .article-title {
+    font-size: 18px; font-weight: 600; margin: 24px 0 4px;
+  }
+  .article-source {
+    color: var(--muted); font-size: 12px; margin-bottom: 16px;
+  }
+
+  .sentence {
+    margin-bottom: 18px; padding: 14px 16px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  }
+  .ja-line { font-size: 17px; margin-bottom: 4px; }
+  .zh-line { color: var(--muted); font-size: 14px; margin-bottom: 8px; }
+
+  .token { cursor: pointer; padding: 1px 0; border-radius: 2px; transition: background 0.15s; user-select: none; }
+  .token:hover { background: var(--accent-soft); }
+  /* Two display tiers, computed in JS relative to the threshold:
+       tok-unknown : fam < threshold-2  → red solid (生)
+       tok-fuzzy   : threshold-2 ≤ fam < threshold → orange dashed (半生)
+       tok-known   : fam ≥ threshold → no decoration (熟，隐藏标注) */
+  .token.tok-unknown {
+    background: var(--unknown-bg);
+    border-bottom: 2px solid #ef4444;
+  }
+  .token.tok-fuzzy {
+    background: var(--fuzzy-bg);
+    border-bottom: 2px dashed #f59e0b;
+  }
+  .ja-line .token.tok-known {
+    background: transparent;
+    border-bottom: none;
+    color: inherit;
+  }
+
+  .grammar-chips {
+    display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 8px;
+  }
+  .grammar-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 12px; font-size: 12px;
+    background: var(--grammar-soft); color: var(--grammar);
+    border: 1px solid var(--grammar); cursor: pointer; user-select: none;
+  }
+  .grammar-chip.tok-fuzzy { opacity: 0.6; }
+  .grammar-chip.tok-known { opacity: 0.3; }
+  .grammar-chip:hover { filter: brightness(1.05); opacity: 1; }
+
+  /* Tooltip for tokens / grammar chips. A single floating element appended to
+     <body> (positioned by JS from each element's data-tip), so it escapes any
+     stacking context and always paints above the fixed sidebar. */
+  #tooltip {
+    position: fixed;
+    background: var(--fg);
+    color: var(--bg);
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    max-width: 320px;
+    width: max-content;
+    z-index: 9999;
+    pointer-events: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+  #tooltip.show { opacity: 1; }
+  details.notes {
+    margin-top: 6px;
+    border-top: 1px dashed var(--border);
+    padding-top: 8px;
+  }
+  details.notes summary {
+    cursor: pointer; color: var(--muted); font-size: 13px;
+    list-style: none; padding: 4px 0;
+  }
+  details.notes summary::-webkit-details-marker { display: none; }
+  details.notes summary::before { content: "▸ "; font-size: 11px; }
+  details.notes[open] summary::before { content: "▾ "; }
+
+  .note-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .note-item:last-child { border-bottom: none; }
+  .note-item.highlight { background: var(--accent-soft); border-radius: 4px; padding: 8px; }
+  .note-key {
+    flex: 0 0 auto; min-width: 100px;
+    font-weight: 600;
+  }
+  .note-key .reading { font-weight: normal; color: var(--muted); font-size: 12px; }
+  .note-key.grammar { color: var(--grammar); }
+  .note-meaning { flex: 1; color: var(--fg); }
+  .note-meaning .explanation { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .note-actions { flex: 0 0 auto; display: flex; gap: 10px; align-items: center; }
+
+  /* Taobao-style rating: a row of 5 dots. Click dot N → set familiarity = N.
+     Click the already-selected highest dot again → clear to 0. */
+  .rating { display: inline-flex; gap: 3px; align-items: center; cursor: pointer; }
+  .rating .dot {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 1.5px solid var(--border); background: transparent;
+    transition: transform 0.1s, background 0.1s, border-color 0.1s;
+  }
+  .rating .dot.filled { background: var(--accent); border-color: var(--accent); }
+  /* hover preview: light up dots up to the hovered one */
+  .rating .dot.preview { border-color: var(--accent); background: var(--accent-soft); }
+  .rating .dot:hover { transform: scale(1.25); }
+  .rating-label {
+    font-size: 11px; color: var(--muted); min-width: 30px;
+  }
+
+  /* Speaker button for TTS */
+  .speak-btn {
+    background: var(--panel); border: 1px solid var(--border); color: var(--fg);
+    width: 28px; height: 26px; border-radius: 6px; cursor: pointer; font-size: 13px;
+    line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+    transition: background 0.12s;
+  }
+  .speak-btn:hover { background: var(--accent-soft); }
+  .speak-btn.playing { background: var(--accent); color: #fff; }
+  .speak-btn:disabled { opacity: 0.4; cursor: default; }
+
+  /* Quick "+1 familiarity" button next to the speaker */
+  .plus-btn {
+    background: var(--panel); border: 1px solid var(--border); color: #16a34a;
+    height: 26px; padding: 0 8px; border-radius: 6px; cursor: pointer;
+    font-size: 12px; font-weight: 600; line-height: 1;
+    display: inline-flex; align-items: center; transition: background 0.12s;
+  }
+  .plus-btn:hover { background: rgba(22,163,74,0.12); }
+  .plus-btn:disabled { opacity: 0.35; cursor: default; }
+
+  /* Sentence-level play button next to the JA line */
+  .ja-line-wrap { display: flex; align-items: flex-start; gap: 8px; }
+  .ja-line-wrap .ja-line { flex: 1; }
+  .sentence-speak {
+    flex: 0 0 auto; margin-top: 2px;
+    background: transparent; border: none; cursor: pointer;
+    font-size: 15px; opacity: 0.5; transition: opacity 0.12s;
+  }
+  .sentence-speak:hover { opacity: 1; }
+  .sentence-speak.playing { opacity: 1; }
+
+  .stats {
+    margin-top: 32px; padding: 14px; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 10px; font-size: 13px;
+  }
+  .stats h3 { margin: 0 0 8px; font-size: 14px; }
+  .stats .row { display: flex; justify-content: space-between; padding: 2px 0; }
+  .stats .row .label { color: var(--muted); }
+
+  footer {
+    margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border);
+    color: var(--muted); font-size: 12px; text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<aside id="sidebar">
+  <div class="sb-head">
+    <span>历史文章</span>
+    <button id="sbClose" style="border:none;background:transparent;cursor:pointer;color:var(--muted);font-size:16px;">×</button>
+  </div>
+  <div class="sb-list" id="sbList"></div>
+</aside>
+<button id="sidebarToggle" title="历史文章">☰</button>
+<div id="tooltip"></div>
+
+<div class="container">
+
+<header>
+  <h1>Japanese Reader</h1>
+  <div class="subtitle">自适应日语阅读器 · prototype</div>
+</header>
+
+<div class="controls">
+  <label>
+    熟悉度阈值
+    <input type="range" id="threshold" min="2" max="5" step="1">
+    <span class="threshold-value" id="thresholdValue">5</span>
+    <span style="color: var(--muted); font-size: 12px;">(≥此值=熟，隐藏标注；低两档=半生提示)</span>
+  </label>
+  <button id="resetFamiliarity">重置熟悉度</button>
+  <button id="exportData">导出数据</button>
+</div>
+
+<div class="input-area">
+  <textarea id="rawInput" placeholder="粘贴日语原文（MVP 阶段未接入 LLM，请用下方 Demo 加载示例）"></textarea>
+  <div class="input-actions">
+    <button id="analyzeBtn" disabled title="需要后端服务">Analyze（需启动 server.py）</button>
+    <button id="loadDemo" class="secondary">加载示例文章</button>
+    <span class="hint" id="modeIndicator">本地模式（localStorage）</span>
+  </div>
+</div>
+
+<div id="article"></div>
+
+<div class="stats" id="stats" style="display:none;">
+  <h3>本文统计</h3>
+  <div class="row"><span class="label">总单词项</span><span id="statWords">-</span></div>
+  <div class="row"><span class="label">总语法项</span><span id="statGrammar">-</span></div>
+  <div class="row"><span class="label">不熟（&lt; 阈值）</span><span id="statUnknown">-</span></div>
+</div>
+
+<footer>
+  prototype.html · 数据本地保存 in localStorage · 设计文档见 <code>docs/</code>
+</footer>
+
+</div>
+
+<!-- =========================================================
+     Inline sample data (so file:// works without a server)
+     Same content as data/samples/typhoon.json
+     ========================================================= -->
+<script id="sample-data" type="application/json">
+{
+  "title": "台風6号のニュース",
+  "source": "NHK Easy 风格示例",
+  "sentences": [
+    {
+      "id": "s1",
+      "ja": "台風6号のニュースです。",
+      "zh": "这是关于第6号台风的新闻。",
+      "tokens": [
+        {
+          "surface": "台風",
+          "dict_form": "台風",
+          "reading": "たいふう",
+          "pos": "noun",
+          "meaning_zh": "台风",
+          "start": 0,
+          "end": 2
+        },
+        {
+          "surface": "ニュース",
+          "dict_form": "ニュース",
+          "reading": "ニュース",
+          "pos": "noun",
+          "meaning_zh": "新闻",
+          "start": 5,
+          "end": 9
+        }
+      ],
+      "grammar": []
+    },
+    {
+      "id": "s2",
+      "ja": "気象庁によると、台風は沖縄の近くを北に進んでいます。",
+      "zh": "据气象厅消息，台风正在冲绳附近向北移动。",
+      "tokens": [
+        {
+          "surface": "気象庁",
+          "dict_form": "気象庁",
+          "reading": "きしょうちょう",
+          "pos": "noun",
+          "meaning_zh": "气象厅",
+          "start": 0,
+          "end": 3
+        },
+        {
+          "surface": "台風",
+          "dict_form": "台風",
+          "reading": "たいふう",
+          "pos": "noun",
+          "meaning_zh": "台风",
+          "start": 8,
+          "end": 10
+        },
+        {
+          "surface": "沖縄",
+          "dict_form": "沖縄",
+          "reading": "おきなわ",
+          "pos": "noun",
+          "meaning_zh": "冲绳",
+          "start": 11,
+          "end": 13
+        },
+        {
+          "surface": "近く",
+          "dict_form": "近く",
+          "reading": "ちかく",
+          "pos": "noun",
+          "meaning_zh": "附近",
+          "start": 14,
+          "end": 16
+        },
+        {
+          "surface": "北",
+          "dict_form": "北",
+          "reading": "きた",
+          "pos": "noun",
+          "meaning_zh": "北",
+          "start": 17,
+          "end": 18
+        },
+        {
+          "surface": "進んでいます",
+          "dict_form": "進む",
+          "reading": "すすむ",
+          "pos": "verb",
+          "meaning_zh": "前进，移动",
+          "start": 19,
+          "end": 25
+        }
+      ],
+      "grammar": [
+        {
+          "canonical_id": "g_ni_yoru_to",
+          "display_form": "Nによると",
+          "meaning_zh": "据……，根据……",
+          "explanation": "信息来源：据气象厅消息"
+        },
+        {
+          "canonical_id": "g_wa_topic",
+          "display_form": "Nは",
+          "meaning_zh": "（话题标记）",
+          "explanation": "提示主话题是台风"
+        },
+        {
+          "canonical_id": "g_wo_traverse",
+          "display_form": "場所を + 移動動詞",
+          "meaning_zh": "经过/沿着某地移动",
+          "explanation": "を 表示移动经过的地点"
+        },
+        {
+          "canonical_id": "g_ni_direction",
+          "display_form": "方向に + 移動動詞",
+          "meaning_zh": "朝某方向移动",
+          "explanation": "に 表示移动方向"
+        },
+        {
+          "canonical_id": "g_te_iru_progressive",
+          "display_form": "Vている",
+          "meaning_zh": "正在……",
+          "explanation": "Vている 表示动作正在进行"
+        }
+      ]
+    },
+    {
+      "id": "s3",
+      "ja": "沖縄や奄美で、とても強い風が吹いています。",
+      "zh": "在冲绳和奄美，正在刮非常强的风。",
+      "tokens": [
+        {
+          "surface": "沖縄",
+          "dict_form": "沖縄",
+          "reading": "おきなわ",
+          "pos": "noun",
+          "meaning_zh": "冲绳",
+          "start": 0,
+          "end": 2
+        },
+        {
+          "surface": "奄美",
+          "dict_form": "奄美",
+          "reading": "あまみ",
+          "pos": "noun",
+          "meaning_zh": "奄美",
+          "start": 3,
+          "end": 5
+        },
+        {
+          "surface": "とても",
+          "dict_form": "とても",
+          "reading": "とても",
+          "pos": "adverb",
+          "meaning_zh": "非常",
+          "start": 7,
+          "end": 10
+        },
+        {
+          "surface": "強い",
+          "dict_form": "強い",
+          "reading": "つよい",
+          "pos": "i_adjective",
+          "meaning_zh": "强的",
+          "start": 10,
+          "end": 12
+        },
+        {
+          "surface": "風",
+          "dict_form": "風",
+          "reading": "かぜ",
+          "pos": "noun",
+          "meaning_zh": "风",
+          "start": 12,
+          "end": 13
+        },
+        {
+          "surface": "吹いています",
+          "dict_form": "吹く",
+          "reading": "ふく",
+          "pos": "verb",
+          "meaning_zh": "刮（风）",
+          "start": 14,
+          "end": 20
+        }
+      ],
+      "grammar": [
+        {
+          "canonical_id": "g_ya_listing",
+          "display_form": "AやB",
+          "meaning_zh": "A、B 等",
+          "explanation": "や 列举（非穷尽）"
+        },
+        {
+          "canonical_id": "g_de_location",
+          "display_form": "場所で",
+          "meaning_zh": "在……（动作发生地）",
+          "explanation": "で 表示动作发生地"
+        },
+        {
+          "canonical_id": "g_ga_subject",
+          "display_form": "Nが",
+          "meaning_zh": "（主语标记）",
+          "explanation": "が 标记主语"
+        },
+        {
+          "canonical_id": "g_te_iru_progressive",
+          "display_form": "Vている",
+          "meaning_zh": "正在……",
+          "explanation": "Vている 正在进行"
+        }
+      ]
+    },
+    {
+      "id": "s4",
+      "ja": "走っているトラックが倒れるくらい強い風が吹くかもしれません。",
+      "zh": "可能会刮起强到连行驶中的卡车都会被吹倒的风。",
+      "tokens": [
+        {
+          "surface": "走っている",
+          "dict_form": "走る",
+          "reading": "はしる",
+          "pos": "verb",
+          "meaning_zh": "跑，行驶",
+          "start": 0,
+          "end": 5
+        },
+        {
+          "surface": "トラック",
+          "dict_form": "トラック",
+          "reading": "トラック",
+          "pos": "noun",
+          "meaning_zh": "卡车",
+          "start": 5,
+          "end": 9
+        },
+        {
+          "surface": "倒れる",
+          "dict_form": "倒れる",
+          "reading": "たおれる",
+          "pos": "verb",
+          "meaning_zh": "倒下",
+          "start": 10,
+          "end": 13
+        },
+        {
+          "surface": "強い",
+          "dict_form": "強い",
+          "reading": "つよい",
+          "pos": "i_adjective",
+          "meaning_zh": "强的",
+          "start": 16,
+          "end": 18
+        },
+        {
+          "surface": "風",
+          "dict_form": "風",
+          "reading": "かぜ",
+          "pos": "noun",
+          "meaning_zh": "风",
+          "start": 18,
+          "end": 19
+        },
+        {
+          "surface": "吹く",
+          "dict_form": "吹く",
+          "reading": "ふく",
+          "pos": "verb",
+          "meaning_zh": "刮（风）",
+          "start": 20,
+          "end": 22
+        }
+      ],
+      "grammar": [
+        {
+          "canonical_id": "g_te_iru_progressive",
+          "display_form": "Vている",
+          "meaning_zh": "正在……",
+          "explanation": "走っている 行驶中"
+        },
+        {
+          "canonical_id": "g_modifying_clause",
+          "display_form": "動詞普通形 + 名詞",
+          "meaning_zh": "定语从句",
+          "explanation": "动词普通形修饰名词"
+        },
+        {
+          "canonical_id": "g_kurai_degree",
+          "display_form": "普通形 + くらい",
+          "meaning_zh": "达到……程度",
+          "explanation": "くらい 表示程度"
+        },
+        {
+          "canonical_id": "g_kamoshirenai",
+          "display_form": "普通形 + かもしれない",
+          "meaning_zh": "可能……",
+          "explanation": "かもしれない 表示可能性"
+        }
+      ]
+    },
+    {
+      "id": "s5",
+      "ja": "とてもたくさん雨が降って、山が崩れたり、川の水があふれたりする心配もあります。",
+      "zh": "可能会下非常大的雨，也有山体滑坡、河水泛滥的危险。",
+      "tokens": [
+        {
+          "surface": "雨",
+          "dict_form": "雨",
+          "reading": "あめ",
+          "pos": "noun",
+          "meaning_zh": "雨",
+          "start": 7,
+          "end": 8
+        },
+        {
+          "surface": "降って",
+          "dict_form": "降る",
+          "reading": "ふる",
+          "pos": "verb",
+          "meaning_zh": "下（雨/雪）",
+          "start": 9,
+          "end": 12
+        },
+        {
+          "surface": "山",
+          "dict_form": "山",
+          "reading": "やま",
+          "pos": "noun",
+          "meaning_zh": "山",
+          "start": 13,
+          "end": 14
+        },
+        {
+          "surface": "崩れたり",
+          "dict_form": "崩れる",
+          "reading": "くずれる",
+          "pos": "verb",
+          "meaning_zh": "崩塌",
+          "start": 15,
+          "end": 19
+        },
+        {
+          "surface": "川",
+          "dict_form": "川",
+          "reading": "かわ",
+          "pos": "noun",
+          "meaning_zh": "河",
+          "start": 20,
+          "end": 21
+        },
+        {
+          "surface": "水",
+          "dict_form": "水",
+          "reading": "みず",
+          "pos": "noun",
+          "meaning_zh": "水",
+          "start": 22,
+          "end": 23
+        },
+        {
+          "surface": "あふれたり",
+          "dict_form": "あふれる",
+          "reading": "あふれる",
+          "pos": "verb",
+          "meaning_zh": "溢出，泛滥",
+          "start": 24,
+          "end": 29
+        },
+        {
+          "surface": "心配",
+          "dict_form": "心配",
+          "reading": "しんぱい",
+          "pos": "noun",
+          "meaning_zh": "担忧，担心",
+          "start": 31,
+          "end": 33
+        }
+      ],
+      "grammar": [
+        {
+          "canonical_id": "g_tari_tari",
+          "display_form": "Vたり、Vたりする",
+          "meaning_zh": "做……做……",
+          "explanation": "Vたり Vたりする 列举情况"
+        },
+        {
+          "canonical_id": "g_shinpai_ga_aru",
+          "display_form": "心配がある",
+          "meaning_zh": "有……担忧",
+          "explanation": "有……的担忧/风险"
+        }
+      ]
+    },
+    {
+      "id": "s6",
+      "ja": "台風は、2日と3日は、西日本と東日本の近くに来そうです。",
+      "zh": "台风在2日和3日可能会接近西日本和东日本。",
+      "tokens": [
+        {
+          "surface": "台風",
+          "dict_form": "台風",
+          "reading": "たいふう",
+          "pos": "noun",
+          "meaning_zh": "台风",
+          "start": 0,
+          "end": 2
+        },
+        {
+          "surface": "西日本",
+          "dict_form": "西日本",
+          "reading": "にしにほん",
+          "pos": "noun",
+          "meaning_zh": "西日本",
+          "start": 11,
+          "end": 14
+        },
+        {
+          "surface": "東日本",
+          "dict_form": "東日本",
+          "reading": "ひがしにほん",
+          "pos": "noun",
+          "meaning_zh": "东日本",
+          "start": 15,
+          "end": 18
+        },
+        {
+          "surface": "近く",
+          "dict_form": "近く",
+          "reading": "ちかく",
+          "pos": "noun",
+          "meaning_zh": "附近",
+          "start": 19,
+          "end": 21
+        },
+        {
+          "surface": "来そうです",
+          "dict_form": "来る",
+          "reading": "くる",
+          "pos": "verb",
+          "meaning_zh": "来",
+          "start": 22,
+          "end": 27
+        }
+      ],
+      "grammar": [
+        {
+          "canonical_id": "g_souda_appearance",
+          "display_form": "Vますstem + そうだ",
+          "meaning_zh": "看起来要……",
+          "explanation": "样态/预测"
+        }
+      ]
+    },
+    {
+      "id": "s7",
+      "ja": "台風の新しい情報を調べて、台風が近くに来る前に準備してください。",
+      "zh": "请查看台风的最新信息，并在台风靠近之前做好准备。",
+      "tokens": [
+        {
+          "surface": "台風",
+          "dict_form": "台風",
+          "reading": "たいふう",
+          "pos": "noun",
+          "meaning_zh": "台风",
+          "start": 0,
+          "end": 2
+        },
+        {
+          "surface": "新しい",
+          "dict_form": "新しい",
+          "reading": "あたらしい",
+          "pos": "i_adjective",
+          "meaning_zh": "新的",
+          "start": 3,
+          "end": 6
+        },
+        {
+          "surface": "情報",
+          "dict_form": "情報",
+          "reading": "じょうほう",
+          "pos": "noun",
+          "meaning_zh": "信息",
+          "start": 6,
+          "end": 8
+        },
+        {
+          "surface": "調べて",
+          "dict_form": "調べる",
+          "reading": "しらべる",
+          "pos": "verb",
+          "meaning_zh": "调查，查询",
+          "start": 9,
+          "end": 12
+        },
+        {
+          "surface": "近く",
+          "dict_form": "近く",
+          "reading": "ちかく",
+          "pos": "noun",
+          "meaning_zh": "附近",
+          "start": 16,
+          "end": 18
+        },
+        {
+          "surface": "来る",
+          "dict_form": "来る",
+          "reading": "くる",
+          "pos": "verb",
+          "meaning_zh": "来",
+          "start": 19,
+          "end": 21
+        },
+        {
+          "surface": "準備して",
+          "dict_form": "準備する",
+          "reading": "じゅんびする",
+          "pos": "verb",
+          "meaning_zh": "准备",
+          "start": 23,
+          "end": 27
+        }
+      ],
+      "grammar": [
+        {
+          "canonical_id": "g_mae_ni",
+          "display_form": "V辞書形 + 前に",
+          "meaning_zh": "在……之前",
+          "explanation": "在台风靠近之前"
+        },
+        {
+          "canonical_id": "g_te_kudasai",
+          "display_form": "Vてください",
+          "meaning_zh": "请……",
+          "explanation": "礼貌请求"
+        }
+      ]
+    },
+    {
+      "id": "s8",
+      "ja": "飛行機や新幹線などに乗る予定の人は、情報を調べましょう。",
+      "zh": "计划乘坐飞机、新干线等交通工具的人，请查询相关信息。",
+      "tokens": [
+        {
+          "surface": "飛行機",
+          "dict_form": "飛行機",
+          "reading": "ひこうき",
+          "pos": "noun",
+          "meaning_zh": "飞机",
+          "start": 0,
+          "end": 3
+        },
+        {
+          "surface": "新幹線",
+          "dict_form": "新幹線",
+          "reading": "しんかんせん",
+          "pos": "noun",
+          "meaning_zh": "新干线",
+          "start": 4,
+          "end": 7
+        },
+        {
+          "surface": "乗る",
+          "dict_form": "乗る",
+          "reading": "のる",
+          "pos": "verb",
+          "meaning_zh": "乘坐",
+          "start": 10,
+          "end": 12
+        },
+        {
+          "surface": "予定",
+          "dict_form": "予定",
+          "reading": "よてい",
+          "pos": "noun",
+          "meaning_zh": "计划，预定",
+          "start": 12,
+          "end": 14
+        },
+        {
+          "surface": "人",
+          "dict_form": "人",
+          "reading": "ひと",
+          "pos": "noun",
+          "meaning_zh": "人",
+          "start": 15,
+          "end": 16
+        },
+        {
+          "surface": "情報",
+          "dict_form": "情報",
+          "reading": "じょうほう",
+          "pos": "noun",
+          "meaning_zh": "信息",
+          "start": 18,
+          "end": 20
+        },
+        {
+          "surface": "調べましょう",
+          "dict_form": "調べる",
+          "reading": "しらべる",
+          "pos": "verb",
+          "meaning_zh": "调查，查询",
+          "start": 21,
+          "end": 27
+        }
+      ],
+      "grammar": [
+        {
+          "canonical_id": "g_ya_listing",
+          "display_form": "AやB",
+          "meaning_zh": "A、B 等",
+          "explanation": "や 列举（非穷尽）"
+        },
+        {
+          "canonical_id": "g_yotei",
+          "display_form": "V辞書形 + 予定",
+          "meaning_zh": "计划……",
+          "explanation": "计划……的人"
+        },
+        {
+          "canonical_id": "g_mashou",
+          "display_form": "Vましょう",
+          "meaning_zh": "……吧（柔和提议）",
+          "explanation": "柔和号召"
+        }
+      ]
+    }
+  ]
+}
+</script>
+
+<script>
+'use strict';
+
+// ---------- State ----------
+const LS_KEY = 'jr_familiarity';
+const LS_THRESHOLD = 'jr_threshold';
+const API_BASE = `${location.origin}`;  // empty if file://
+
+const state = {
+  article: null,
+  currentArticleId: null,
+  familiarity: loadFamiliarityLocal(),
+  threshold: parseInt(localStorage.getItem(LS_THRESHOLD) || '5', 10),
+  serverMode: false,  // set true after probe succeeds
+};
+
+function loadFamiliarityLocal() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); }
+  catch { return {}; }
+}
+
+function saveFamiliarityLocal() {
+  localStorage.setItem(LS_KEY, JSON.stringify(state.familiarity));
+}
+
+function famKey(type, key) { return `${type}:${key}`; }
+
+function getFam(type, key) {
+  return state.familiarity[famKey(type, key)] ?? 0;
+}
+
+// Two-tier display class relative to the threshold.
+//   fam >= threshold        → 'tok-known'   (熟，隐藏标注)
+//   fam >= threshold-2      → 'tok-fuzzy'   (半生，淡提示)
+//   else                    → 'tok-unknown' (生，醒目)
+function famTier(fam) {
+  const t = state.threshold;
+  if (fam >= t) return 'tok-known';
+  if (fam >= t - 2) return 'tok-fuzzy';
+  return 'tok-unknown';
+}
+
+async function setFam(type, key, value) {
+  const v = Math.max(0, Math.min(5, value));
+  state.familiarity[famKey(type, key)] = v;
+  saveFamiliarityLocal();  // always update local cache
+  if (state.serverMode) {
+    try {
+      await fetch(`${API_BASE}/api/familiarity`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, key, score: v }),
+      });
+    } catch (e) {
+      console.warn('Server write failed, kept in localStorage:', e);
+    }
+  }
+  rerenderArticle();
+}
+
+// Probe server. Returns true if reachable.
+async function probeServer() {
+  if (location.protocol === 'file:') return false;  // skip when opened directly
+  try {
+    const r = await fetch(`${API_BASE}/api/health`, { cache: 'no-store' });
+    if (!r.ok) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function loadFamiliarityFromServer() {
+  const r = await fetch(`${API_BASE}/api/familiarity`);
+  if (!r.ok) throw new Error('familiarity GET failed');
+  return r.json();
+}
+
+async function importLocalToServer() {
+  const local = loadFamiliarityLocal();
+  if (!Object.keys(local).length) return 0;
+  const r = await fetch(`${API_BASE}/api/familiarity/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(local),
+  });
+  if (!r.ok) throw new Error('import failed');
+  const j = await r.json();
+  return j.imported;
+}
+
+async function analyzeOnServer(text) {
+  const r = await fetch(`${API_BASE}/api/analyze`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err.error || `analyze failed (${r.status})`);
+  }
+  return r.json();
+}
+
+// ---------- Rendering ----------
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+function buildTokenTip(t) {
+  // Multi-line tip: "辞書形 (reading) — 中文释义" + current familiarity
+  const parts = [];
+  const head = t.dict_form + (t.reading && t.reading !== t.dict_form ? ` (${t.reading})` : '');
+  parts.push(head);
+  if (t.meaning_zh) parts.push(t.meaning_zh);
+  const fam = getFam('word', t.dict_form);
+  parts.push(`熟悉度 ${fam}/5  ·  点击查看注释`);
+  return parts.join('\n');
+}
+
+function buildGrammarTip(g) {
+  const parts = [];
+  parts.push(g.display_form || g.canonical_id);
+  if (g.meaning_zh) parts.push(g.meaning_zh);
+  if (g.explanation) parts.push(g.explanation);
+  const fam = getFam('grammar', g.canonical_id);
+  parts.push(`熟悉度 ${fam}/5  ·  点击查看注释`);
+  return parts.join('\n');
+}
+
+function buildTokenSpans(ja, tokens) {
+  // tokens may be unsorted; sort by start
+  const sorted = [...tokens].sort((a, b) => a.start - b.start);
+  let out = '';
+  let cursor = 0;
+  for (const t of sorted) {
+    if (t.start > cursor) {
+      out += escapeHtml(ja.slice(cursor, t.start));
+    }
+    if (t.end > t.start) {
+      const fam = getFam('word', t.dict_form);
+      const cls = `token has-tip ${famTier(fam)}`;
+      out += `<span class="${cls}" data-type="word" data-key="${escapeHtml(t.dict_form)}" data-tip="${escapeHtml(buildTokenTip(t))}">${escapeHtml(ja.slice(t.start, t.end))}</span>`;
+      cursor = t.end;
+    }
+  }
+  if (cursor < ja.length) out += escapeHtml(ja.slice(cursor));
+  return out;
+}
+
+function renderGrammarChips(grammar) {
+  if (!grammar?.length) return '';
+  return `<div class="grammar-chips">${grammar.map(g => {
+    const fam = getFam('grammar', g.canonical_id);
+    return `<span class="grammar-chip has-tip ${famTier(fam)}" data-type="grammar" data-key="${escapeHtml(g.canonical_id)}" data-tip="${escapeHtml(buildGrammarTip(g))}">${escapeHtml(g.display_form || g.canonical_id)}</span>`;
+  }).join('')}</div>`;
+}
+
+// A row of 5 clickable dots. data-val on each dot = the score it sets.
+function renderRating(type, key, fam) {
+  const dots = [];
+  for (let i = 1; i <= 5; i++) {
+    const filled = i <= fam ? ' filled' : '';
+    dots.push(`<span class="dot${filled}" data-val="${i}"></span>`);
+  }
+  return `<span class="rating" data-type="${type}" data-key="${escapeHtml(key)}" title="点击设熟悉度，再点最高点清零">${dots.join('')}</span><span class="rating-label">${fam}/5</span>`;
+}
+
+function renderNotes(sent) {
+  const items = [];
+
+  // dedupe words by dict_form within the sentence
+  const seenWords = new Set();
+  for (const t of sent.tokens) {
+    if (seenWords.has(t.dict_form)) continue;
+    seenWords.add(t.dict_form);
+    const fam = getFam('word', t.dict_form);
+    items.push({
+      type: 'word',
+      key: t.dict_form,
+      label: t.dict_form,
+      reading: t.reading,
+      meaning: t.meaning_zh,
+      explanation: '',
+      speak: t.dict_form,
+      fam,
+    });
+  }
+
+  // dedupe grammar by canonical_id
+  const seenGrammar = new Set();
+  for (const g of sent.grammar) {
+    if (seenGrammar.has(g.canonical_id)) continue;
+    seenGrammar.add(g.canonical_id);
+    const fam = getFam('grammar', g.canonical_id);
+    items.push({
+      type: 'grammar',
+      key: g.canonical_id,
+      label: g.display_form || g.canonical_id,
+      reading: '',
+      meaning: g.meaning_zh,
+      explanation: g.explanation || '',
+      speak: '',  // grammar patterns aren't a single pronounceable word
+      fam,
+    });
+  }
+
+  if (!items.length) return '';
+
+  const html = items.map(it => `
+    <div class="note-item" data-type="${it.type}" data-key="${escapeHtml(it.key)}">
+      <div class="note-key${it.type === 'grammar' ? ' grammar' : ''}">
+        ${escapeHtml(it.label)}
+        ${it.reading ? `<div class="reading">${escapeHtml(it.reading)}</div>` : ''}
+      </div>
+      <div class="note-meaning">
+        ${escapeHtml(it.meaning || '')}
+        ${it.explanation ? `<div class="explanation">${escapeHtml(it.explanation)}</div>` : ''}
+      </div>
+      <div class="note-actions">
+        ${it.speak ? `<button class="speak-btn" data-speak="${escapeHtml(it.speak)}" title="朗读">🔊</button>` : ''}
+        <button class="plus-btn" data-type="${it.type}" data-key="${escapeHtml(it.key)}" title="熟悉度 +1">＋1</button>
+        ${renderRating(it.type, it.key, it.fam)}
+      </div>
+    </div>
+  `).join('');
+
+  return html;
+}
+
+function computeMinFamForSentence(sent) {
+  let min = 5;
+  for (const t of sent.tokens) min = Math.min(min, getFam('word', t.dict_form));
+  for (const g of sent.grammar) min = Math.min(min, getFam('grammar', g.canonical_id));
+  return min;
+}
+
+function renderSentence(sent) {
+  const minFam = computeMinFamForSentence(sent);
+  // Auto-open notes only when the sentence has a genuinely-unknown item
+  // (tier '生', i.e. fam < threshold-2). 半生/熟 stay collapsed by default.
+  const isOpen = minFam < state.threshold - 2;
+  const tokenSpans = buildTokenSpans(sent.ja, sent.tokens);
+  const chips = renderGrammarChips(sent.grammar);
+  const notes = renderNotes(sent);
+
+  return `
+    <div class="sentence" data-id="${sent.id}">
+      <div class="ja-line-wrap">
+        <div class="ja-line">${tokenSpans}</div>
+        <button class="sentence-speak" data-speak="${escapeHtml(sent.ja)}" title="朗读整句">🔊</button>
+      </div>
+      ${chips}
+      <div class="zh-line">${escapeHtml(sent.zh)}</div>
+      ${notes ? `<details class="notes" ${isOpen ? 'open' : ''}><summary>注释</summary>${notes}</details>` : ''}
+    </div>
+  `;
+}
+
+function renderArticle() {
+  const article = state.article;
+  if (!article) {
+    document.getElementById('article').innerHTML = '';
+    document.getElementById('stats').style.display = 'none';
+    return;
+  }
+  const html = `
+    <div class="article-title">${escapeHtml(article.title || '')}</div>
+    <div class="article-source">${escapeHtml(article.source || '')}</div>
+    ${article.sentences.map(renderSentence).join('')}
+  `;
+  document.getElementById('article').innerHTML = html;
+  renderStats();
+}
+
+function rerenderArticle() {
+  // Cheap but works at this scale. Optimization: update only affected DOM.
+  renderArticle();
+}
+
+function renderStats() {
+  const a = state.article;
+  if (!a) return;
+  const wordKeys = new Set();
+  const grammarKeys = new Set();
+  for (const s of a.sentences) {
+    for (const t of s.tokens) wordKeys.add(t.dict_form);
+    for (const g of s.grammar) grammarKeys.add(g.canonical_id);
+  }
+  let unknown = 0;
+  for (const k of wordKeys) if (getFam('word', k) < state.threshold) unknown++;
+  for (const k of grammarKeys) if (getFam('grammar', k) < state.threshold) unknown++;
+
+  document.getElementById('statWords').textContent = wordKeys.size;
+  document.getElementById('statGrammar').textContent = grammarKeys.size;
+  document.getElementById('statUnknown').textContent = unknown;
+  document.getElementById('stats').style.display = '';
+}
+
+// ---------- Audio (TTS via /api/tts → Polly, falls back to Web Speech) ----------
+
+let _currentAudio = null;
+
+async function speak(text, btn) {
+  if (!text) return;
+  // Stop anything already playing
+  if (_currentAudio) { _currentAudio.pause(); _currentAudio = null; }
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+
+  const markPlaying = (on) => {
+    document.querySelectorAll('.speak-btn.playing, .sentence-speak.playing')
+      .forEach(b => b.classList.remove('playing'));
+    if (on && btn) btn.classList.add('playing');
+  };
+
+  // Prefer server TTS (Polly neural). Fall back to Web Speech if unreachable.
+  if (state.serverMode) {
+    try {
+      const url = `${API_BASE}/api/tts?text=${encodeURIComponent(text)}`;
+      const audio = new Audio(url);
+      _currentAudio = audio;
+      markPlaying(true);
+      audio.onended = audio.onerror = () => { markPlaying(false); if (_currentAudio === audio) _currentAudio = null; };
+      await audio.play();
+      return;
+    } catch (e) {
+      console.warn('server TTS failed, falling back to Web Speech:', e);
+    }
+  }
+
+  // Web Speech fallback
+  if (window.speechSynthesis) {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'ja-JP';
+    const jaVoice = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('ja'));
+    if (jaVoice) u.voice = jaVoice;
+    markPlaying(true);
+    u.onend = () => markPlaying(false);
+    speechSynthesis.speak(u);
+  }
+}
+
+// ---------- Events ----------
+
+document.addEventListener('click', (e) => {
+  const target = e.target;
+
+  // Speaker button (word note or sentence) → TTS
+  const speakBtn = target.closest('.speak-btn, .sentence-speak');
+  if (speakBtn) {
+    e.stopPropagation();
+    speak(speakBtn.dataset.speak, speakBtn);
+    return;
+  }
+
+  // Quick "+1" button → bump familiarity by one (capped at 5)
+  const plusBtn = target.closest('.plus-btn');
+  if (plusBtn) {
+    e.stopPropagation();
+    const type = plusBtn.dataset.type;
+    const key = plusBtn.dataset.key;
+    setFam(type, key, getFam(type, key) + 1);
+    return;
+  }
+
+  // Rating dot → set familiarity to that dot's value.
+  // Clicking the current top dot again clears to 0 (Taobao-style toggle).
+  if (target.classList.contains('dot')) {
+    const rating = target.closest('.rating');
+    if (!rating) return;
+    const type = rating.dataset.type;
+    const key = rating.dataset.key;
+    const val = parseInt(target.dataset.val, 10);
+    const cur = getFam(type, key);
+    setFam(type, key, val === cur ? 0 : val);
+    return;
+  }
+
+  // Click on token / grammar chip → open notes + highlight matching row
+  const trigger = target.closest('.token, .grammar-chip');
+  if (trigger) {
+    const sentence = trigger.closest('.sentence');
+    if (!sentence) return;
+    const details = sentence.querySelector('details.notes');
+    if (details) details.open = true;
+    const note = sentence.querySelector(
+      `.note-item[data-type="${trigger.dataset.type}"][data-key="${CSS.escape(trigger.dataset.key)}"]`
+    );
+    if (note) {
+      sentence.querySelectorAll('.note-item.highlight').forEach(n => n.classList.remove('highlight'));
+      note.classList.add('highlight');
+      note.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+});
+
+// Floating tooltip: show/position from any hovered .has-tip element.
+const _tooltipEl = document.getElementById('tooltip');
+function showTooltip(el) {
+  const tip = el.dataset.tip;
+  if (!tip) return;
+  _tooltipEl.textContent = tip;
+  _tooltipEl.classList.add('show');
+  // Position above the element, horizontally centered, clamped to viewport.
+  const r = el.getBoundingClientRect();
+  // make it measurable first
+  _tooltipEl.style.left = '0px';
+  _tooltipEl.style.top = '-9999px';
+  const tw = _tooltipEl.offsetWidth;
+  const th = _tooltipEl.offsetHeight;
+  let left = r.left + r.width / 2 - tw / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - tw - 8));
+  let top = r.top - th - 8;
+  if (top < 8) top = r.bottom + 8;  // flip below if no room above
+  _tooltipEl.style.left = left + 'px';
+  _tooltipEl.style.top = top + 'px';
+}
+function hideTooltip() {
+  _tooltipEl.classList.remove('show');
+}
+
+document.addEventListener('mouseover', (e) => {
+  // Tooltip for token / grammar chip
+  const tipEl = e.target.closest('.has-tip');
+  if (tipEl) showTooltip(tipEl);
+
+  // Hover preview on rating dots: light up dots up to the hovered one
+  const dot = e.target.closest('.rating .dot');
+  if (dot) {
+    const rating = dot.closest('.rating');
+    const val = parseInt(dot.dataset.val, 10);
+    rating.querySelectorAll('.dot').forEach((d, i) => {
+      d.classList.toggle('preview', (i + 1) <= val && !d.classList.contains('filled'));
+    });
+  }
+});
+document.addEventListener('mouseout', (e) => {
+  const tipEl = e.target.closest('.has-tip');
+  if (tipEl) hideTooltip();
+  const rating = e.target.closest('.rating');
+  if (rating) rating.querySelectorAll('.dot.preview').forEach(d => d.classList.remove('preview'));
+});
+
+document.getElementById('threshold').addEventListener('input', (e) => {
+  state.threshold = parseInt(e.target.value, 10);
+  document.getElementById('thresholdValue').textContent = state.threshold;
+  localStorage.setItem(LS_THRESHOLD, String(state.threshold));
+  rerenderArticle();
+});
+
+document.getElementById('resetFamiliarity').addEventListener('click', async () => {
+  if (!confirm('确定重置所有熟悉度数据？此操作不可撤销。')) return;
+  state.familiarity = {};
+  saveFamiliarityLocal();
+  if (state.serverMode) {
+    try { await fetch(`${API_BASE}/api/familiarity/reset`, { method: 'POST' }); }
+    catch (e) { console.warn('server reset failed:', e); }
+  }
+  rerenderArticle();
+});
+
+document.getElementById('analyzeBtn').addEventListener('click', async () => {
+  const text = document.getElementById('rawInput').value.trim();
+  if (!text) { alert('请先粘贴日语原文'); return; }
+  const btn = document.getElementById('analyzeBtn');
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '分析中...';
+  try {
+    const result = await analyzeOnServer(text);
+    state.article = result.data;
+    state.currentArticleId = result.article_id ?? null;
+    renderArticle();
+    loadHistory();  // refresh sidebar with the new article
+  } catch (e) {
+    alert('分析失败: ' + e.message);
+  } finally {
+    btn.disabled = !state.serverMode;
+    btn.textContent = orig;
+  }
+});
+
+document.getElementById('exportData').addEventListener('click', () => {
+  const data = {
+    familiarity: state.familiarity,
+    threshold: state.threshold,
+    exported_at: new Date().toISOString(),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `jr-familiarity-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('loadDemo').addEventListener('click', () => {
+  loadSample();
+});
+
+// ---------- Article history (sidebar) ----------
+
+async function loadHistory() {
+  if (!state.serverMode) return;
+  let articles = [];
+  try {
+    articles = await (await fetch(`${API_BASE}/api/articles`)).json();
+  } catch (e) {
+    console.warn('history load failed:', e);
+    return;
+  }
+  const list = document.getElementById('sbList');
+  if (!articles.length) {
+    list.innerHTML = '<div class="sb-empty">还没有分析过的文章</div>';
+    return;
+  }
+  list.innerHTML = articles.map(a => {
+    const active = a.id === state.currentArticleId ? ' active' : '';
+    const date = (a.created_at || '').slice(5, 16);  // MM-DD HH:MM
+    return `<div class="sb-item${active}" data-id="${a.id}">
+      <span class="sb-title" title="${escapeHtml(a.title || '')}">${escapeHtml(a.title || '(无标题)')}</span>
+      <span class="sb-date">${escapeHtml(date)}</span>
+      <button class="sb-del" data-id="${a.id}" title="删除">🗑</button>
+    </div>`;
+  }).join('');
+}
+
+async function loadArticleById(id) {
+  try {
+    const r = await fetch(`${API_BASE}/api/articles/${id}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const row = await r.json();
+    state.article = row.data;
+    state.currentArticleId = row.id;
+    document.getElementById('rawInput').value =
+      row.raw_text || row.data.sentences.map(s => s.ja).join('\n');
+    renderArticle();
+    loadHistory();  // update active highlight
+  } catch (e) {
+    alert('加载文章失败: ' + e.message);
+  }
+}
+
+async function deleteArticle(id) {
+  if (!confirm('删除这篇历史文章？（熟悉度数据保留）')) return;
+  try {
+    await fetch(`${API_BASE}/api/articles/${id}`, { method: 'DELETE' });
+    if (state.currentArticleId === id) state.currentArticleId = null;
+    loadHistory();
+  } catch (e) {
+    alert('删除失败: ' + e.message);
+  }
+}
+
+function openSidebar(open) {
+  const sb = document.getElementById('sidebar');
+  sb.classList.toggle('open', open);
+  document.body.classList.toggle('sidebar-open', open);
+  if (open) loadHistory();
+}
+
+document.getElementById('sidebarToggle').addEventListener('click', () => {
+  const isOpen = document.getElementById('sidebar').classList.contains('open');
+  openSidebar(!isOpen);
+});
+document.getElementById('sbClose').addEventListener('click', () => openSidebar(false));
+
+document.getElementById('sbList').addEventListener('click', (e) => {
+  const del = e.target.closest('.sb-del');
+  if (del) { e.stopPropagation(); deleteArticle(parseInt(del.dataset.id, 10)); return; }
+  const item = e.target.closest('.sb-item');
+  if (item) loadArticleById(parseInt(item.dataset.id, 10));
+});
+
+// ---------- Init ----------
+function loadSample() {
+  const raw = document.getElementById('sample-data').textContent;
+  state.article = JSON.parse(raw);
+  document.getElementById('rawInput').value =
+    state.article.sentences.map(s => s.ja).join('\n');
+  renderArticle();
+}
+
+async function init() {
+  const slider = document.getElementById('threshold');
+  slider.value = state.threshold;
+  document.getElementById('thresholdValue').textContent = state.threshold;
+
+  state.serverMode = await probeServer();
+  const indicator = document.getElementById('modeIndicator');
+  const analyzeBtn = document.getElementById('analyzeBtn');
+  if (state.serverMode) {
+    indicator.textContent = '服务器模式（SQLite）';
+    indicator.style.color = '#16a34a';
+    analyzeBtn.disabled = false;
+    analyzeBtn.title = '通过 LLM 分析输入文本';
+    analyzeBtn.textContent = 'Analyze';
+    try {
+      const serverFam = await loadFamiliarityFromServer();
+      const localKeys = Object.keys(state.familiarity);
+      // If server is empty but local has data, offer one-time import.
+      if (!Object.keys(serverFam).length && localKeys.length) {
+        if (confirm(`检测到 localStorage 中有 ${localKeys.length} 条熟悉度记录，导入到服务器？`)) {
+          const n = await importLocalToServer();
+          alert(`已导入 ${n} 条`);
+          state.familiarity = await loadFamiliarityFromServer();
+        }
+      } else {
+        state.familiarity = serverFam;
+      }
+    } catch (e) {
+      console.warn('Server familiarity load failed, using localStorage:', e);
+      state.serverMode = false;
+      indicator.textContent = '本地模式（localStorage）';
+      indicator.style.color = '';
+    }
+  }
+
+  // History sidebar only works with the server; hide the toggle offline.
+  const toggle = document.getElementById('sidebarToggle');
+  if (state.serverMode) {
+    toggle.style.display = '';
+    loadHistory();
+  } else {
+    toggle.style.display = 'none';
+  }
+
+  loadSample();
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+name = "japanese-reader"
+main = "src/index.ts"
+compatibility_date = "2024-12-18"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+# Custom domain on the chengpeng.press zone. wrangler auto-creates the DNS record.
+# Cloudflare Access protects this hostname at the edge (configured in the dashboard).
+routes = [
+  { pattern = "jr-app.chengpeng.press", custom_domain = true }
+]
+
+# React SPA built by Vite into web/dist, served as static assets.
+# The Worker handles /api/*; everything else falls back to the SPA.
+[assets]
+directory = "./web/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+# D1: state tables (articles, occurrences, familiarity) + reference (vocab, grammar_points)
+[[d1_databases]]
+binding = "DB"
+database_name = "japanese-reader"
+database_id = "6320ffd6-ec04-43d1-b9f6-aba3013b5661"
+migrations_dir = "migrations"
+
+# KV: LLM analyze result cache (replaces local data/cache/*.json)
+[[kv_namespaces]]
+binding = "CACHE"
+id = "9f098116d51c4528ad332a31a7c4d07a"
+
+# GEMINI_API_KEY is injected via `wrangler secret put GEMINI_API_KEY`
+# (and via .dev.vars for local `wrangler dev`). Never commit it.

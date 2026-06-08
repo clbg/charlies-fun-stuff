@@ -1,0 +1,11 @@
+.env
+node_modules/
+dist/
+data/cache/
+data/audio_cache/
+data/familiarity.db
+data/familiarity.db-journal
+data/familiarity.db-wal
+data/familiarity.db-shm
+.DS_Store
+.playwright-mcp/
