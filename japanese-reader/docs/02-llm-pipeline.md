@@ -103,3 +103,11 @@ export async function analyze(text: string, env): Promise<Article> {
 - **增量分析**：长文章按段落切（现在用户得自己分），避免单次输出 token 爆炸
 - **prompt / context cache**：Gemini 支持 context caching，但有按小时存储费，低频调用不一定划算（见 `04-infrastructure.md` GPT 核实结论）；先靠 KV 结果缓存
 - **回填中文释义**：`grammar_points.meaning_zh` 全空，可以让 LLM 一次性翻译 828 条 short_explanation 入库
+
+## TTS（语音）
+
+朗读用 **Gemini TTS**（`gemini-2.5-flash-preview-tts`），同一个 `GEMINI_API_KEY`、fetch 调用，跑在 `/api/tts`：
+- 输出 16-bit PCM（L16/24kHz），Worker 包 44 字节 WAV 头返回 `audio/wav`
+- 按 `sha1(voice+text)` 存 KV 缓存（同一句永不重复合成）
+- 默认音色 `Kore`；前端 `speak.ts` 优先用 `/api/tts`，网络/错误时回退浏览器 Web Speech
+- 取代了原型阶段的 AWS Polly 与上云初期的纯浏览器 Web Speech（系统语音机械、依赖设备）

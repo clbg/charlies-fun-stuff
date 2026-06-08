@@ -38,8 +38,8 @@
         │ 2.5 Flash   │
         └─────────────┘
 
-   TTS → 浏览器 Web Speech API（客户端，$0）
-         tts.ts + audio_cache + /api/tts 整块删除
+   TTS → /api/tts（Gemini neural TTS，PCM→WAV，KV 缓存）
+         前端失败时回退浏览器 Web Speech
 ```
 
 ## 决议逐项
@@ -51,7 +51,7 @@
 | **缓存** | `data/cache/*.json` | **KV** | LLM 结果天生 key→json blob，最贴合 KV |
 | **Web 框架** | Express（346 行） | **Hono** | Workers 跑不了 Express，端点逐个平移 + async 化 |
 | **LLM** | Bedrock `claude-sonnet-4-6`（ada/midway 内部凭证） | **Gemini 2.5 Flash**（fetch-based） | 内部凭证上云必失效；Gemini Flash $0.30/$2.50 且有免费额度，单人几乎吃不完；AWS SDK 在 Workers 上很难跑 |
-| **TTS** | AWS Polly neural（内部凭证） | **浏览器 Web Speech API** | $0，本就是 fallback；删掉 `tts.ts`、`audio_cache/`、`/api/tts` 整块 |
+| **TTS** | AWS Polly neural（内部凭证） | **Gemini TTS（neural）+ /api/tts + KV 缓存** | 同一个 Gemini key、fetch 调用；PCM 包 WAV 返回；Web Speech 作回退。比浏览器系统语音自然 |
 | **前端** | 单文件 `prototype.html`（vanilla JS） | **React + Vite + responsive** | 组件化、移动端适配；产物用 Workers Assets 托管 |
 | **CI/CD** | 无 | **GitHub Actions + `cloudflare/wrangler-action@v3`** | 比 Workers Builds 黑盒更可控：部署前能跑 build/test/Gemini 冒烟测试/D1 migration |
 | **鉴权** | 跳过（全本地） | **Cloudflare Access** | 公网必须做，否则任何人知道 URL 就能烧 Gemini key、读学习数据 |

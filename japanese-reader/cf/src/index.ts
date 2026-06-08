@@ -21,6 +21,10 @@
 import { Hono } from "hono";
 import type { Env, Article } from "./types.js";
 import { analyze } from "./analyze.js";
+import { synthesize, DEFAULT_VOICE } from "./tts.js";
+
+// Gemini prebuilt voices usable for TTS (subset; all multilingual).
+const TTS_VOICES = ["Kore", "Puck", "Charon", "Aoede", "Fenrir"];
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -176,6 +180,27 @@ app.post("/api/analyze", async (c) => {
   }
 
   return c.json({ article_id: articleId, data: article });
+});
+
+// ---------- TTS ----------
+
+app.get("/api/tts", async (c) => {
+  const text = (c.req.query("text") ?? "").trim();
+  if (!text) return c.json({ error: "text query param required" }, 400);
+  let voice = c.req.query("voice") ?? DEFAULT_VOICE;
+  if (!TTS_VOICES.includes(voice)) voice = DEFAULT_VOICE;
+  try {
+    const wav = await synthesize(text, voice, c.env);
+    return new Response(wav, {
+      status: 200,
+      headers: {
+        "Content-Type": "audio/wav",
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
+    });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 500);
+  }
 });
 
 // ---------- Stats ----------
