@@ -150,7 +150,10 @@ GPT 补充的备选（已评估不选）：Oracle Cloud Always Free（真免费�
 - **会话**：24 小时。
 - **验证**：未登录 `curl` 返回 302 → `chengpeng.cloudflareaccess.com` 登录页，`auth_status: NONE`。
 
-## CI/CD（已启用）
+## CI/CD（已启用并验证通过 ✅）
+
+> 2026-06-08 实测：push 到 main 自动触发，typecheck → build → D1 迁移 → deploy 全绿。
+> 注：Actions 用 Node 22（wrangler v4 要求 ≥22）。
 
 - Workflow 在**仓库根** `.github/workflows/japanese-reader-deploy.yml`（GitHub Actions 只读根目录的 `.github/workflows/`）。
 - 触发：push 到 `main` 且改动 `japanese-reader/cf/**`，或手动 `workflow_dispatch`。
