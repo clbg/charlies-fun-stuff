@@ -27,22 +27,23 @@ interface DailyResult {
   tts_failed: number;
 }
 
-// Fetch one random main-namespace article's plain-text extract.
-async function fetchRandomArticle(): Promise<{ title: string; text: string } | null> {
-  const url =
-    `${WIKI_API}?action=query&format=json&origin=*` +
-    `&generator=random&grnnamespace=0&grnlimit=1` +
-    `&prop=extracts&explaintext=1&exsectionformat=plain&exchars=${MAX_CHARS}`;
+// Fetch one article's plain-text extract: a specific title if given, else random.
+async function fetchArticle(title?: string): Promise<{ title: string; text: string } | null> {
+  const base = `${WIKI_API}?action=query&format=json&origin=*&prop=extracts&explaintext=1&exsectionformat=plain&exchars=${MAX_CHARS}`;
+  const url = title
+    ? `${base}&redirects=1&titles=${encodeURIComponent(title)}`
+    : `${base}&generator=random&grnnamespace=0&grnlimit=1`;
   const res = await fetch(url, { headers: { "User-Agent": "japanese-reader/1.0 (personal study tool)" } });
   if (!res.ok) return null;
   const json = (await res.json()) as any;
   const pages = json?.query?.pages;
   if (!pages) return null;
   const page = Object.values(pages)[0] as any;
+  if (page?.missing !== undefined) return null; // requested title doesn't exist
   const text = (page?.extract ?? "").trim();
-  const title = page?.title ?? "";
+  const t = page?.title ?? "";
   if (!text) return null;
-  return { title, text };
+  return { title: t, text };
 }
 
 // Wikipedia extracts include section noise and very long single lines; tidy it
@@ -71,14 +72,21 @@ function chunkBySentence(text: string, maxChars: number): string[] {
   return chunks;
 }
 
-export async function runDaily(env: Env): Promise<DailyResult> {
-  // Pick a random article that's long enough.
+export async function runDaily(env: Env, title?: string): Promise<DailyResult> {
+  // If a title is requested, fetch exactly that; otherwise pick a random
+  // article that's long enough.
   let picked: { title: string; text: string } | null = null;
-  for (let i = 0; i < MAX_TRIES; i++) {
-    const a = await fetchRandomArticle();
-    if (a && cleanText(a.text).length >= MIN_CHARS) {
-      picked = { title: a.title, text: cleanText(a.text) };
-      break;
+  if (title) {
+    const a = await fetchArticle(title);
+    if (!a) throw new Error(`Wikipedia article not found: ${title}`);
+    picked = { title: a.title, text: cleanText(a.text) };
+  } else {
+    for (let i = 0; i < MAX_TRIES; i++) {
+      const a = await fetchArticle();
+      if (a && cleanText(a.text).length >= MIN_CHARS) {
+        picked = { title: a.title, text: cleanText(a.text) };
+        break;
+      }
     }
   }
   if (!picked) throw new Error("could not find a long-enough Wikipedia article after retries");

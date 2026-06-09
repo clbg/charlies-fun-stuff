@@ -227,8 +227,11 @@ app.get("/api/stats", async (c) => {
 // ---------- Daily article job (manual trigger) ----------
 // The cron runs this on a schedule; this route lets the skill / a human run it on demand.
 app.post("/api/daily", async (c) => {
+  // Optional ?title= or {title} body to fetch a specific Wikipedia article.
+  const body = (await c.req.json().catch(() => ({}))) as { title?: string };
+  const title = c.req.query("title") || body.title;
   try {
-    const result = await runDaily(c.env);
+    const result = await runDaily(c.env, title);
     return c.json(result);
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : String(e) }, 500);
