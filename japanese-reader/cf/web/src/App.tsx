@@ -211,7 +211,7 @@ export function App() {
 
         {article && <Stats article={article} threshold={threshold} getFam={getFam} />}
 
-        <footer>Cloudflare Workers · D1 · Gemini · Web Speech TTS</footer>
+        <footer>Cloudflare Workers · D1 · Gemini · 每日自动更新</footer>
       </div>
 
       {toast && <div className="toast">{toast}</div>}
