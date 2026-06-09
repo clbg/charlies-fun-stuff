@@ -17,6 +17,8 @@ export const DEFAULT_VOICE = "Kore";
 const SAMPLE_RATE = 24000;
 const MAX_CHARS = 500;
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function sha1Hex(s: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(s));
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -79,28 +81,58 @@ export async function synthesize(text: string, voice: string, env: Env): Promise
   const cached = await env.CACHE.get(key, "arrayBuffer");
   if (cached) return cached;
 
-  const res = await fetch(TTS_URL, {
-    method: "POST",
-    headers: { "x-goog-api-key": env.GEMINI_API_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: trimmed }] }],
-      generationConfig: {
-        responseModalities: ["AUDIO"],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
-      },
-    }),
+  const reqBody = JSON.stringify({
+    contents: [{ parts: [{ text: trimmed }] }],
+    generationConfig: {
+      responseModalities: ["AUDIO"],
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
+    },
   });
 
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Gemini TTS HTTP ${res.status}: ${body.slice(0, 300)}`);
+  // TTS hits the same Gemini quota as analyze, so it sees the same transient
+  // 503/429/5xx/timeout failures. Without retry, daily pre-warming of a long
+  // article (20+ sequential calls) leaves many sentences un-warmed. Retry with
+  // backoff (mirrors callGemini in analyze.ts).
+  const MAX_ATTEMPTS = 4;
+  const ATTEMPT_TIMEOUT_MS = 60_000;
+  let inline: any = null;
+  let lastErr = "";
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const ctl = new AbortController();
+    const to = setTimeout(() => ctl.abort(), ATTEMPT_TIMEOUT_MS);
+    let res: Response | null = null;
+    try {
+      res = await fetch(TTS_URL, {
+        method: "POST",
+        headers: { "x-goog-api-key": env.GEMINI_API_KEY, "Content-Type": "application/json" },
+        body: reqBody,
+        signal: ctl.signal,
+      });
+    } catch (e) {
+      lastErr = e instanceof Error ? e.message : String(e); // network / timeout
+    } finally {
+      clearTimeout(to);
+    }
+
+    if (res) {
+      if (res.ok) {
+        const json = (await res.json()) as any;
+        const part = json?.candidates?.[0]?.content?.parts?.[0];
+        inline = part?.inlineData ?? part?.inline_data;
+        if (inline?.data) break;
+        // 200 but no audio (e.g. finishReason: OTHER) — transient, retry.
+        lastErr = `no audio: ${JSON.stringify(json).slice(0, 200)}`;
+      } else {
+        const transient = res.status === 503 || res.status === 429 || res.status >= 500;
+        lastErr = `HTTP ${res.status}`;
+        if (!transient) break; // 4xx (not 429) won't fix on retry
+      }
+    }
+    if (attempt < MAX_ATTEMPTS) await sleep(800 * 2 ** (attempt - 1)); // 0.8s, 1.6s, 3.2s
   }
 
-  const json = (await res.json()) as any;
-  const part = json?.candidates?.[0]?.content?.parts?.[0];
-  const inline = part?.inlineData ?? part?.inline_data;
   if (!inline?.data) {
-    throw new Error(`Gemini TTS returned no audio: ${JSON.stringify(json).slice(0, 300)}`);
+    throw new Error(`Gemini TTS failed after ${MAX_ATTEMPTS} attempts: ${lastErr}`);
   }
 
   const pcm = b64ToBytes(inline.data);

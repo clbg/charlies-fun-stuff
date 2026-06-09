@@ -7,11 +7,12 @@
 ## 数据流
 
 ```
-原文输入
+原文输入                         每日 Cron（06:00 JST）
+（手动粘贴）                      抓维基长文 → 分块
+    ↓                               ↓
+[LLM 拆解 analyze（Gemini 2.5 Flash，经 Hono Worker，分块+重试）]
     ↓
-[LLM 拆解 analyze（Gemini 2.5 Flash，经 Hono Worker）]
-    ↓
-Article JSON（句子 + 单词 + 语法点 + 翻译）
+Article JSON（句子 + 单词 + 语法点 + 翻译）→ 存 D1 + 预热每句 TTS（KV）
     ↓
 [渲染 React SPA]
     ↓
@@ -20,6 +21,7 @@ Article JSON（句子 + 单词 + 语法点 + 翻译）
 按阈值决定：纯翻译 / 下划线提示 / 默认展开
     ↓
 用户点击 → 调整熟悉度 → 写回 D1
+朗读：句级 🔊 / 「▶ 朗读全文」→ /api/tts（Gemini 神经 TTS，KV 缓存）
 ```
 
 部署形态见 `04-infrastructure.md`：全栈跑在 Cloudflare Workers 上，前端 React SPA + 后端 Hono + D1（状态）+ KV（LLM 缓存），LLM 走 Gemini，整个 app 由 Cloudflare Access 在边缘鉴权（单人自用）。
@@ -81,7 +83,7 @@ Article JSON（句子 + 单词 + 语法点 + 翻译）
 | 4 | 熟练 | 不显示注释，但悬停可看 |
 | 5 | 完全掌握 | 完全不标注 |
 
-阈值用户可调。MVP 默认阈值 = 4（≥4 不显示注释）。
+阈值用户可调（slider 范围 2–5，默认 5）。渲染按相对阈值的三档：`fam ≥ 阈值`=熟（无标注）；`阈值-2 ≤ fam < 阈值`=半生（虚线）；`fam < 阈值-2`=生（实线+底色）。
 
 ## 渲染策略
 
@@ -142,22 +144,24 @@ Anki 是抽卡式记忆，强调"主动召回"。这个项目是"阅读式遭遇
 - [x] seed.ts：从 hanabira/JLPT 数据灌参考表，幂等
 - [x] 全栈 TS / Node（已废弃 Python 版本）
 
-### 上云阶段（目标架构，进行中）
+### 上云阶段（已上线，详见 `04-infrastructure.md`）
 
-详见 `04-infrastructure.md`。
+线上：https://jr-app.chengpeng.press
 
-- [ ] 工作区清理（删 `../.next`、`../.playwright-mcp` 等遗留产物）
-- [ ] 前端：`prototype.html` → React + Vite + responsive
-- [ ] 后端：Express → Hono；SQLite → D1；本地 cache → KV
-- [ ] LLM：Bedrock → Gemini 2.5 Flash（fetch-based）
-- [ ] TTS：Polly → 浏览器 Web Speech API（删 `tts.ts` 整块）
-- [ ] 鉴权：Cloudflare Access（需自定义域名）
-- [ ] CI/CD：GitHub Actions + `cloudflare/wrangler-action`
+- [x] 工作区清理（删 `../.next`、`../.playwright-mcp` 等遗留产物）
+- [x] 前端：`prototype.html` → React + Vite + responsive
+- [x] 后端：Express → Hono；SQLite → D1；本地 cache → KV
+- [x] LLM：Bedrock → Gemini 2.5 Flash（fetch-based，分块 + 重试）
+- [x] TTS：**Gemini 神经 TTS**（`/api/tts`，PCM→WAV，KV 缓存，带重试）；浏览器 Web Speech 仅作回退。`tts.ts` 保留（最初计划的"Web Speech only / 删 tts.ts"已反转）
+- [x] 鉴权：Cloudflare Access（自定义域名 `jr-app.chengpeng.press`，One-time PIN）
+- [x] CI/CD：GitHub Actions + `cloudflare/wrangler-action`（push main 自动部署）
+- [x] 多文章管理：侧栏列表 / 切换 / 删除
+- [x] 每日文章任务：Cron 每天抓维基长文 → 分块 analyze → 存 D1 → 预热 TTS（`/api/daily` 可手动触发，支持指定 `title`）
+- [x] 全文朗读：「▶ 朗读全文」顺序连播 + 当前句高亮
 
-### 功能 backlog（与基础设施无关）
+### 功能 backlog
 
 - [ ] `grammar_points.meaning_zh` 中文释义批量回填
-- [ ] 多文章管理界面（列表 / 切换 / 删除）
 - [ ] 别名/变体匹配（很多语法 LLM 用变体写法，可做 fuzzy match）
 - [ ] 复习模式（按 familiarity 倒序展示句子）
 - [ ] 数据导出 / 备份命令（D1 export → R2/本地）

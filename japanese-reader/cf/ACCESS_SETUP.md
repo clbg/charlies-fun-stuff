@@ -38,7 +38,7 @@
 - **Action**: `Allow`
 - **Configure rules → Include**:
   - Selector: `Emails`
-  - Value: 填你的邮箱（如 `charlie.pengcheng@gmail.com`）
+  - Value: 填你的邮箱（实配 `charlie.pengcheng@hotmail.com`）
 - Save。
 
 ### 5. 完成 + 验证

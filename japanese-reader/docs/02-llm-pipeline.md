@@ -60,7 +60,7 @@ export async function analyze(text: string, env): Promise<Article> {
           responseMimeType: "application/json",
           responseSchema: ARTICLE_SCHEMA,   // 原生 schema 约束
           temperature: 0.2,
-          maxOutputTokens: 8000,
+          maxOutputTokens: 16000,           // 长输入避免 MAX_TOKENS 截断；长文由 daily.ts 分块
         },
       }),
     }
@@ -81,10 +81,11 @@ export async function analyze(text: string, env): Promise<Article> {
 
 ## 错误处理 / 可靠性
 
-- **重试**：Gemini 偶发 503（high demand）/ 429 / 5xx / 连接挂死，`callGemini` 最多重试 5 次（指数退避 0.8→1.6→3.2→6.4s），每次用 AbortController 设 60s 超时——挂死的请求快速失败再重试，不会一直卡住。这是"不断掉"的关键。
+- **analyze 重试**：Gemini 偶发 503（high demand）/ 429 / 5xx / 连接挂死，`callGemini` 最多重试 5 次（指数退避 0.8→1.6→3.2→6.4s），每次用 AbortController 设 **120s** 超时——挂死的请求快速失败再重试，不会一直卡住。这是"不断掉"的关键。
+- **TTS 重试**：`tts.ts` 的 `synthesize` 也有同款重试（最多 4 次，退避 0.8→1.6→3.2s，每次 60s 超时）。TTS 与 analyze 共用 Gemini 配额，长文每日预热（20+ 句连发）容易撞瞬时限流——重试保证预热尽量灌满。
 - **模型**：用 `gemini-2.5-flash`（冷调用约 15-45s）。实测它严格遵守"只输出实词"规则，token 干净。`flash-lite` 快 4-5 倍但会把助词/标点也当 token 输出（视觉噪音），故不用——可靠 + 干净优先于速度。
 - **前端反馈**：分析时按钮显示"分析中… Ns"实时计时 + "首次分析约需 10–20 秒"提示，缓解长等待焦虑。
-- **JSON 解析失败**：Gemini JSON mode 下罕见；保留 `repairInnerQuotes`（CJK 间 `"` → `」`）作兜底，再失败打印 raw 抛错
+- **JSON 解析失败**：Gemini JSON mode 下罕见；三级兜底——①直接 parse ②`repairInnerQuotes`（CJK 间 `"` → `」`）③`stripControlChars`（剥离字符串里的裸控制字符），仍失败时若 `finishReason=MAX_TOKENS` 明确报"输入太长需分块"，否则抛原错。
 - **token surface 找不到**：`assignOffsets` warn 但保留 token（start=end=-1），渲染降级
 - **g_unregistered**：warn 列出所有未在 registry 的 surface，方便后续手动审视
 
@@ -113,4 +114,7 @@ export async function analyze(text: string, env): Promise<Article> {
 - 输出 16-bit PCM（L16/24kHz），Worker 包 44 字节 WAV 头返回 `audio/wav`
 - 按 `sha1(voice+text)` 存 KV 缓存（同一句永不重复合成）
 - 默认音色 `Kore`；前端 `speak.ts` 优先用 `/api/tts`，网络/错误时回退浏览器 Web Speech
+- **重试**：`synthesize` 对 503/429/5xx/超时重试 4 次（退避 0.8→1.6→3.2s，每次 60s 超时），与 analyze 同款
+- **预热**：每日任务（`daily.ts`）逐句调 `synthesize` 灌 KV → 点朗读/全文朗读是缓存命中。长文（20+ 句）连发偶尔仍会被限流，未灌满的句子点开时即时合成（略延迟），不影响功能
+- **全文朗读**：前端 `speakSequence`（`App.tsx`）顺序连播整篇，靠预热的 KV 缓存做到流畅，详见 `03-rendering.md`
 - 取代了原型阶段的 AWS Polly 与上云初期的纯浏览器 Web Speech（系统语音机械、依赖设备）

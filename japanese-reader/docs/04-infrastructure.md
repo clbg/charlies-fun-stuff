@@ -171,13 +171,15 @@ GPT 补充的备选（已评估不选）：Oracle Cloud Always Free（真免费�
   1. 从 `ja.wikipedia.org` MediaWiki API 取随机长文（CC BY-SA，不封爬虫）；循环直到 ≥300 字，截到 ≤700 字的句子边界
   2. **分块 analyze**：按 ~300 字句子边界切块，逐块调 Gemini 再合并句子。一次性分析长文会 MAX_TOKENS 截断/超时/JSON 损坏——分块让每次调用回到短文那种稳定快速区间
   3. 存 D1（articles + occurrences），进侧栏历史
-  4. **预热 TTS**：遍历每句调 `synthesize` 灌 KV → 你点朗读是缓存命中（实测 7ms），无延迟
+  4. **预热 TTS**：遍历每句调 `synthesize`（带重试）灌 KV → 点朗读/全文朗读是缓存命中（实测 ~7ms），无延迟
 - **入口**：
-  - 自动：cron（每天）
-  - 手动：`POST /api/daily`（供 skill / 调试）
-  - skill：`~/.claude/skills/japanese-reader-daily`（"放一篇"/"来篇新文章"）
+  - 自动：cron（每天，随机文章）
+  - 手动：`POST /api/daily`，可选 `?title=` 或 `{title}` body 指定维基条目（不传则随机）；供 skill / 调试
+  - skill：`~/.claude/skills/japanese-reader-daily`（"放一篇"/"来篇新文章"/指定主题）
 - **为何是维基不是 NHK**：NHK Easy 2025-10 改收费、NHK 普通新闻封爬虫+禁再分发；维基是稳定合法的长文源。
-- **analyze 可靠性**（这次一并修的）：429/503/超时/网络断 重试 5 次（指数退避）+ 每次 120s 超时；MAX_TOKENS 显式报错；JSON 修复兜底（内引号 + 控制字符）。
+- **可靠性**：
+  - analyze：429/503/超时/网络断 重试 5 次（指数退避 0.8→6.4s）+ 每次 **120s** 超时；MAX_TOKENS 显式报错；JSON 三级兜底（直接 parse → 内引号修复 → 控制字符剥离）。
+  - TTS：`synthesize` 同款重试（4 次 / 60s 超时）。长文（20+ 句）连发预热偶尔仍被瞬时限流，未灌满的句子点开时即时合成（略延迟），不影响功能。失败计数体现在 `/api/daily` 返回的 `tts_failed`。
 
 ## 相关文档
 

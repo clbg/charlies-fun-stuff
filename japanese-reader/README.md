@@ -15,8 +15,9 @@
    （按 familiarity 阈值渲染）   ←→  data/familiarity.db: familiarity
 ```
 
-> **架构说明**：上图是**当前本地原型**（Express + better-sqlite3 + Bedrock + prototype.html），本 README 描述如何在本地跑它。
-> **目标架构已改为全 Cloudflare**（Workers + Hono + D1 + KV + Gemini + React，Cloudflare Access 鉴权）——设计见 `docs/04-infrastructure.md`，迁移进行中。
+> **架构说明**：上图是**早期本地原型**（Express + better-sqlite3 + Bedrock + prototype.html），本 README 描述如何在本地跑它，仅作历史参考。
+> **现已全面迁移到 Cloudflare 并上线**：https://jr-app.chengpeng.press （Workers + Hono + D1 + KV + Gemini + React，Cloudflare Access 鉴权，每日自动抓文 + 全文朗读）。
+> 云端代码在 **`cf/`**（见 `cf/README.md`），架构设计见 `docs/04-infrastructure.md`。
 
 ---
 

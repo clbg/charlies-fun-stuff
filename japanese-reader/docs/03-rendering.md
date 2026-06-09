@@ -8,7 +8,7 @@
 ```
 ┌─────────────────────────────────────────┐
 │  Japanese Reader                        │
-│  熟悉度阈值: [3] (≥此值不显示注释)        │
+│  熟悉度阈值: [5] (≥此值不显示注释)        │
 ├─────────────────────────────────────────┤
 │  [输入框: 粘贴日语原文]                   │
 │  [Analyze 按钮]                         │
@@ -37,41 +37,55 @@
 2. **中文翻译行**：纯文本
 3. **注释面板**（折叠/展开）：列出 sentence 内所有 word + grammar 的释义
 
-## CSS class 约定
+## CSS class 约定（实际，见 `cf/web/src/App.tsx` + `styles.css`）
 
 ```css
-.token             /* 默认 token 样式 */
-.token-known       /* familiarity >= threshold，无装饰 */
-.token-fuzzy       /* familiarity 2-3，下划线虚线 */
-.token-unknown     /* familiarity 0-1，下划线实线 + 浅色背景 */
-.token-grammar     /* 语法点 token，与 word 区分（用色） */
+.token             /* token 基础样式 */
+.tok-known         /* familiarity >= threshold，无装饰 */
+.tok-fuzzy         /* threshold-2 ≤ fam < threshold，虚线下划线 */
+.tok-unknown       /* fam < threshold-2，实线下划线 + 浅红底 */
+.grammar-chip      /* 语法点：JA 行下方独立一排可点 chip（不是 overlay） */
+.grammar-chip.tok-known/.tok-fuzzy  /* 同样按熟悉度淡化 */
 
-.note-panel        /* 注释面板 */
-.note-panel--open  /* 展开状态 */
+details.notes      /* 注释面板（原生 <details>，open 态即展开） */
 .note-item         /* 单个释义条目 */
+.note-item.highlight /* 点 token/chip 时高亮对应条目 */
+.sentence.reading  /* 全文朗读时当前句的高亮光圈 */
 ```
+
+> 注：类名前缀是 `tok-`（非 `token-`）。语法点是 JA 行下方的一排 **grammar-chip**（可点击聚焦注释），不是覆盖在原文上的 overlay。
 
 ## 交互
 
-### Token 点击
+### Token / grammar chip 点击
 
-- 点击任意 token → 弹出/聚焦该项的释义
-- 释义面板内有 [熟] [生] 按钮：
-  - [熟]：familiarity += 1（capped at 5）
-  - [生]：familiarity = max(0, familiarity - 1)
-- 调整后立即重渲染该 token 的 class
+- 点击任意 token 或 grammar chip → 展开注释面板并高亮（`.highlight`）对应释义条目
+
+### 注释条目里的熟悉度操作（实际 UI）
+
+- **＋1 按钮**：familiarity += 1（capped at 5）
+- **五点评分 dot**（淘宝式）：点第 N 个 dot → 设为 N；再点当前最高 dot → 清零
+- **🔊 朗读按钮**：词条朗读（走 `/api/tts`）
+- 调整后乐观更新 + POST `/api/familiarity` 写回 D1，立即重渲染
 
 ### Sentence-level 折叠
 
-- 注释面板默认状态由该句最低熟悉度决定：
-  - 任何一个 token 熟悉度 < threshold → 默认展开
-  - 全部 ≥ threshold → 默认折叠
-- 用户可手动 toggle（覆盖默认）
+- 注释面板默认展开条件：该句最低熟悉度 `minFam < threshold - 2`（即有"生"词才默认展开）；否则折叠
+- 用户可手动 toggle（原生 `<details>`）
+
+### 句级 / 全文朗读
+
+- 每句 JA 行右侧 🔊「朗读整句」
+- 文章顶部「▶ 朗读全文」：见下方 §全文朗读
 
 ### 全局阈值滑块
 
-- 顶部一个 slider，0-5，实时改变所有渲染
-- 阈值存 localStorage
+- 顶部 slider，范围 **2–5**（默认 5），实时改变所有渲染
+- 阈值存 localStorage（仅此 UI 偏好存本地，熟悉度权威在 D1）
+
+### 分析等待反馈
+
+- 点 Analyze 后按钮显示「分析中… Ns」实时计时 + 「首次分析约需 10–20 秒」提示
 
 ## State 管理（React）
 
@@ -115,7 +129,7 @@ function renderSentence(sent) {
 
   // 2. 决定注释面板默认展开/折叠
   const minFam = computeMinFamiliarity(sent);
-  const isOpen = state.expandedSentences.has(sent.id) || minFam < state.threshold;
+  const isOpen = state.expandedSentences.has(sent.id) || minFam < state.threshold - 2;
 
   // 3. 注释列表（合并 word + grammar）
   const notes = buildNotes(sent.tokens, sent.grammar);
@@ -136,9 +150,7 @@ function renderSentence(sent) {
 ## Token span 构建
 
 文本切片按 `start`/`end` 排序，token 之间的部分（助词、标点）不加 class，原样输出。
-重叠区间（grammar 经常覆盖多个 token）：grammar 用 `<span class="grammar-overlay">` 包外层，word token 还是单独 `<span>`。
-
-简化版：MVP 阶段 grammar 不做覆盖渲染，只在注释面板里列出。原文行只标 word token。
+grammar **不做覆盖渲染**：原文行只对 word token 加下划线；语法点单独渲染成 JA 行下方的一排 `.grammar-chip`（可点击聚焦注释），避免与 token 区间重叠的复杂度。
 
 ## 移动端
 

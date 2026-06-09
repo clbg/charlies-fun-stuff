@@ -7,9 +7,25 @@
 React SPA (web/) ──Vite build──▶ web/dist ──┐
                                             ├─▶ Worker (src/index.ts, Hono)
 /api/* ─────────────────────────────────────┘     ├─ D1  (state + reference tables)
-                                                   ├─ KV  (LLM result cache)
-                                                   └─ Gemini 2.5 Flash (analyze)
+                                                   ├─ KV  (LLM result + TTS audio cache)
+                                                   └─ Gemini 2.5 Flash (analyze) + Gemini TTS
+Cron (06:00 JST) ──▶ scheduled() ──▶ daily.ts：抓维基长文 → 分块 analyze → 存 D1 → 预热 TTS
 ```
+
+## API 端点（`src/index.ts`）
+
+| 路径 | 方法 | 作用 |
+|---|---|---|
+| `/api/health` | GET | 健康检查 |
+| `/api/analyze` | POST | LLM 拆解 `{text}` → Article，写 D1 |
+| `/api/articles` | GET / `:id` GET / `:id` DELETE | 文章列表 / 详情 / 删除 |
+| `/api/familiarity` | GET / POST | 拉取 / 设置熟悉度 |
+| `/api/familiarity/import` | POST | 批量导入 |
+| `/api/familiarity/reset` | POST | 清空 |
+| `/api/stats` | GET | 统计 |
+| `/api/tts` | GET | `?text=&voice=` → Gemini 神经 TTS（WAV，KV 缓存） |
+| `/api/daily` | POST | 抓维基长文跑完整管线；可选 `?title=`/`{title}` 指定条目 |
+| `*` | — | React SPA（ASSETS） |
 
 ## 本地开发
 
@@ -54,7 +70,7 @@ npx wrangler secret put GEMINI_API_KEY
 npm run deploy              # build:web && wrangler deploy
 ```
 
-CI/CD：`.github/workflows/deploy.yml`（push main 自动 typecheck→build→migrate→deploy）。
+CI/CD：仓库根 `.github/workflows/japanese-reader-deploy.yml`（push main 改动 `japanese-reader/cf/**` → 自动 typecheck→build→migrate→deploy，Node 22）。
 需在 GitHub repo Secrets 设 `CLOUDFLARE_API_TOKEN`（scoped: Edit Workers + D1）和 `CLOUDFLARE_ACCOUNT_ID`。
 
 ## 鉴权
@@ -68,7 +84,9 @@ CI/CD：`.github/workflows/deploy.yml`（push main 自动 typecheck→build→mi
 |---|---|---|
 | 前端 | `prototype.html`（vanilla JS） | React + Vite + responsive |
 | 后端 | Express + better-sqlite3 | Hono on Workers + D1 |
-| LLM | AWS Bedrock（内部凭证） | Gemini 2.5 Flash（fetch + JSON mode） |
+| LLM | AWS Bedrock（内部凭证） | Gemini 2.5 Flash（fetch + JSON mode，分块 + 重试） |
 | LLM 缓存 | `data/cache/*.json` | KV |
-| TTS | AWS Polly | 浏览器 Web Speech API |
+| TTS | AWS Polly | **Gemini 神经 TTS**（`/api/tts`，KV 缓存，带重试）；Web Speech 仅回退 |
 | 鉴权 | 无（本地） | Cloudflare Access |
+| 每日文章 | 无 | Cron 抓维基长文 + 预热 TTS（`/api/daily`） |
+| 朗读 | 无 | 句级 🔊 + 全文朗读「▶ 朗读全文」 |
