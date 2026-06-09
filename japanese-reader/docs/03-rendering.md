@@ -159,3 +159,7 @@ function renderSentence(sent) {
 
 - 一篇文章通常 10-50 句，渲染量小，全 DOM 重建即可
 - 阈值 slider 实时更新：用 CSS 变量传 threshold，所有 token 通过 `data-fam` + CSS 选择器决定样式，不重建 DOM
+
+## 全文朗读（read-all）
+
+文章顶部「▶ 朗读全文」按钮：顺序朗读每句（`speakSequence`），当前句加 `.reading` 高亮并自动滚动到视图中央，按钮变「⏹ 停止（N/总数）」。再点停止；切换文章或重新分析会自动停止（`useEffect` 依赖 article）。语音走 `/api/tts`（每日任务已预热进 KV，连播流畅），失败回退 Web Speech。

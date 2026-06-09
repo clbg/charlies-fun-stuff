@@ -3,13 +3,22 @@
 // Callers pass an onState callback to drive the playing indicator on their button.
 
 let currentAudio: HTMLAudioElement | null = null;
+// Incremented on every stop; a running sequence checks its captured token to
+// know it was cancelled and must not advance to the next sentence.
+let playToken = 0;
 
 function stopAll() {
+  playToken++;
   if (currentAudio) {
     currentAudio.pause();
     currentAudio = null;
   }
   if (window.speechSynthesis) window.speechSynthesis.cancel();
+}
+
+// Stop any playback (single sentence or full-text sequence).
+export function stopPlayback(): void {
+  stopAll();
 }
 
 function webSpeechFallback(text: string, onState?: (playing: boolean) => void) {
@@ -50,6 +59,54 @@ export function speak(text: string, onState?: (playing: boolean) => void): void 
     if (currentAudio === audio) currentAudio = null;
     webSpeechFallback(text, onState);
   });
+}
+
+// Play a single text and resolve when it finishes (or fails). Used by the
+// sequence player so it can await each sentence before advancing.
+function speakOnce(text: string): Promise<void> {
+  return new Promise((resolve) => {
+    const audio = new Audio(`/api/tts?text=${encodeURIComponent(text)}`);
+    currentAudio = audio;
+    const done = () => {
+      if (currentAudio === audio) currentAudio = null;
+      resolve();
+    };
+    audio.onended = done;
+    audio.onerror = () => {
+      // Fall back to Web Speech for this sentence, then resolve when it ends.
+      if (currentAudio === audio) currentAudio = null;
+      if (!window.speechSynthesis) return resolve();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "ja-JP";
+      const ja = window.speechSynthesis.getVoices().find((v) => v.lang?.startsWith("ja"));
+      if (ja) u.voice = ja;
+      u.onend = u.onerror = () => resolve();
+      window.speechSynthesis.speak(u);
+    };
+    audio.play().catch(() => audio.onerror?.(new Event("error")));
+  });
+}
+
+/**
+ * Read a list of sentences in order (full-text playback). Calls onIndex(i)
+ * as each sentence starts and onDone() when finished or stopped. Returns
+ * immediately; call stopPlayback() to cancel.
+ */
+export function speakSequence(
+  texts: string[],
+  cb: { onIndex?: (i: number) => void; onDone?: () => void } = {}
+): void {
+  stopAll(); // cancel anything in flight (also bumps playToken)
+  const token = playToken;
+  (async () => {
+    for (let i = 0; i < texts.length; i++) {
+      if (token !== playToken) return; // stopped/superseded
+      cb.onIndex?.(i);
+      await speakOnce(texts[i]);
+      if (token !== playToken) return; // stopped during this sentence
+    }
+    cb.onDone?.();
+  })();
 }
 
 // Warm up the Web Speech voice list (fallback path) on some browsers.

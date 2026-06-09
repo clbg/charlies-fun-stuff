@@ -102,7 +102,18 @@ textarea {
 .article-title { font-size: 18px; font-weight: 600; margin: 24px 0 4px; }
 .article-source { color: var(--muted); font-size: 12px; margin-bottom: 16px; }
 
-.sentence { margin-bottom: 18px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
+/* Full-text read-aloud control */
+.read-all-btn {
+  margin-bottom: 16px; padding: 8px 16px; border-radius: 8px; cursor: pointer;
+  font-size: 14px; border: 1px solid var(--accent); background: var(--panel); color: var(--accent);
+  transition: background 0.12s;
+}
+.read-all-btn:hover { background: var(--accent-soft); }
+.read-all-btn.playing { background: var(--accent); color: #fff; }
+
+.sentence { margin-bottom: 18px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; transition: border-color 0.15s, box-shadow 0.15s; }
+/* Sentence currently being read aloud */
+.sentence.reading { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .ja-line-wrap { display: flex; align-items: flex-start; gap: 8px; }
 .ja-line { flex: 1; font-size: 17px; margin-bottom: 4px; }
 .zh-line { color: var(--muted); font-size: 14px; margin-bottom: 8px; }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api.js";
-import { speak, warmVoices } from "./speak.js";
+import { speak, speakSequence, stopPlayback, warmVoices } from "./speak.js";
 import type { Article, ArticleSummary, Familiarity, Sentence, Token, GrammarRef } from "./types.js";
 
 const LS_THRESHOLD = "jr_threshold";
@@ -30,6 +30,8 @@ export function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [articles, setArticles] = useState<ArticleSummary[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+  // Full-text playback: -1 = not playing, else index of the sentence being read.
+  const [playingIndex, setPlayingIndex] = useState(-1);
 
   const getFam = useCallback(
     (type: string, key: string) => familiarity[famKey(type, key)] ?? 0,
@@ -51,6 +53,26 @@ export function App() {
   useEffect(() => {
     localStorage.setItem(LS_THRESHOLD, String(threshold));
   }, [threshold]);
+
+  // Stop full-text playback whenever the displayed article changes.
+  useEffect(() => {
+    stopPlayback();
+    setPlayingIndex(-1);
+  }, [currentArticleId, article]);
+
+  // ---------- Full-text read-aloud ----------
+  const toggleReadAll = useCallback(() => {
+    if (playingIndex >= 0) {
+      stopPlayback();
+      setPlayingIndex(-1);
+      return;
+    }
+    if (!article?.sentences.length) return;
+    speakSequence(
+      article.sentences.map((s) => s.ja),
+      { onIndex: setPlayingIndex, onDone: () => setPlayingIndex(-1) }
+    );
+  }, [article, playingIndex]);
 
   // ---------- Familiarity setter (optimistic + POST) ----------
   const setFam = useCallback(async (type: string, key: string, value: number) => {
@@ -197,13 +219,25 @@ export function App() {
           <div>
             <div className="article-title">{article.title || ""}</div>
             <div className="article-source">{article.source || ""}</div>
-            {article.sentences.map((s) => (
+            {article.sentences.length > 0 && (
+              <button
+                className={`read-all-btn${playingIndex >= 0 ? " playing" : ""}`}
+                onClick={toggleReadAll}
+                title="顺序朗读全文"
+              >
+                {playingIndex >= 0
+                  ? `⏹ 停止（${playingIndex + 1}/${article.sentences.length}）`
+                  : "▶ 朗读全文"}
+              </button>
+            )}
+            {article.sentences.map((s, i) => (
               <SentenceView
                 key={s.id}
                 sentence={s}
                 threshold={threshold}
                 getFam={getFam}
                 setFam={setFam}
+                isReading={playingIndex === i}
               />
             ))}
           </div>
@@ -274,11 +308,18 @@ function SentenceView(props: {
   threshold: number;
   getFam: (type: string, key: string) => number;
   setFam: (type: string, key: string, value: number) => void;
+  isReading?: boolean;
 }) {
-  const { sentence, threshold, getFam, setFam } = props;
+  const { sentence, threshold, getFam, setFam, isReading } = props;
   const [highlightKey, setHighlightKey] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const detailsRef = useRef<HTMLDetailsElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // When this sentence becomes the one being read aloud, scroll it into view.
+  useEffect(() => {
+    if (isReading) rootRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [isReading]);
 
   const minFam = useMemo(() => {
     let m = 5;
@@ -295,7 +336,7 @@ function SentenceView(props: {
   };
 
   return (
-    <div className="sentence">
+    <div className={`sentence${isReading ? " reading" : ""}`} ref={rootRef}>
       <div className="ja-line-wrap">
         <div className="ja-line">
           <TokenSpans
