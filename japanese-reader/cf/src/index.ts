@@ -22,6 +22,7 @@ import { Hono } from "hono";
 import type { Env, Article } from "./types.js";
 import { analyze } from "./analyze.js";
 import { synthesize, DEFAULT_VOICE } from "./tts.js";
+import { runDaily } from "./daily.js";
 
 // Gemini prebuilt voices usable for TTS (subset; all multilingual).
 const TTS_VOICES = ["Kore", "Puck", "Charon", "Aoede", "Fenrir"];
@@ -223,8 +224,29 @@ app.get("/api/stats", async (c) => {
   });
 });
 
+// ---------- Daily article job (manual trigger) ----------
+// The cron runs this on a schedule; this route lets the skill / a human run it on demand.
+app.post("/api/daily", async (c) => {
+  try {
+    const result = await runDaily(c.env);
+    return c.json(result);
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 500);
+  }
+});
+
 // ---------- Static SPA fallback ----------
 // Anything not matched above is served from the ASSETS binding (React SPA).
 app.all("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 
-export default app;
+export default {
+  fetch: app.fetch,
+  // Cron Trigger entrypoint — fetch + analyze + pre-warm TTS for the day's article.
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(
+      runDaily(env)
+        .then((r) => console.log("daily job done:", JSON.stringify(r)))
+        .catch((e) => console.error("daily job failed:", e instanceof Error ? e.message : String(e)))
+    );
+  },
+};

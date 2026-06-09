@@ -162,6 +162,23 @@ GPT 补充的备选（已评估不选）：Oracle Cloud Always Free（真免费�
 - `GEMINI_API_KEY` 不在 Actions 里，已通过 `wrangler secret put` 存在 Worker 上。
 - 仍可随时手动 `npm run deploy`（二者不冲突）。
 
+## 每日文章任务（Cron + TTS 预热）
+
+每天早上自动放一篇长文，点开即读、语音秒播。
+
+- **触发**：Cloudflare Cron Trigger，`wrangler.toml` `[triggers] crons=["0 21 * * *"]`（21:00 UTC = 06:00 JST）。云端跑，不依赖本机开机。
+- **流程**（`src/daily.ts` → `runDaily`）：
+  1. 从 `ja.wikipedia.org` MediaWiki API 取随机长文（CC BY-SA，不封爬虫）；循环直到 ≥300 字，截到 ≤700 字的句子边界
+  2. **分块 analyze**：按 ~300 字句子边界切块，逐块调 Gemini 再合并句子。一次性分析长文会 MAX_TOKENS 截断/超时/JSON 损坏——分块让每次调用回到短文那种稳定快速区间
+  3. 存 D1（articles + occurrences），进侧栏历史
+  4. **预热 TTS**：遍历每句调 `synthesize` 灌 KV → 你点朗读是缓存命中（实测 7ms），无延迟
+- **入口**：
+  - 自动：cron（每天）
+  - 手动：`POST /api/daily`（供 skill / 调试）
+  - skill：`~/.claude/skills/japanese-reader-daily`（"放一篇"/"来篇新文章"）
+- **为何是维基不是 NHK**：NHK Easy 2025-10 改收费、NHK 普通新闻封爬虫+禁再分发；维基是稳定合法的长文源。
+- **analyze 可靠性**（这次一并修的）：429/503/超时/网络断 重试 5 次（指数退避）+ 每次 120s 超时；MAX_TOKENS 显式报错；JSON 修复兜底（内引号 + 控制字符）。
+
 ## 相关文档
 
 - `00-overview.md` 总体设计与数据流

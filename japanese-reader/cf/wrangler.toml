@@ -10,6 +10,11 @@ routes = [
   { pattern = "jr-app.chengpeng.press", custom_domain = true }
 ]
 
+# Daily article job. Cron is UTC: 21:00 UTC = 06:00 JST (every morning, Japan time).
+# Fetches a long Wikipedia article, analyzes it, pre-warms TTS. See src/daily.ts.
+[triggers]
+crons = ["0 21 * * *"]
+
 # React SPA built by Vite into web/dist, served as static assets.
 # The Worker handles /api/*; everything else falls back to the SPA.
 [assets]

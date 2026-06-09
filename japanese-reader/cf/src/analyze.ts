@@ -131,6 +131,19 @@ export function repairInnerQuotes(s: string): string {
   return s.replace(QUOTE_FIX_RE, "」");
 }
 
+// Gemini occasionally emits a literal newline/tab inside a JSON string value
+// (invalid JSON → "Bad control character"). Strip raw control chars that aren't
+// already escaped. Safe because our string values are prose, not multi-line.
+export function stripControlChars(s: string): string {
+  let out = "";
+  for (const ch of s) {
+    const c = ch.charCodeAt(0);
+    // Replace C0 control chars (newline, tab, etc.) with a space.
+    out += c < 0x20 ? " " : ch;
+  }
+  return out;
+}
+
 // ---------- Gemini call ----------
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -144,7 +157,9 @@ export async function callGemini(text: string, env: Env): Promise<Article> {
       responseMimeType: "application/json",
       responseSchema: RESPONSE_SCHEMA,
       temperature: 0.2,
-      maxOutputTokens: 8000,
+      // Long input truncates output mid-JSON at low caps (finishReason=MAX_TOKENS).
+      // Callers chunk long articles (see daily.ts) so each call stays well under this.
+      maxOutputTokens: 16000,
     },
   });
 
@@ -153,7 +168,7 @@ export async function callGemini(text: string, env: Env): Promise<Article> {
   // Retry all of those with exponential backoff; bound each attempt with a
   // timeout so a hung request fails fast and retries instead of blocking forever.
   const MAX_ATTEMPTS = 5;
-  const ATTEMPT_TIMEOUT_MS = 60_000;
+  const ATTEMPT_TIMEOUT_MS = 120_000;
   let res: Response | null = null;
   let lastErr: unknown = null;
 
@@ -200,6 +215,7 @@ export async function callGemini(text: string, env: Env): Promise<Article> {
 
   const json = (await res.json()) as any;
   const raw = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const finishReason = json?.candidates?.[0]?.finishReason;
   if (!raw) {
     throw new Error(`Gemini returned no content: ${JSON.stringify(json).slice(0, 500)}`);
   }
@@ -207,8 +223,20 @@ export async function callGemini(text: string, env: Env): Promise<Article> {
   try {
     return JSON.parse(raw) as Article;
   } catch {
-    // Fallback: should be rare under JSON mode.
-    return JSON.parse(repairInnerQuotes(raw)) as Article;
+    // Fallbacks (rare): fix inner ASCII quotes, then strip raw control chars
+    // Gemini occasionally leaves inside string values. Surface MAX_TOKENS clearly.
+    try {
+      return JSON.parse(repairInnerQuotes(raw)) as Article;
+    } catch {
+      try {
+        return JSON.parse(stripControlChars(repairInnerQuotes(raw))) as Article;
+      } catch (err) {
+        if (finishReason === "MAX_TOKENS") {
+          throw new Error("Gemini output truncated (MAX_TOKENS) — input too long; chunk it");
+        }
+        throw err;
+      }
+    }
   }
 }
 
