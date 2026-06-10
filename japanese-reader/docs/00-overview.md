@@ -153,7 +153,7 @@ Anki 是抽卡式记忆，强调"主动召回"。这个项目是"阅读式遭遇
 - [x] 后端：Express → Hono；SQLite → D1；本地 cache → KV
 - [x] LLM：Bedrock → Gemini 2.5 Flash（fetch-based，分块 + 重试）
 - [x] TTS：**Gemini 神经 TTS**（`/api/tts`，PCM→WAV，KV 缓存，带重试）；浏览器 Web Speech 仅作回退。`tts.ts` 保留（最初计划的"Web Speech only / 删 tts.ts"已反转）
-- [x] 鉴权：Cloudflare Access（自定义域名 `jr-app.chengpeng.press`，One-time PIN）
+- [x] 鉴权：Cloudflare Access（自定义域名 `jr-app.chengpeng.press`，Cloudflare 账号登录 + Instant Auth，可 passkey）
 - [x] CI/CD：GitHub Actions + `cloudflare/wrangler-action`（push main 自动部署）
 - [x] 多文章管理：侧栏列表 / 切换 / 删除
 - [x] 每日文章任务：Cron 每天抓维基长文 → 分块 analyze → 存 D1 → 预热 TTS（`/api/daily` 可手动触发，支持指定 `title`）

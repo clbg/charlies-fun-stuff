@@ -6,7 +6,7 @@
 > ✅ **已上线（2026-06-08）**：https://jr-app.chengpeng.press
 > 全栈跑在 Cloudflare Workers，代码在 `cf/`，旧本地原型（`prototype.html` + Express）原样保留。
 > 实测：Gemini 在线分析、D1 全量数据（5 文章 / 1888 熟悉度 / 828 语法）、KV 缓存、React 桌面+移动端、
-> Cloudflare Access（One-time PIN，仅 charlie.pengcheng@hotmail.com，未登录 302 拦截）全部通过。
+> Cloudflare Access（Cloudflare 账号登录 + Instant Auth，仅本人，未登录 302 拦截）全部通过。
 > 下方"未决点"已全部落定，保留作决策记录。
 
 ## 目标架构：全 Cloudflare
@@ -61,8 +61,8 @@
 - **原理**：网络边缘拦截，请求到 Worker **之前**就要求登录。未登录看到登录页，根本加载不到 app。app 本身**一行鉴权代码都不用写**。
 - **价格**：$0 永久，免费 50 用户/50 app，不要信用卡。
 - **保护范围**：前端 SPA + 所有 `/api/*` 一起罩住。
-- **登录方式**：Google / GitHub / One-Time PIN（输邮箱收验证码）任选。
-- **策略**：一条 `Action: Allow` + `Emails: 本人邮箱`，别人输了也收不到验证码。
+- **登录方式**：**Cloudflare 账号**（2026-05 新增的内置 IdP，用你已有的 CF 账号登录，不需第三方 OAuth、不需邮箱验证码；可复用账号上的 passkey / Touch ID）。也支持 Google / GitHub / One-Time PIN 等任选。
+- **策略**：一条 `Action: Allow` + `Emails: 本人邮箱`；IdP 侧再开"限制为帐户成员"加一层。
 - **⚠️ 前提**：域名 DNS 要托管在 Cloudflare。`*.workers.dev` 默认域名套不上 Access，**需绑自定义域名**走 Cloudflare DNS（≈$10/年，本方案唯一可能费用）。
 - **退路**（不想要域名时）：Hono 加 ~20 行共享密码中间件，校验请求头密钥。够单人用，但体验/安全差一档。
 
@@ -142,13 +142,15 @@ GPT 补充的备选（已评估不选）：Oracle Cloud Always Free（真免费�
 3. **Gemini 免费额度区域政策** ✅：在日本，复用 vault 的 `GEMINI_API_KEY`，实测可用。
 4. **Workers CPU 限制**：免费版每次调用 10ms CPU。实测正常文章无问题；超长文章理论上有擦边风险，暂未遇到。
 
-## 鉴权落地细节（实际配置）
+## 鉴权落地细节（实际配置，2026-06-10 更新）
 
-- **登录方式**：One-time PIN（输邮箱收验证码）。未配 Google/GitHub OAuth（单人自用够用，以后想加随时可加，多种方式可并存）。
+- **登录方式**：**Cloudflare 账号 IdP**（内置，开了"限制为帐户成员"）。app 的身份提供商设为**仅 Cloudflare** + **Instant Auth 开**（跳过选择页，直达 Cloudflare 登录）。登录靠 Cloudflare 账号本身的安全（含 passkey / Touch ID）。
+  - 演进：上线初期用 One-time PIN（输邮箱验证码）→ 后改为 Cloudflare 账号登录（更省事、可 passkey）。One-time PIN 这个 IdP **保留未删**，作为备用（出问题可在后台一键切回）。
 - **应用**：Self-hosted，目标 = 公共主机名 `jr-app.chengpeng.press`。
 - **策略**：`Only me`，Action=Allow，Include=电子邮件 `charlie.pengcheng@hotmail.com`。
 - **会话**：24 小时。
-- **验证**：未登录 `curl` 返回 302 → `chengpeng.cloudflareaccess.com` 登录页，`auth_status: NONE`。
+- **验证**：登出后重新访问 → 302 跳 Cloudflare 登录 → 用 CF 账号（passkey）认证 → 回到 app，全程无邮箱验证码。未登录 `curl` 返回 302 → `chengpeng.cloudflareaccess.com`。
+- **passkey 提醒**：passkey 体验取决于你 **Cloudflare 账号本身**设了 passkey；账号是整个基础设施（Workers/DNS/域名）的总钥匙，本就该设强 MFA。
 
 ## CI/CD（已启用并验证通过 ✅）
 
