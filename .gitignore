@@ -98,3 +98,7 @@ ENV*/
 # Project-specific
 output/
 audio/
+
+# Tool / build leftovers at repo root
+.next/
+.playwright-mcp/
