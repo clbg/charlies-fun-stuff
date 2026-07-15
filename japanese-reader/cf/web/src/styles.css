@@ -6,10 +6,14 @@
   --accent-soft: #dbeafe;
   --grammar: #b45309;
   --grammar-soft: #fef3c7;
-  --fuzzy-bg: #fff7ed;
-  --unknown-bg: #fee2e2;
   --border: #e5e7eb;
   --panel: #ffffff;
+  /* Familiarity 6-level: red(0) → orange(1) → amber(2) → yellow(3) → green(4) → transparent(5) */
+  --fam-0-bg: #fee2e2; --fam-0-border: #dc2626;
+  --fam-1-bg: #ffedd5; --fam-1-border: #ea580c;
+  --fam-2-bg: #fef3c7; --fam-2-border: #d97706;
+  --fam-3-bg: #fef9c3; --fam-3-border: #ca8a04;
+  --fam-4-bg: #dcfce7; --fam-4-border: transparent;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -20,10 +24,13 @@
     --accent-soft: #1e3a8a;
     --grammar: #fbbf24;
     --grammar-soft: #422006;
-    --fuzzy-bg: #422006;
-    --unknown-bg: #450a0a;
     --border: #3f3f46;
     --panel: #27272a;
+    --fam-0-bg: #450a0a; --fam-0-border: #f87171;
+    --fam-1-bg: #431407; --fam-1-border: #fb923c;
+    --fam-2-bg: #422006; --fam-2-border: #fbbf24;
+    --fam-3-bg: #3f3f00; --fam-3-border: #facc15;
+    --fam-4-bg: #052e16; --fam-4-border: transparent;
   }
 }
 * { box-sizing: border-box; }
@@ -122,9 +129,13 @@ textarea {
 
 .token { cursor: pointer; padding: 1px 0; border-radius: 2px; transition: background 0.15s; user-select: none; }
 .token:hover { background: var(--accent-soft); }
-.token.tok-unknown { background: var(--unknown-bg); border-bottom: 2px solid #ef4444; }
-.token.tok-fuzzy { background: var(--fuzzy-bg); border-bottom: 2px dashed #f59e0b; }
-.token.tok-known { background: transparent; border-bottom: none; color: inherit; }
+/* Six-level familiarity colors: red(0) → orange(1) → amber(2) → yellow(3) → green(4) → transparent(5) */
+.token.tok-fam-0 { background: var(--fam-0-bg); border-bottom: 2px solid var(--fam-0-border); }
+.token.tok-fam-1 { background: var(--fam-1-bg); border-bottom: 2px solid var(--fam-1-border); }
+.token.tok-fam-2 { background: var(--fam-2-bg); border-bottom: 2px dashed var(--fam-2-border); }
+.token.tok-fam-3 { background: var(--fam-3-bg); border-bottom: 2px dashed var(--fam-3-border); }
+.token.tok-fam-4 { background: var(--fam-4-bg); border-bottom: none; }
+.token.tok-fam-5 { background: transparent; border-bottom: none; color: inherit; }
 
 .grammar-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 8px; }
 .grammar-chip {
@@ -132,8 +143,9 @@ textarea {
   border-radius: 12px; font-size: 12px; background: var(--grammar-soft);
   color: var(--grammar); border: 1px solid var(--grammar); cursor: pointer; user-select: none;
 }
-.grammar-chip.tok-fuzzy { opacity: 0.6; }
-.grammar-chip.tok-known { opacity: 0.3; }
+.grammar-chip.tok-fam-2, .grammar-chip.tok-fam-3 { opacity: 0.6; }
+.grammar-chip.tok-fam-4 { opacity: 0.4; }
+.grammar-chip.tok-fam-5 { opacity: 0.25; }
 .grammar-chip:hover { filter: brightness(1.05); opacity: 1; }
 
 .notes { margin-top: 6px; border-top: 1px dashed var(--border); padding-top: 8px; }

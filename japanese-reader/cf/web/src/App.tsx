@@ -7,14 +7,12 @@ const LS_THRESHOLD = "jr_threshold";
 
 const famKey = (type: string, key: string) => `${type}:${key}`;
 
-// Two-tier display class relative to threshold (ported from prototype.html):
-//   fam >= threshold      → tok-known   (熟，隐藏标注)
-//   fam >= threshold - 2  → tok-fuzzy   (半生，淡提示)
-//   else                  → tok-unknown (生，醒目)
+// Six-level color tier by familiarity (red→orange→yellow→green→transparent):
+//   fam >= threshold → tok-fam-5 (transparent, fully mastered)
+//   fam < threshold  → tok-fam-{fam} (0=deep red, 1=salmon, 2=orange, 3=yellow, 4=light green)
 function famTier(fam: number, threshold: number): string {
-  if (fam >= threshold) return "tok-known";
-  if (fam >= threshold - 2) return "tok-fuzzy";
-  return "tok-unknown";
+  if (fam >= threshold) return "tok-fam-5";
+  return `tok-fam-${Math.max(0, Math.min(4, fam))}`;
 }
 
 export function App() {

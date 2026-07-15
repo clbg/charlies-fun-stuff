@@ -41,11 +41,15 @@
 
 ```css
 .token             /* token 基础样式 */
-.tok-known         /* familiarity >= threshold，无装饰 */
-.tok-fuzzy         /* threshold-2 ≤ fam < threshold，虚线下划线 */
-.tok-unknown       /* fam < threshold-2，实线下划线 + 浅红底 */
+/* 六级熟悉度颜色（红→橙→黄→绿→透明）*/
+.tok-fam-0         /* 没见过：深红底 + 红色实线下划线 */
+.tok-fam-1         /* 见过 1-2 次：浅红/橙底 + 橙色实线 */
+.tok-fam-2         /* 模糊印象：琥珀底 + 黄色虚线 */
+.tok-fam-3         /* 大致认识：浅黄底 + 黄色虚线 */
+.tok-fam-4         /* 熟练：极浅绿底，无下划线 */
+.tok-fam-5         /* fam >= threshold：透明，完全无标注 */
 .grammar-chip      /* 语法点：JA 行下方独立一排可点 chip（不是 overlay） */
-.grammar-chip.tok-known/.tok-fuzzy  /* 同样按熟悉度淡化 */
+.grammar-chip.tok-fam-N  /* 同样按熟悉度分级淡化 */
 
 details.notes      /* 注释面板（原生 <details>，open 态即展开） */
 .note-item         /* 单个释义条目 */
@@ -53,7 +57,7 @@ details.notes      /* 注释面板（原生 <details>，open 态即展开） */
 .sentence.reading  /* 全文朗读时当前句的高亮光圈 */
 ```
 
-> 注：类名前缀是 `tok-`（非 `token-`）。语法点是 JA 行下方的一排 **grammar-chip**（可点击聚焦注释），不是覆盖在原文上的 overlay。
+> 注：类名前缀是 `tok-fam-`（0–5 对应熟悉度分数）。`fam >= threshold` 的词统一用 `tok-fam-5`（透明）；低于阈值的按实际分数着色。语法点是 JA 行下方的一排 **grammar-chip**（可点击聚焦注释），不是覆盖在原文上的 overlay。
 
 ## 交互
 
