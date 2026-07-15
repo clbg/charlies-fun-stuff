@@ -1,4 +1,4 @@
-.PHONY: build release install uninstall run-app test-toast test test-recorder clean icon
+.PHONY: build release dev install uninstall test-toast test test-recorder clean icon _deploy
 
 APP_NAME = CharlieWidget
 APP_BUNDLE = $(APP_NAME).app
@@ -6,34 +6,32 @@ APP_INSTALL_DIR = /Applications
 LAUNCHAGENT_LABEL = com.charlie.widget
 LAUNCHAGENT_PLIST = ~/Library/LaunchAgents/com.charlie.widget.plist
 LAUNCHCTL_DOMAIN = gui/$(shell id -u)
+BUILD_CONFIG = release
 
 build:
-	swift build
+	swift build --disable-sandbox
 
 release:
-	swift build -c release
+	swift build -c release --disable-sandbox
 
 icon:
 	swift generate-icon.swift
 
-install: release icon
-	@# Kill ALL running instances first to avoid duplicates
+# Deploy to /Applications — the ONLY place the binary should ever run from
+_deploy:
 	@pkill -f CharlieWidgetApp 2>/dev/null || true
 	@sleep 1
-	@# CLI
-	cp .build/release/charlie-widget ~/.local/bin/
-	@# Hook scripts
+	cp .build/$(BUILD_CONFIG)/charlie-widget ~/.local/bin/
 	cp scripts/cc-monitor-hook.sh ~/.local/bin/cc-monitor-hook.sh
 	cp scripts/codex-monitor-hook.sh ~/.local/bin/codex-monitor-hook.sh
 	cp scripts/gemini-monitor-hook.sh ~/.local/bin/gemini-monitor-hook.sh
 	chmod +x ~/.local/bin/cc-monitor-hook.sh
 	chmod +x ~/.local/bin/codex-monitor-hook.sh
 	chmod +x ~/.local/bin/gemini-monitor-hook.sh
-	@# App bundle
 	mkdir -p $(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/MacOS
 	mkdir -p $(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/Resources
-	cp .build/release/CharlieWidgetApp $(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/MacOS/CharlieWidgetApp
-	cp /tmp/AppIcon.icns $(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/Resources/AppIcon.icns
+	cp .build/$(BUILD_CONFIG)/CharlieWidgetApp $(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/MacOS/CharlieWidgetApp
+	cp /tmp/AppIcon.icns $(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/Resources/AppIcon.icns 2>/dev/null || true
 	@printf "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
 	<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n\
 	<plist version=\"1.0\">\n\
@@ -54,12 +52,10 @@ install: release icon
 	    <string>CharlieWidget sends transcribed voice commands to iTerm.</string>\n\
 	</dict>\n\
 	</plist>\n" > $(APP_INSTALL_DIR)/$(APP_BUNDLE)/Contents/Info.plist
-	@# Code sign with stable identity so TCC permissions persist across rebuilds
 	@codesign --force --sign "CharlieWidget Dev" $(APP_INSTALL_DIR)/$(APP_BUNDLE) 2>/dev/null \
 		&& echo "Signed with CharlieWidget Dev certificate" \
 		|| echo "Warning: No signing identity found, using ad-hoc (Screen Recording permission will reset on rebuild)"
-	@echo "Installed to $(APP_INSTALL_DIR)/$(APP_BUNDLE)"
-	@# LaunchAgent for login startup
+	@echo "Deployed $(BUILD_CONFIG) build to $(APP_INSTALL_DIR)/$(APP_BUNDLE)"
 	@printf "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
 	<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n\
 	<plist version=\"1.0\">\n\
@@ -81,6 +77,12 @@ install: release icon
 	launchctl kickstart -k $(LAUNCHCTL_DOMAIN)/$(LAUNCHAGENT_LABEL)
 	@echo "LaunchAgent installed and CharlieWidget restarted"
 
+dev: BUILD_CONFIG = debug
+dev: build icon _deploy
+
+install: BUILD_CONFIG = release
+install: release icon _deploy
+
 uninstall:
 	launchctl unload $(LAUNCHAGENT_PLIST) 2>/dev/null || true
 	rm -f $(LAUNCHAGENT_PLIST)
@@ -91,9 +93,6 @@ uninstall:
 	rm -f ~/.local/bin/gemini-monitor-hook.sh
 	rm -rf ~/Library/Application\ Support/CharlieWidget
 	@echo "Uninstalled"
-
-run-app:
-	swift run CharlieWidgetApp
 
 test-toast:
 	swift run charlie-widget toast --title "Test" --subtitle "Hello" --body "This is a test toast notification"
