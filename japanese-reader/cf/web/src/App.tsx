@@ -41,11 +41,17 @@ export function App() {
     setTimeout(() => setToast(null), 2200);
   };
 
-  // ---------- Init: load familiarity + history ----------
+  // ---------- Init: load familiarity + history, auto-open the latest article ----------
   useEffect(() => {
     warmVoices();
     api.getFamiliarity().then(setFamiliarity).catch(() => {});
-    api.listArticles().then(setArticles).catch(() => {});
+    api
+      .listArticles()
+      .then((list) => {
+        setArticles(list);
+        if (list.length > 0) loadArticle(list[0].id); // list is ordered newest-first
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
