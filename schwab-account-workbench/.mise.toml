@@ -1,0 +1,45 @@
+[tools]
+python = "3.12"
+
+[env]
+UV_PYTHON = { value = "{{ tools.python.path }}", tools = true }
+PYTHONPATH = "{{ config_root }}/src"
+
+[tasks.install]
+description = "Install Python and Node dependencies"
+run = [
+  "python -m pip install -r requirements.txt",
+  "cd apps/dashboard && npm install"
+]
+
+[tasks.auth]
+description = "Create or check the local Schwab Trader API OAuth token"
+run = "python -m schwab_workbench.api_auth"
+
+[tasks.refresh]
+description = "Refresh Schwab API data into the vault data directory"
+run = "python -m schwab_workbench.api_refresh --date ${HISTORY_DATE:-$(date +%F)}"
+
+[tasks.smoke]
+description = "Run a read-only sanitized Schwab API smoke test"
+run = "python -m schwab_workbench.api_smoke --date $(date +%F)"
+
+[tasks.build]
+description = "Build the React single-file dashboard"
+run = "cd apps/dashboard && npm run build"
+
+[tasks.test]
+description = "Run dashboard typecheck and unit tests"
+run = "cd apps/dashboard && npm run typecheck && npm run test"
+
+[tasks.dev]
+description = "Start the dashboard dev server"
+run = "cd apps/dashboard && npm run dev -- --host 127.0.0.1"
+
+[tasks.open]
+description = "Build and open the local single-file dashboard"
+run = "cd apps/dashboard && npm run build && open dist/index.html"
+
+[tasks.publish]
+description = "Copy the built dashboard artifact back to the vault"
+run = "python -m schwab_workbench.publish_dashboard"

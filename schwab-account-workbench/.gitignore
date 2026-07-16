@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+
+apps/dashboard/node_modules/
+apps/dashboard/dist/
+apps/dashboard/src/data/portfolio.json
+apps/dashboard/tsconfig.tsbuildinfo
+
+# Data stays in the Obsidian vault, not in this code repo.
+raw/
+processed/
+db/
+viewer/data.js

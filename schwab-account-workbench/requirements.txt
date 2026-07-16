@@ -1,0 +1,6 @@
+duckdb
+httpx
+pandas
+pyarrow
+python-dotenv
+schwab-py
