@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Convert the vanilla viewer's data.js (window.SCHWAB_* = "csv string") into a
+// Convert the generated vault data.js (window.SCHWAB_* = "csv string") into a
 // single portfolio.json the React app bundles at build time. Keeps the Python
 // pipeline and the original viewer untouched — we just re-shape existing data.
 //
