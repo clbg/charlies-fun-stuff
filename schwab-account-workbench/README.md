@@ -91,3 +91,6 @@ mise run publish     # copy built dashboard to the vault
 Schwab API credentials and optional external API keys are read from environment
 variables, the vault `.env`, or Bitwarden Secrets Manager. Never commit tokens,
 raw auth headers, account IDs, `posId`, or `prestoData`.
+
+Provider-specific key names and fallback behavior are documented in
+[docs/data-sources.md](docs/data-sources.md).

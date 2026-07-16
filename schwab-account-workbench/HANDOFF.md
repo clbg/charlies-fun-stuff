@@ -55,3 +55,4 @@ Schwab Trader API
 - `src/schwab_workbench/build_history_db.py` 是旧 CSV fallback；不要用它覆盖 live
   viewer，除非明确要回退旧 schema。
 - 所有源码改动只做在 funstuff 项目；vault 内的 `viewer-react/dist/index.html` 是发布产物。
+- 数据源、key 名称和降级策略统一维护在 `docs/data-sources.md`。
