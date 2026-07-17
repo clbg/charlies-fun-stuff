@@ -27,15 +27,17 @@ mise run auth -- --check-only
 
 | Provider | Purpose | Required secrets | Output |
 | --- | --- | --- | --- |
-| Schwab Trader API | Source of truth for balances, current positions, quotes, price history, recent transactions, option chains, and option risk. | `SCHWAB_TRADER_CLIENT_ID`, `SCHWAB_TRADER_CLIENT_SECRET`, `SCHWAB_TRADER_CALLBACK_URL` | `account_snapshots`, `position_snapshots`, `market_quotes`, `market_prices_daily`, `recent_transactions_api`, `option_chains`, `option_position_risk` |
+| Schwab Trader API | Source of truth for balances, current positions, quotes, price history, recent transactions, option chains, and option risk. | `SCHWAB_TRADER_CLIENT_ID`, `SCHWAB_TRADER_CLIENT_SECRET`, `SCHWAB_TRADER_CALLBACK_URL`, `SCHWAB_TRADER_TOKEN_JSON` | `account_snapshots`, `position_snapshots`, `market_quotes`, `market_prices_daily`, `recent_transactions_api`, `option_chains`, `option_position_risk` |
 
 Schwab OAuth token storage:
 
 ```text
-$CODEX_HOME/secrets/schwab-trader-token.json
+Vault .env key: SCHWAB_TRADER_TOKEN_JSON
 ```
 
-Never store the OAuth token in the vault or git repo.
+The workbench hydrates this JSON into a temporary runtime file for `schwab-py`,
+then syncs any refreshed token JSON back to the vault `.env`. Never print this
+value or copy it into notes.
 
 The Schwab Developer Portal app provides Client ID, Client Secret, and Callback
 URL. Product access should include Accounts and Trading Production plus Market

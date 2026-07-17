@@ -12,12 +12,12 @@ from pathlib import Path
 
 from schwab.auth import client_from_login_flow, client_from_manual_flow, client_from_token_file
 
-from .common import load_credentials, mask_tail, token_path
+from .common import cleanup_runtime_token, load_credentials, mask_tail, sync_token_to_dotenv, token_path
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--token-path", help="Override local token path. Defaults to $CODEX_HOME/secrets/schwab-trader-token.json.")
+    parser.add_argument("--token-path", help="Override runtime token file path. Defaults to a temp file hydrated from vault .env.")
     parser.add_argument("--manual", action="store_true", help="Use copy/paste manual OAuth flow instead of local callback server.")
     parser.add_argument("--browser", help="Browser name passed to Python webbrowser, e.g. chrome.")
     parser.add_argument("--force-new-token", action="store_true", help="Delete existing token before starting OAuth.")
@@ -36,6 +36,8 @@ def main():
     print(f"token_exists={path.exists()}")
 
     if args.check_only:
+        if not args.token_path:
+            cleanup_runtime_token(path)
         return
 
     if args.force_new_token and path.exists():
@@ -74,6 +76,10 @@ def main():
         print(f"token_age_seconds={int(client.token_age())}")
     except Exception:
         print("token_age_seconds=unknown")
+    if not args.token_path:
+        sync_token_to_dotenv(path)
+        cleanup_runtime_token(path)
+        print("token_synced_to_vault_env=true")
 
 
 if __name__ == "__main__":

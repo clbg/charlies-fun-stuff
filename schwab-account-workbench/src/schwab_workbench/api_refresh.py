@@ -23,7 +23,7 @@ import pandas as pd
 from schwab.auth import client_from_token_file
 from schwab.client import Client
 
-from .common import HISTORY_ROOT, load_credentials, mask_tail, sanitize_api_payload, token_path
+from .common import HISTORY_ROOT, cleanup_runtime_token, load_credentials, mask_tail, sanitize_api_payload, sync_token_to_dotenv, token_path
 
 
 OPTION_DESC_RE = re.compile(r"(?P<expiration>\d{2}/\d{2}/\d{4})\s+\$(?P<strike>\d+(?:\.\d+)?)\s+(?P<put_call>Put|Call)", re.I)
@@ -1059,6 +1059,10 @@ def main():
     print(f"raw_sanitized={raw_path}")
     print(f"duckdb={db_path}")
     print(f"viewer_data={args.viewer_data}")
+    if not args.token_path:
+        sync_token_to_dotenv(path)
+        cleanup_runtime_token(path)
+        print("token_synced_to_vault_env=true")
 
 
 if __name__ == "__main__":

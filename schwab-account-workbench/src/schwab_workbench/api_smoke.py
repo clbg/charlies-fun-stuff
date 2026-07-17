@@ -16,7 +16,7 @@ import httpx
 from schwab.auth import client_from_token_file
 from schwab.client import Client
 
-from .common import HISTORY_ROOT, load_credentials, mask_tail, sanitize_api_payload, token_path
+from .common import HISTORY_ROOT, cleanup_runtime_token, load_credentials, mask_tail, sanitize_api_payload, sync_token_to_dotenv, token_path
 
 
 def parse_args():
@@ -50,38 +50,43 @@ def main():
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    account_numbers = ok_json(client.get_account_numbers())
-    hashes = [row.get("hashValue") for row in account_numbers if row.get("hashValue")]
-    print(f"accounts={len(hashes)}")
-    print("account_hashes=" + ",".join(mask_tail(item) for item in hashes))
+    try:
+        account_numbers = ok_json(client.get_account_numbers())
+        hashes = [row.get("hashValue") for row in account_numbers if row.get("hashValue")]
+        print(f"accounts={len(hashes)}")
+        print("account_hashes=" + ",".join(mask_tail(item) for item in hashes))
 
-    accounts_payload = ok_json(client.get_accounts(fields=[Client.Account.Fields.POSITIONS]))
-    position_count = 0
-    for account in accounts_payload if isinstance(accounts_payload, list) else []:
-        securities = account.get("securitiesAccount", {})
-        position_count += len(securities.get("positions") or [])
-    print(f"positions={position_count}")
+        accounts_payload = ok_json(client.get_accounts(fields=[Client.Account.Fields.POSITIONS]))
+        position_count = 0
+        for account in accounts_payload if isinstance(accounts_payload, list) else []:
+            securities = account.get("securitiesAccount", {})
+            position_count += len(securities.get("positions") or [])
+        print(f"positions={position_count}")
 
-    quotes_payload = ok_json(client.get_quotes(["SPY", "QQQ"]))
-    print(f"quote_symbols={len(quotes_payload) if isinstance(quotes_payload, dict) else 0}")
+        quotes_payload = ok_json(client.get_quotes(["SPY", "QQQ"]))
+        print(f"quote_symbols={len(quotes_payload) if isinstance(quotes_payload, dict) else 0}")
 
-    price_payload = {}
-    if not args.skip_price_history:
-        start = datetime.combine(date.today() - timedelta(days=14), datetime.min.time())
-        end = datetime.combine(date.today(), datetime.min.time())
-        price_payload = ok_json(client.get_price_history_every_day("AAPL", start_datetime=start, end_datetime=end))
-        print(f"aapl_candles={len(price_payload.get('candles') or [])}")
+        price_payload = {}
+        if not args.skip_price_history:
+            start = datetime.combine(date.today() - timedelta(days=14), datetime.min.time())
+            end = datetime.combine(date.today(), datetime.min.time())
+            price_payload = ok_json(client.get_price_history_every_day("AAPL", start_datetime=start, end_datetime=end))
+            print(f"aapl_candles={len(price_payload.get('candles') or [])}")
 
-    artifact = {
-        "captured_at": datetime.now().isoformat(timespec="seconds"),
-        "account_numbers": sanitize_api_payload(account_numbers),
-        "accounts": sanitize_api_payload(accounts_payload),
-        "quotes": sanitize_api_payload(quotes_payload),
-        "aapl_price_history": sanitize_api_payload(price_payload),
-    }
-    artifact_path = out_dir / f"schwab-api-smoke-sanitized-{args.date}.json"
-    artifact_path.write_text(json.dumps(artifact, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"artifact={artifact_path}")
+        artifact = {
+            "captured_at": datetime.now().isoformat(timespec="seconds"),
+            "account_numbers": sanitize_api_payload(account_numbers),
+            "accounts": sanitize_api_payload(accounts_payload),
+            "quotes": sanitize_api_payload(quotes_payload),
+            "aapl_price_history": sanitize_api_payload(price_payload),
+        }
+        artifact_path = out_dir / f"schwab-api-smoke-sanitized-{args.date}.json"
+        artifact_path.write_text(json.dumps(artifact, indent=2, ensure_ascii=False), encoding="utf-8")
+        print(f"artifact={artifact_path}")
+    finally:
+        if not args.token_path:
+            sync_token_to_dotenv(path)
+            cleanup_runtime_token(path)
 
 
 if __name__ == "__main__":
