@@ -3,6 +3,7 @@
 // Callers pass an onState callback to drive the playing indicator on their button.
 
 let currentAudio: HTMLAudioElement | null = null;
+let resolveCurrentPlayback: (() => void) | null = null;
 // Incremented on every stop; a running sequence checks its captured token to
 // know it was cancelled and must not advance to the next sentence.
 let playToken = 0;
@@ -13,12 +14,32 @@ function stopAll() {
     currentAudio.pause();
     currentAudio = null;
   }
+  resolveCurrentPlayback?.();
+  resolveCurrentPlayback = null;
   if (window.speechSynthesis) window.speechSynthesis.cancel();
 }
 
 // Stop any playback (single sentence or full-text sequence).
 export function stopPlayback(): void {
   stopAll();
+}
+
+export function pausePlayback(): void {
+  if (currentAudio) currentAudio.pause();
+  if (window.speechSynthesis) window.speechSynthesis.pause();
+}
+
+export function resumePlayback(): void {
+  if (currentAudio) void currentAudio.play();
+  if (window.speechSynthesis) window.speechSynthesis.resume();
+}
+
+export function seekPlayback(deltaSeconds: number): boolean {
+  if (!currentAudio) return false;
+  const nextTime = currentAudio.currentTime + deltaSeconds;
+  const maxTime = Number.isFinite(currentAudio.duration) ? currentAudio.duration : nextTime;
+  currentAudio.currentTime = Math.max(0, Math.min(maxTime, nextTime));
+  return true;
 }
 
 function webSpeechFallback(text: string, onState?: (playing: boolean) => void) {
@@ -67,20 +88,25 @@ function speakOnce(text: string): Promise<void> {
   return new Promise((resolve) => {
     const audio = new Audio(`/api/tts?text=${encodeURIComponent(text)}`);
     currentAudio = audio;
+    let settled = false;
     const done = () => {
+      if (settled) return;
+      settled = true;
+      if (resolveCurrentPlayback === done) resolveCurrentPlayback = null;
       if (currentAudio === audio) currentAudio = null;
       resolve();
     };
+    resolveCurrentPlayback = done;
     audio.onended = done;
     audio.onerror = () => {
       // Fall back to Web Speech for this sentence, then resolve when it ends.
       if (currentAudio === audio) currentAudio = null;
-      if (!window.speechSynthesis) return resolve();
+      if (!window.speechSynthesis) return done();
       const u = new SpeechSynthesisUtterance(text);
       u.lang = "ja-JP";
       const ja = window.speechSynthesis.getVoices().find((v) => v.lang?.startsWith("ja"));
       if (ja) u.voice = ja;
-      u.onend = u.onerror = () => resolve();
+      u.onend = u.onerror = done;
       window.speechSynthesis.speak(u);
     };
     audio.play().catch(() => audio.onerror?.(new Event("error")));
@@ -94,12 +120,13 @@ function speakOnce(text: string): Promise<void> {
  */
 export function speakSequence(
   texts: string[],
-  cb: { onIndex?: (i: number) => void; onDone?: () => void } = {}
+  cb: { onIndex?: (i: number) => void; onDone?: () => void; startIndex?: number } = {}
 ): void {
   stopAll(); // cancel anything in flight (also bumps playToken)
   const token = playToken;
+  const startIndex = Math.max(0, Math.min(texts.length - 1, cb.startIndex ?? 0));
   (async () => {
-    for (let i = 0; i < texts.length; i++) {
+    for (let i = startIndex; i < texts.length; i++) {
       if (token !== playToken) return; // stopped/superseded
       cb.onIndex?.(i);
       await speakOnce(texts[i]);

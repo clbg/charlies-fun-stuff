@@ -1,9 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api.js";
-import { speak, speakSequence, stopPlayback, warmVoices } from "./speak.js";
+import {
+  pausePlayback,
+  resumePlayback,
+  seekPlayback,
+  speak,
+  speakSequence,
+  stopPlayback,
+  warmVoices,
+} from "./speak.js";
 import type { Article, ArticleSummary, Familiarity, Sentence, Token, GrammarRef } from "./types.js";
 
 const LS_THRESHOLD = "jr_threshold";
+type PlaybackStatus = "idle" | "playing" | "paused";
 
 const famKey = (type: string, key: string) => `${type}:${key}`;
 
@@ -28,8 +37,9 @@ export function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [articles, setArticles] = useState<ArticleSummary[]>([]);
   const [toast, setToast] = useState<string | null>(null);
-  // Full-text playback: -1 = not playing, else index of the sentence being read.
+  // Full-text playback: -1 = no active sentence, else index of the sentence being read.
   const [playingIndex, setPlayingIndex] = useState(-1);
+  const [playbackStatus, setPlaybackStatus] = useState<PlaybackStatus>("idle");
 
   const getFam = useCallback(
     (type: string, key: string) => familiarity[famKey(type, key)] ?? 0,
@@ -62,21 +72,64 @@ export function App() {
   useEffect(() => {
     stopPlayback();
     setPlayingIndex(-1);
+    setPlaybackStatus("idle");
   }, [currentArticleId, article]);
 
   // ---------- Full-text read-aloud ----------
-  const toggleReadAll = useCallback(() => {
-    if (playingIndex >= 0) {
-      stopPlayback();
-      setPlayingIndex(-1);
-      return;
-    }
+  const startReadAllAt = useCallback((startIndex = 0) => {
     if (!article?.sentences.length) return;
+    const safeIndex = Math.max(0, Math.min(article.sentences.length - 1, startIndex));
+    setPlaybackStatus("playing");
     speakSequence(
       article.sentences.map((s) => s.ja),
-      { onIndex: setPlayingIndex, onDone: () => setPlayingIndex(-1) }
+      {
+        startIndex: safeIndex,
+        onIndex: (i) => {
+          setPlayingIndex(i);
+          setPlaybackStatus("playing");
+        },
+        onDone: () => {
+          setPlayingIndex(-1);
+          setPlaybackStatus("idle");
+        },
+      }
     );
-  }, [article, playingIndex]);
+  }, [article]);
+
+  const startReadAll = useCallback(() => startReadAllAt(0), [startReadAllAt]);
+
+  const pauseReadAll = useCallback(() => {
+    pausePlayback();
+    setPlaybackStatus("paused");
+  }, []);
+
+  const resumeReadAll = useCallback(() => {
+    resumePlayback();
+    setPlaybackStatus("playing");
+  }, []);
+
+  const stopReadAll = useCallback(() => {
+    stopPlayback();
+    setPlayingIndex(-1);
+    setPlaybackStatus("idle");
+  }, []);
+
+  const seekReadAll = useCallback(
+    (deltaSeconds: number) => {
+      if (playbackStatus === "idle") return;
+      if (!seekPlayback(deltaSeconds)) showToast("当前语音不支持 5 秒跳转");
+    },
+    [playbackStatus]
+  );
+
+  const jumpReadAll = useCallback(
+    (delta: number) => {
+      if (!article?.sentences.length || playbackStatus === "idle") return;
+      const baseIndex = playingIndex >= 0 ? playingIndex : 0;
+      startReadAllAt(baseIndex + delta);
+    },
+    [article, playbackStatus, playingIndex, startReadAllAt]
+  );
 
   // ---------- Familiarity setter (optimistic + POST) ----------
   const setFam = useCallback(async (type: string, key: string, value: number) => {
@@ -220,19 +273,80 @@ export function App() {
         </div>
 
         {article && (
-          <div>
+          <div className="article">
             <div className="article-title">{article.title || ""}</div>
             <div className="article-source">{article.source || ""}</div>
             {article.sentences.length > 0 && (
-              <button
-                className={`read-all-btn${playingIndex >= 0 ? " playing" : ""}`}
-                onClick={toggleReadAll}
-                title="顺序朗读全文"
-              >
-                {playingIndex >= 0
-                  ? `⏹ 停止（${playingIndex + 1}/${article.sentences.length}）`
-                  : "▶ 朗读全文"}
-              </button>
+              <div className={`read-all-bar${playbackStatus !== "idle" ? " active" : ""}`}>
+                <button
+                  className={`read-all-btn${playbackStatus === "playing" ? " playing" : ""}`}
+                  onClick={
+                    playbackStatus === "playing"
+                      ? pauseReadAll
+                      : playbackStatus === "paused"
+                        ? resumeReadAll
+                        : startReadAll
+                  }
+                  title={
+                    playbackStatus === "playing"
+                      ? "暂停全文朗读"
+                      : playbackStatus === "paused"
+                        ? "继续全文朗读"
+                        : "顺序朗读全文"
+                  }
+                >
+                  {playbackStatus === "playing"
+                    ? "⏸ 暂停"
+                    : playbackStatus === "paused"
+                      ? "▶ 继续"
+                      : "▶ 朗读全文"}
+                </button>
+                <span className="read-all-status">
+                  {playbackStatus === "idle"
+                    ? `${article.sentences.length} 句`
+                    : `${playbackStatus === "paused" ? "已暂停" : "朗读中"} · ${Math.max(
+                        playingIndex + 1,
+                        1
+                      )}/${article.sentences.length}`}
+                </span>
+                <div className="read-all-transport" aria-label="全文朗读控制">
+                  <button
+                    onClick={() => jumpReadAll(-1)}
+                    disabled={playbackStatus === "idle" || playingIndex <= 0}
+                    title="上一句"
+                  >
+                    ⏮ 上一句
+                  </button>
+                  <button
+                    onClick={() => seekReadAll(-5)}
+                    disabled={playbackStatus === "idle"}
+                    title="后退 5 秒"
+                  >
+                    ↶ 5s
+                  </button>
+                  <button
+                    onClick={() => seekReadAll(5)}
+                    disabled={playbackStatus === "idle"}
+                    title="前进 5 秒"
+                  >
+                    5s ↷
+                  </button>
+                  <button
+                    onClick={() => jumpReadAll(1)}
+                    disabled={
+                      playbackStatus === "idle" || playingIndex >= article.sentences.length - 1
+                    }
+                    title="下一句"
+                  >
+                    下一句 ⏭
+                  </button>
+                </div>
+                {playbackStatus !== "idle" && (
+                  <button className="read-all-stop" onClick={stopReadAll} title="停止全文朗读">
+                    ⏹ 停止
+                  </button>
+                )}
+              </div>
             )}
             {article.sentences.map((s, i) => (
               <SentenceView
@@ -242,6 +356,7 @@ export function App() {
                 getFam={getFam}
                 setFam={setFam}
                 isReading={playingIndex === i}
+                onStartStandalonePlayback={stopReadAll}
               />
             ))}
           </div>
@@ -313,8 +428,9 @@ function SentenceView(props: {
   getFam: (type: string, key: string) => number;
   setFam: (type: string, key: string, value: number) => void;
   isReading?: boolean;
+  onStartStandalonePlayback: () => void;
 }) {
-  const { sentence, threshold, getFam, setFam, isReading } = props;
+  const { sentence, threshold, getFam, setFam, isReading, onStartStandalonePlayback } = props;
   const [highlightKey, setHighlightKey] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const detailsRef = useRef<HTMLDetailsElement>(null);
@@ -354,7 +470,10 @@ function SentenceView(props: {
         <button
           className={`sentence-speak${playing ? " playing" : ""}`}
           title="朗读整句"
-          onClick={() => speak(sentence.ja, setPlaying)}
+          onClick={() => {
+            onStartStandalonePlayback();
+            speak(sentence.ja, setPlaying);
+          }}
         >
           🔊
         </button>
@@ -384,6 +503,7 @@ function SentenceView(props: {
         highlightKey={highlightKey}
         getFam={getFam}
         setFam={setFam}
+        onStartStandalonePlayback={onStartStandalonePlayback}
       />
     </div>
   );
@@ -439,8 +559,17 @@ function Notes(props: {
   highlightKey: string | null;
   getFam: (type: string, key: string) => number;
   setFam: (type: string, key: string, value: number) => void;
+  onStartStandalonePlayback: () => void;
 }) {
-  const { sentence, detailsRef, defaultOpen, highlightKey, getFam, setFam } = props;
+  const {
+    sentence,
+    detailsRef,
+    defaultOpen,
+    highlightKey,
+    getFam,
+    setFam,
+    onStartStandalonePlayback,
+  } = props;
 
   const items = useMemo<NoteItem[]>(() => {
     const out: NoteItem[] = [];
@@ -487,6 +616,7 @@ function Notes(props: {
           fam={getFam(it.type, it.key)}
           highlighted={highlightKey === `${it.type}:${it.key}`}
           setFam={setFam}
+          onStartStandalonePlayback={onStartStandalonePlayback}
         />
       ))}
     </details>
@@ -498,8 +628,9 @@ function NoteRow(props: {
   fam: number;
   highlighted: boolean;
   setFam: (type: string, key: string, value: number) => void;
+  onStartStandalonePlayback: () => void;
 }) {
-  const { item, fam, highlighted, setFam } = props;
+  const { item, fam, highlighted, setFam, onStartStandalonePlayback } = props;
   const [playing, setPlaying] = useState(false);
 
   return (
@@ -517,7 +648,10 @@ function NoteRow(props: {
           <button
             className={`speak-btn${playing ? " playing" : ""}`}
             title="朗读"
-            onClick={() => speak(item.speak, setPlaying)}
+            onClick={() => {
+              onStartStandalonePlayback();
+              speak(item.speak, setPlaying);
+            }}
           >
             🔊
           </button>

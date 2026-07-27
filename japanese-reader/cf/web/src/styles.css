@@ -132,21 +132,47 @@ textarea::placeholder { color: var(--muted); font-family: var(--font-body); font
 .input-actions button:disabled { opacity: 0.45; cursor: default; }
 .input-actions .hint { color: var(--muted); font-size: 11px; letter-spacing: 0.06em; margin-left: auto; }
 
+.article { position: relative; }
 .article-title { font-family: var(--font-display); font-size: 24px; font-weight: 500; margin: 36px 0 2px; }
 .article-source { color: var(--muted); font-size: 11px; letter-spacing: 0.08em; margin-bottom: 20px; }
 
-/* Full-text read-aloud — text-led control */
+/* Full-text read-aloud — sticky within the article scroll range */
+.read-all-bar {
+  position: sticky; top: 12px; z-index: 30;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: 0 0 20px; padding: 8px 0;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-strong);
+}
+.read-all-bar.active { border-bottom-color: var(--accent); }
 .read-all-btn {
-  margin-bottom: 20px; padding: 5px 14px; cursor: pointer;
+  padding: 5px 14px; cursor: pointer;
   font-size: 12px; letter-spacing: 0.08em;
   border: 1px solid var(--border-strong); border-radius: 0;
   background: transparent; color: var(--fg);
 }
 .read-all-btn:hover { border-color: var(--accent); color: var(--accent); }
 .read-all-btn.playing { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.read-all-status { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
+.read-all-transport { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.read-all-transport button {
+  min-height: 28px; padding: 3px 8px; cursor: pointer;
+  background: transparent; border: 1px solid var(--border);
+  color: var(--fg); font-size: 11px; letter-spacing: 0.04em;
+}
+.read-all-transport button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.read-all-transport button:disabled { opacity: 0.35; cursor: default; }
+.read-all-stop {
+  margin-left: auto;
+  background: transparent; border: none; border-bottom: 1px solid var(--border-strong);
+  color: var(--muted); padding: 2px 1px; cursor: pointer; font-size: 12px;
+  letter-spacing: 0.06em;
+}
+.read-all-stop:hover { border-bottom-color: var(--accent); color: var(--accent); }
 
 /* Sentence — no card; thin rule + whitespace, reading state gets a margin bar */
-.sentence { padding: 20px 0 14px; border-top: 1px solid var(--border); }
+.sentence { padding: 20px 0 14px; border-top: 1px solid var(--border); scroll-margin-top: 72px; }
 .sentence.reading { box-shadow: inset 3px 0 0 var(--accent); padding-left: 14px; }
 .ja-line-wrap { display: flex; align-items: flex-start; gap: 8px; }
 .ja-line { flex: 1; font-family: var(--font-display); font-size: 19px; line-height: 2; margin-bottom: 2px; }
@@ -227,6 +253,9 @@ footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--border
   h1 { font-size: 24px; }
   .ja-line { font-size: 17px; }
   .controls { gap: 12px; }
+  .read-all-bar { top: 8px; gap: 8px 10px; }
+  .read-all-transport { width: 100%; }
+  .read-all-stop { margin-left: 0; }
   .note-key { min-width: 80px; }
   .sidebar { width: 80vw; }
 }
