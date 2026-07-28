@@ -71,7 +71,7 @@ details.notes      /* 注释面板（原生 <details>，open 态即展开） */
 - **五点评分 dot**（淘宝式）：点第 N 个 dot → 设为 N；再点当前最高 dot → 清零
 - **🔊 朗读按钮**：词条朗读（走 `/api/tts`）
 - 调整后乐观更新 + POST `/api/familiarity` 写回 D1，立即重渲染
-- 只有预置 `vocab` / `grammar_points` 里的项目能评分；公司名、日期、未注册专名等非学习项显示「不学习」，后端也拒绝写入 `familiarity`。
+- 只有预置 `vocab` / `grammar_points` 里的项目能评分；公司名、日期、未注册专名等非学习项不显示评分控件，后端也拒绝写入 `familiarity`。
 - 熟悉度 5/5 的注释默认合并成一个「已熟悉 N 项」紧凑块；展开后仍可查看完整条目和修改评分。若点击原文里的已熟项，该条会临时显示为完整高亮行。
 
 ### Sentence-level 折叠

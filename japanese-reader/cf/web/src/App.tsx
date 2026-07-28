@@ -727,11 +727,7 @@ function NoteRow(props: {
             </button>
             <Rating type={item.type} itemKey={item.key} fam={fam} setFam={setFam} />
           </>
-        ) : (
-          <span className="note-skip" title="不在预置词表/语法表中，不计入熟悉度">
-            不学习
-          </span>
-        )}
+        ) : null}
       </div>
     </div>
   );

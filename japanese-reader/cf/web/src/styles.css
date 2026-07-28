@@ -251,7 +251,6 @@ textarea::placeholder { color: var(--muted); font-family: var(--font-body); font
 .speak-btn.playing { background: var(--accent); border-color: var(--accent); color: var(--bg); opacity: 1; }
 .plus-btn { background: transparent; border: none; border-bottom: 1px solid var(--border-strong); color: var(--accent); height: 22px; padding: 0 2px; cursor: pointer; font-size: 12px; font-weight: 600; line-height: 1; display: inline-flex; align-items: center; }
 .plus-btn:hover { border-bottom-color: var(--accent); }
-.note-skip { color: var(--muted); font-size: 11px; letter-spacing: 0.08em; }
 
 /* Stats — spec-sheet block */
 .stats { margin-top: 44px; padding-top: 14px; border-top: 1px solid var(--border-strong); font-size: 13px; }
