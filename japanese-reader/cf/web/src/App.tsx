@@ -632,7 +632,7 @@ function Notes(props: {
     <details className="notes" ref={detailsRef} open={defaultOpen}>
       <summary>注释</summary>
       {visibleItems.map((it) => (
-        <NoteRow
+        <NoteChip
           key={`${it.type}:${it.key}`}
           item={it}
           fam={getFam(it.type, it.key)}
@@ -670,7 +670,7 @@ function MasteredNotes(props: {
         <span className="mastered-preview">{preview}{more}</span>
       </summary>
       {items.map((it) => (
-        <NoteRow
+        <NoteChip
           key={`mastered:${it.type}:${it.key}`}
           item={it}
           fam={getFam(it.type, it.key)}
@@ -683,7 +683,7 @@ function MasteredNotes(props: {
   );
 }
 
-function NoteRow(props: {
+function NoteChip(props: {
   item: NoteItem;
   fam: number;
   highlighted: boolean;

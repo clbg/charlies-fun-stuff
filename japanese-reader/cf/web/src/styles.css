@@ -206,6 +206,8 @@ textarea::placeholder { color: var(--muted); font-family: var(--font-body); font
 
 /* Notes — footnote block */
 .notes { margin-top: 4px; }
+.notes[open] { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: flex-start; }
+.notes > summary { flex: 0 0 100%; }
 .notes > summary {
   cursor: pointer; color: var(--muted); list-style: none; padding: 4px 0;
   font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
@@ -230,13 +232,17 @@ textarea::placeholder { color: var(--muted); font-family: var(--font-body); font
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-.note-item { display: flex; align-items: flex-start; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 14px; flex-wrap: wrap; }
-.note-item:last-child { border-bottom: none; }
-.note-item.highlight { background: var(--accent-soft); }
-.note-key { flex: 0 0 auto; min-width: 100px; font-weight: 600; font-family: var(--font-display); }
+.note-item {
+  display: inline-flex; align-items: flex-start; gap: 8px 10px; flex-wrap: wrap;
+  width: fit-content; max-width: 100%; min-width: min(240px, 100%);
+  padding: 7px 9px; border: 1px solid var(--border);
+  font-size: 14px;
+}
+.note-item.highlight { background: var(--accent-soft); border-color: var(--accent); }
+.note-key { flex: 0 0 auto; min-width: 0; font-weight: 600; font-family: var(--font-display); }
 .note-key .reading { font-weight: normal; color: var(--muted); font-size: 12px; }
 .note-key.grammar { color: var(--grammar); }
-.note-meaning { flex: 1; min-width: 140px; color: var(--fg); font-size: 13.5px; }
+.note-meaning { flex: 1 1 130px; min-width: 120px; color: var(--fg); font-size: 13.5px; }
 .note-meaning .explanation { color: var(--muted); font-size: 12px; margin-top: 2px; }
 .note-actions { flex: 0 0 auto; display: flex; gap: 10px; align-items: center; }
 
