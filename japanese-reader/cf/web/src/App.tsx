@@ -12,9 +12,11 @@ import {
 import type { Article, ArticleSummary, Familiarity, Sentence, Token, GrammarRef } from "./types.js";
 
 const LS_THRESHOLD = "jr_threshold";
+const LS_SHOW_NON_STUDY = "jr_show_non_study";
 type PlaybackStatus = "idle" | "playing" | "paused";
 
-const famKey = (type: string, key: string) => `${type}:${key}`;
+const itemKey = (type: string, key: string) => `${type}:${key}`;
+const famKey = itemKey;
 
 // Six-level color tier by familiarity (red→orange→yellow→green→transparent):
 //   fam >= threshold → tok-fam-5 (transparent, fully mastered)
@@ -31,6 +33,7 @@ export function App() {
   const [threshold, setThreshold] = useState<number>(() =>
     parseInt(localStorage.getItem(LS_THRESHOLD) || "5", 10)
   );
+  const [showNonStudy, setShowNonStudy] = useState(() => localStorage.getItem(LS_SHOW_NON_STUDY) === "1");
   const [rawInput, setRawInput] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -67,6 +70,10 @@ export function App() {
   useEffect(() => {
     localStorage.setItem(LS_THRESHOLD, String(threshold));
   }, [threshold]);
+
+  useEffect(() => {
+    localStorage.setItem(LS_SHOW_NON_STUDY, showNonStudy ? "1" : "0");
+  }, [showNonStudy]);
 
   // Stop full-text playback whenever the displayed article changes.
   useEffect(() => {
@@ -257,6 +264,14 @@ export function App() {
               (≥此值=熟，隐藏标注；低两档=半生提示)
             </span>
           </label>
+          <label className="toggle-label">
+            <input
+              type="checkbox"
+              checked={showNonStudy}
+              onChange={(e) => setShowNonStudy(e.target.checked)}
+            />
+            显示无评分项
+          </label>
           <button onClick={onResetFamiliarity}>重置熟悉度</button>
           <button onClick={onExport}>导出数据</button>
         </div>
@@ -365,6 +380,7 @@ export function App() {
                 key={s.id}
                 sentence={s}
                 threshold={threshold}
+                showNonStudy={showNonStudy}
                 getFam={getFam}
                 setFam={setFam}
                 isReading={playingIndex === i}
@@ -437,12 +453,13 @@ function Sidebar(props: {
 function SentenceView(props: {
   sentence: Sentence;
   threshold: number;
+  showNonStudy: boolean;
   getFam: (type: string, key: string) => number;
   setFam: (type: string, key: string, value: number) => void;
   isReading?: boolean;
   onStartStandalonePlayback: () => void;
 }) {
-  const { sentence, threshold, getFam, setFam, isReading, onStartStandalonePlayback } = props;
+  const { sentence, threshold, showNonStudy, getFam, setFam, isReading, onStartStandalonePlayback } = props;
   const [highlightKey, setHighlightKey] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const detailsRef = useRef<HTMLDetailsElement>(null);
@@ -455,16 +472,40 @@ function SentenceView(props: {
 
   const minFam = useMemo(() => {
     let m = 5;
-    for (const t of sentence.tokens) m = Math.min(m, getFam("word", t.dict_form));
-    for (const g of sentence.grammar) m = Math.min(m, getFam("grammar", g.canonical_id));
+    for (const t of sentence.tokens) {
+      if (t.study === false && !showNonStudy) continue;
+      m = Math.min(m, t.study === false ? 0 : getFam("word", t.dict_form));
+    }
+    for (const g of sentence.grammar) {
+      if (g.study === false && !showNonStudy) continue;
+      m = Math.min(m, g.study === false ? 0 : getFam("grammar", g.canonical_id));
+    }
     return m;
-  }, [sentence, getFam]);
+  }, [sentence, getFam, showNonStudy]);
+
+  const linkClassByKey = useMemo(() => {
+    const out = new Map<string, string>();
+    let i = 0;
+    for (const t of sentence.tokens) {
+      const key = itemKey("word", t.dict_form);
+      const hasVisibleCard =
+        t.study === false ? showNonStudy : getFam("word", t.dict_form) < 5 || highlightKey === key;
+      if (hasVisibleCard && !out.has(key)) out.set(key, `link-${i++ % 5}`);
+    }
+    for (const g of sentence.grammar) {
+      const key = itemKey("grammar", g.canonical_id);
+      const hasVisibleCard =
+        g.study === false ? showNonStudy : getFam("grammar", g.canonical_id) < 5 || highlightKey === key;
+      if (hasVisibleCard && !out.has(key)) out.set(key, `link-${i++ % 5}`);
+    }
+    return out;
+  }, [sentence, getFam, highlightKey, showNonStudy]);
 
   const defaultOpen = minFam < threshold - 2;
 
   const focusNote = (type: string, key: string) => {
     if (detailsRef.current) detailsRef.current.open = true;
-    setHighlightKey(famKey(type, key));
+    setHighlightKey(itemKey(type, key));
   };
 
   return (
@@ -476,6 +517,7 @@ function SentenceView(props: {
             tokens={sentence.tokens}
             threshold={threshold}
             getFam={getFam}
+            linkClassByKey={linkClassByKey}
             onClickToken={(t) => focusNote("word", t.dict_form)}
           />
         </div>
@@ -496,7 +538,9 @@ function SentenceView(props: {
           {sentence.grammar.map((g) => (
             <span
               key={g.canonical_id}
-              className={`grammar-chip ${famTier(getFam("grammar", g.canonical_id), threshold)}`}
+              className={`grammar-chip ${famTier(getFam("grammar", g.canonical_id), threshold)} ${
+                linkClassByKey.get(itemKey("grammar", g.canonical_id)) || ""
+              }`}
               title={grammarTip(g, getFam("grammar", g.canonical_id))}
               onClick={() => focusNote("grammar", g.canonical_id)}
             >
@@ -513,8 +557,10 @@ function SentenceView(props: {
         detailsRef={detailsRef}
         defaultOpen={defaultOpen}
         highlightKey={highlightKey}
+        showNonStudy={showNonStudy}
         getFam={getFam}
         setFam={setFam}
+        linkClassByKey={linkClassByKey}
         onStartStandalonePlayback={onStartStandalonePlayback}
       />
     </div>
@@ -527,9 +573,10 @@ function TokenSpans(props: {
   tokens: Token[];
   threshold: number;
   getFam: (type: string, key: string) => number;
+  linkClassByKey: Map<string, string>;
   onClickToken: (t: Token) => void;
 }) {
-  const { ja, tokens, threshold, getFam, onClickToken } = props;
+  const { ja, tokens, threshold, getFam, linkClassByKey, onClickToken } = props;
   const sorted = [...tokens].filter((t) => t.end > t.start).sort((a, b) => a.start - b.start);
   const parts: React.ReactNode[] = [];
   let cursor = 0;
@@ -540,7 +587,7 @@ function TokenSpans(props: {
     parts.push(
       <span
         key={`w${i++}`}
-        className={`token ${famTier(fam, threshold)}`}
+        className={`token ${famTier(fam, threshold)} ${linkClassByKey.get(itemKey("word", t.dict_form)) || ""}`}
         title={tokenTip(t, fam)}
         onClick={() => onClickToken(t)}
       >
@@ -563,6 +610,7 @@ interface NoteItem {
   explanation: string;
   speak: string;
   study: boolean;
+  linkClass: string;
 }
 
 function Notes(props: {
@@ -570,8 +618,10 @@ function Notes(props: {
   detailsRef: React.RefObject<HTMLDetailsElement>;
   defaultOpen: boolean;
   highlightKey: string | null;
+  showNonStudy: boolean;
   getFam: (type: string, key: string) => number;
   setFam: (type: string, key: string, value: number) => void;
+  linkClassByKey: Map<string, string>;
   onStartStandalonePlayback: () => void;
 }) {
   const {
@@ -579,8 +629,10 @@ function Notes(props: {
     detailsRef,
     defaultOpen,
     highlightKey,
+    showNonStudy,
     getFam,
     setFam,
+    linkClassByKey,
     onStartStandalonePlayback,
   } = props;
 
@@ -599,6 +651,7 @@ function Notes(props: {
         explanation: "",
         speak: t.dict_form,
         study: t.study !== false,
+        linkClass: linkClassByKey.get(itemKey("word", t.dict_form)) || "",
       });
     }
     const seenG = new Set<string>();
@@ -614,6 +667,7 @@ function Notes(props: {
         explanation: g.explanation || "",
         speak: "",
         study: g.study !== false,
+        linkClass: linkClassByKey.get(itemKey("grammar", g.canonical_id)) || "",
       });
     }
     return out;
@@ -622,25 +676,31 @@ function Notes(props: {
   if (items.length === 0) return null;
 
   const visibleItems = items.filter(
-    (it) => !it.study || getFam(it.type, it.key) < 5 || highlightKey === famKey(it.type, it.key)
+    (it) => (it.study ? getFam(it.type, it.key) < 5 || highlightKey === itemKey(it.type, it.key) : showNonStudy)
   );
   const masteredItems = items.filter(
-    (it) => it.study && getFam(it.type, it.key) >= 5 && highlightKey !== famKey(it.type, it.key)
+    (it) => it.study && getFam(it.type, it.key) >= 5 && highlightKey !== itemKey(it.type, it.key)
   );
+
+  if (visibleItems.length === 0 && masteredItems.length === 0) return null;
 
   return (
     <details className="notes" ref={detailsRef} open={defaultOpen}>
       <summary>注释</summary>
-      {visibleItems.map((it) => (
-        <NoteChip
-          key={`${it.type}:${it.key}`}
-          item={it}
-          fam={getFam(it.type, it.key)}
-          highlighted={highlightKey === `${it.type}:${it.key}`}
-          setFam={setFam}
-          onStartStandalonePlayback={onStartStandalonePlayback}
-        />
-      ))}
+      {visibleItems.length > 0 && (
+        <div className="note-list">
+          {visibleItems.map((it) => (
+            <NoteChip
+              key={itemKey(it.type, it.key)}
+              item={it}
+              fam={getFam(it.type, it.key)}
+              highlighted={highlightKey === itemKey(it.type, it.key)}
+              setFam={setFam}
+              onStartStandalonePlayback={onStartStandalonePlayback}
+            />
+          ))}
+        </div>
+      )}
       {masteredItems.length > 0 && (
         <MasteredNotes
           items={masteredItems}
@@ -669,16 +729,18 @@ function MasteredNotes(props: {
         <span>已熟悉 {items.length} 项</span>
         <span className="mastered-preview">{preview}{more}</span>
       </summary>
-      {items.map((it) => (
-        <NoteChip
-          key={`mastered:${it.type}:${it.key}`}
-          item={it}
-          fam={getFam(it.type, it.key)}
-          highlighted={false}
-          setFam={setFam}
-          onStartStandalonePlayback={onStartStandalonePlayback}
-        />
-      ))}
+      <div className="note-list mastered-note-list">
+        {items.map((it) => (
+          <NoteChip
+            key={`mastered:${itemKey(it.type, it.key)}`}
+            item={it}
+            fam={getFam(it.type, it.key)}
+            highlighted={false}
+            setFam={setFam}
+            onStartStandalonePlayback={onStartStandalonePlayback}
+          />
+        ))}
+      </div>
     </details>
   );
 }
@@ -694,7 +756,7 @@ function NoteChip(props: {
   const [playing, setPlaying] = useState(false);
 
   return (
-    <div className={`note-item${highlighted ? " highlight" : ""}`}>
+    <div className={`note-item ${item.type} ${item.study ? "study" : "no-study"} ${item.linkClass}${highlighted ? " highlight" : ""}`}>
       <div className={`note-key${item.type === "grammar" ? " grammar" : ""}`}>
         {item.label}
         {item.reading && <div className="reading">{item.reading}</div>}
@@ -703,8 +765,8 @@ function NoteChip(props: {
         {item.meaning}
         {item.explanation && <div className="explanation">{item.explanation}</div>}
       </div>
-      <div className="note-actions">
-        {item.speak && (
+      {item.speak && (
+        <div className="note-audio">
           <button
             className={`speak-btn${playing ? " playing" : ""}`}
             title="朗读"
@@ -715,20 +777,20 @@ function NoteChip(props: {
           >
             🔊
           </button>
-        )}
-        {item.study ? (
-          <>
-            <button
-              className="plus-btn"
-              title="熟悉度 +1"
-              onClick={() => setFam(item.type, item.key, fam + 1)}
-            >
-              ＋1
-            </button>
-            <Rating type={item.type} itemKey={item.key} fam={fam} setFam={setFam} />
-          </>
-        ) : null}
-      </div>
+        </div>
+      )}
+      {item.study ? (
+        <div className="note-rating-actions">
+          <button
+            className="plus-btn"
+            title="熟悉度 +1"
+            onClick={() => setFam(item.type, item.key, fam + 1)}
+          >
+            ＋1
+          </button>
+          <Rating type={item.type} itemKey={item.key} fam={fam} setFam={setFam} />
+        </div>
+      ) : null}
     </div>
   );
 }

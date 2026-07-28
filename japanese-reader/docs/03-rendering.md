@@ -41,23 +41,24 @@
 
 ```css
 .token             /* token 基础样式 */
-/* 六级熟悉度颜色（红→橙→黄→绿→透明）*/
-.tok-fam-0         /* 没见过：深红底 + 红色实线下划线 */
-.tok-fam-1         /* 见过 1-2 次：浅红/橙底 + 橙色实线 */
-.tok-fam-2         /* 模糊印象：琥珀底 + 黄色虚线 */
-.tok-fam-3         /* 大致认识：浅黄底 + 黄色虚线 */
-.tok-fam-4         /* 熟练：极浅绿底，无下划线 */
-.tok-fam-5         /* fam >= threshold：透明，完全无标注 */
+/* 六级熟悉度背景（红→橙→黄→绿→透明），只表示学习状态 */
+.tok-fam-0         /* 没见过：深红底 */
+.tok-fam-1         /* 见过 1-2 次：浅红/橙底 */
+.tok-fam-2         /* 模糊印象：琥珀底 */
+.tok-fam-3         /* 大致认识：浅黄底 */
+.tok-fam-4         /* 熟练：极浅绿底 */
+.tok-fam-5         /* fam >= threshold：透明 */
+.link-0..4         /* 句内对应关系色：token/grammar chip 下划线 + note chip 边框 */
 .grammar-chip      /* 语法点：JA 行下方独立一排可点 chip（不是 overlay） */
-.grammar-chip.tok-fam-N  /* 同样按熟悉度分级淡化 */
 
 details.notes      /* 注释面板（原生 <details>，open 态即展开） */
+.note-list         /* 注释条目的 responsive grid：词条按列排列，长语法项跨列 */
 .note-item         /* 单个释义条目 */
 .note-item.highlight /* 点 token/chip 时高亮对应条目 */
 .sentence.reading  /* 全文朗读时当前句的高亮光圈 */
 ```
 
-> 注：类名前缀是 `tok-fam-`（0–5 对应熟悉度分数）。`fam >= threshold` 的词统一用 `tok-fam-5`（透明）；低于阈值的按实际分数着色。语法点是 JA 行下方的一排 **grammar-chip**（可点击聚焦注释），不是覆盖在原文上的 overlay。
+> 注：类名前缀 `tok-fam-`（0–5 对应熟悉度分数）只表达学习状态；`link-0`–`link-4` 是另一套句内临时属性，只表达「原文 token / grammar chip 对应哪一个完整显示的 note card」。两套颜色不能复用，也不能由 familiarity score 推导。已折叠进「已熟悉 N 项」摘要、下方没有完整卡片的项目，不显示 link 色。语法点是 JA 行下方的一排 **grammar-chip**（可点击聚焦注释），不是覆盖在原文上的 overlay。
 
 ## 交互
 
@@ -70,8 +71,9 @@ details.notes      /* 注释面板（原生 <details>，open 态即展开） */
 - **＋1 按钮**：familiarity += 1（capped at 5）
 - **五点评分 dot**（淘宝式）：点第 N 个 dot → 设为 N；再点当前最高 dot → 清零
 - **🔊 朗读按钮**：词条朗读（走 `/api/tts`）
+- 评分控件固定在 note card 底部，不占标题行空间；词条朗读按钮可保留在标题右侧。
 - 调整后乐观更新 + POST `/api/familiarity` 写回 D1，立即重渲染
-- 只有预置 `vocab` / `grammar_points` 里的项目能评分；公司名、日期、未注册专名等非学习项不显示评分控件，后端也拒绝写入 `familiarity`。
+- 只有预置 `vocab` / `grammar_points` 里的项目能评分；公司名、日期、未注册专名等非学习项默认隐藏，且不参与 `link-*` 对应色。顶部「显示无评分项」开关打开后才显示这些无评分卡片；后端仍拒绝把它们写入 `familiarity`。
 - 熟悉度 5/5 的注释默认合并成一个「已熟悉 N 项」紧凑块；展开后仍可查看完整条目和修改评分。若点击原文里的已熟项，该条会临时显示为完整高亮行。
 
 ### Sentence-level 折叠
