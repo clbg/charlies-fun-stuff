@@ -206,13 +206,29 @@ textarea::placeholder { color: var(--muted); font-family: var(--font-body); font
 
 /* Notes — footnote block */
 .notes { margin-top: 4px; }
-.notes summary {
+.notes > summary {
   cursor: pointer; color: var(--muted); list-style: none; padding: 4px 0;
   font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
 }
-.notes summary::-webkit-details-marker { display: none; }
-.notes summary::before { content: "▸ "; font-size: 10px; }
-.notes[open] summary::before { content: "▾ "; }
+.notes > summary::-webkit-details-marker { display: none; }
+.notes > summary::before { content: "▸ "; font-size: 10px; }
+.notes[open] > summary::before { content: "▾ "; }
+
+.mastered-notes {
+  margin: 6px 0 2px; padding: 6px 0;
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.mastered-notes summary {
+  display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;
+  padding: 0; color: var(--accent); text-transform: none; letter-spacing: 0.04em;
+}
+.mastered-notes summary::before { content: "▸ "; color: var(--muted); }
+.mastered-notes[open] summary::before { content: "▾ "; }
+.mastered-preview {
+  flex: 1; min-width: 160px;
+  color: var(--muted); font-size: 12px; letter-spacing: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 
 .note-item { display: flex; align-items: flex-start; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 14px; flex-wrap: wrap; }
 .note-item:last-child { border-bottom: none; }

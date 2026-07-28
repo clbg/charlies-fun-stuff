@@ -131,6 +131,11 @@ export function App() {
     [article, playbackStatus, playingIndex, startReadAllAt]
   );
 
+  const replayReadAll = useCallback(() => {
+    if (playbackStatus === "idle") return;
+    startReadAllAt(playingIndex >= 0 ? playingIndex : 0);
+  }, [playbackStatus, playingIndex, startReadAllAt]);
+
   // ---------- Familiarity setter (optimistic + POST) ----------
   const setFam = useCallback(async (type: string, key: string, value: number) => {
     const v = Math.max(0, Math.min(5, value));
@@ -316,6 +321,13 @@ export function App() {
                     title="上一句"
                   >
                     ⏮ 上一句
+                  </button>
+                  <button
+                    onClick={replayReadAll}
+                    disabled={playbackStatus === "idle"}
+                    title="重播当前句"
+                  >
+                    ↻ 当前句
                   </button>
                   <button
                     onClick={() => seekReadAll(-5)}
@@ -606,15 +618,56 @@ function Notes(props: {
 
   if (items.length === 0) return null;
 
+  const visibleItems = items.filter((it) => getFam(it.type, it.key) < 5 || highlightKey === famKey(it.type, it.key));
+  const masteredItems = items.filter((it) => getFam(it.type, it.key) >= 5 && highlightKey !== famKey(it.type, it.key));
+
   return (
     <details className="notes" ref={detailsRef} open={defaultOpen}>
       <summary>注释</summary>
-      {items.map((it) => (
+      {visibleItems.map((it) => (
         <NoteRow
           key={`${it.type}:${it.key}`}
           item={it}
           fam={getFam(it.type, it.key)}
           highlighted={highlightKey === `${it.type}:${it.key}`}
+          setFam={setFam}
+          onStartStandalonePlayback={onStartStandalonePlayback}
+        />
+      ))}
+      {masteredItems.length > 0 && (
+        <MasteredNotes
+          items={masteredItems}
+          getFam={getFam}
+          setFam={setFam}
+          onStartStandalonePlayback={onStartStandalonePlayback}
+        />
+      )}
+    </details>
+  );
+}
+
+function MasteredNotes(props: {
+  items: NoteItem[];
+  getFam: (type: string, key: string) => number;
+  setFam: (type: string, key: string, value: number) => void;
+  onStartStandalonePlayback: () => void;
+}) {
+  const { items, getFam, setFam, onStartStandalonePlayback } = props;
+  const preview = items.slice(0, 5).map((it) => it.label).join(" · ");
+  const more = items.length > 5 ? ` · +${items.length - 5}` : "";
+
+  return (
+    <details className="mastered-notes">
+      <summary>
+        <span>已熟悉 {items.length} 项</span>
+        <span className="mastered-preview">{preview}{more}</span>
+      </summary>
+      {items.map((it) => (
+        <NoteRow
+          key={`mastered:${it.type}:${it.key}`}
+          item={it}
+          fam={getFam(it.type, it.key)}
+          highlighted={false}
           setFam={setFam}
           onStartStandalonePlayback={onStartStandalonePlayback}
         />
