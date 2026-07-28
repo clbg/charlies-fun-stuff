@@ -31,6 +31,60 @@ const app = new Hono<{ Bindings: Env }>();
 
 const nowIso = () => new Date().toISOString();
 
+async function selectKnownKeys(
+  db: D1Database,
+  table: "vocab" | "grammar_points",
+  column: "dict_form" | "canonical_id",
+  keys: string[]
+): Promise<Set<string>> {
+  const uniq = [...new Set(keys.filter(Boolean))];
+  const known = new Set<string>();
+  for (let i = 0; i < uniq.length; i += 100) {
+    const chunk = uniq.slice(i, i + 100);
+    const placeholders = chunk.map(() => "?").join(",");
+    const { results } = await db
+      .prepare(`SELECT ${column} AS key FROM ${table} WHERE ${column} IN (${placeholders})`)
+      .bind(...chunk)
+      .all<{ key: string }>();
+    for (const row of results) known.add(row.key);
+  }
+  return known;
+}
+
+async function markStudyEligibility(article: Article, db: D1Database): Promise<Article> {
+  const wordKeys: string[] = [];
+  const grammarKeys: string[] = [];
+  for (const sentence of article.sentences ?? []) {
+    for (const token of sentence.tokens ?? []) wordKeys.push(token.dict_form);
+    for (const grammar of sentence.grammar ?? []) grammarKeys.push(grammar.canonical_id);
+  }
+
+  const [knownWords, knownGrammar] = await Promise.all([
+    selectKnownKeys(db, "vocab", "dict_form", wordKeys),
+    selectKnownKeys(db, "grammar_points", "canonical_id", grammarKeys),
+  ]);
+
+  for (const sentence of article.sentences ?? []) {
+    for (const token of sentence.tokens ?? []) token.study = knownWords.has(token.dict_form);
+    for (const grammar of sentence.grammar ?? []) {
+      grammar.study = knownGrammar.has(grammar.canonical_id);
+    }
+  }
+  return article;
+}
+
+async function isStudyEligible(db: D1Database, type: string, key: string): Promise<boolean> {
+  if (type === "word") {
+    const row = await db.prepare("SELECT 1 AS ok FROM vocab WHERE dict_form = ?").bind(key).first();
+    return Boolean(row);
+  }
+  if (type === "grammar") {
+    const row = await db.prepare("SELECT 1 AS ok FROM grammar_points WHERE canonical_id = ?").bind(key).first();
+    return Boolean(row);
+  }
+  return false;
+}
+
 // ---------- Health ----------
 
 app.get("/api/health", (c) => c.json({ ok: true, ts: nowIso() }));
@@ -54,6 +108,9 @@ app.post("/api/familiarity", async (c) => {
   };
   if (!type || !key || typeof score !== "number") {
     return c.json({ error: "type, key, score required" }, 400);
+  }
+  if (!(await isStudyEligible(c.env.DB, type, key))) {
+    return c.json({ error: "item is not in the study registry" }, 400);
   }
   const v = Math.max(0, Math.min(5, Math.floor(score)));
   await c.env.DB.prepare(
@@ -82,6 +139,7 @@ app.post("/api/familiarity/import", async (c) => {
     if (idx < 0) continue;
     const t = composite.slice(0, idx);
     const k = composite.slice(idx + 1);
+    if (!(await isStudyEligible(c.env.DB, t, k))) continue;
     const v = Math.max(0, Math.min(5, Math.floor(Number(score))));
     batch.push(stmt.bind(t, k, v, ts));
   }
@@ -124,7 +182,7 @@ app.get("/api/articles/:id", async (c) => {
     source: row.source,
     raw_text: row.raw_text,
     created_at: row.created_at,
-    data: JSON.parse(row.json_data),
+    data: await markStudyEligibility(JSON.parse(row.json_data), c.env.DB),
   });
 });
 
@@ -145,6 +203,7 @@ app.post("/api/analyze", async (c) => {
   let article: Article;
   try {
     article = await analyze(text, c.env);
+    article = await markStudyEligibility(article, c.env.DB);
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : String(e) }, 500);
   }

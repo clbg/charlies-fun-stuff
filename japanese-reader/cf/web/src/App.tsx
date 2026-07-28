@@ -562,6 +562,7 @@ interface NoteItem {
   meaning: string;
   explanation: string;
   speak: string;
+  study: boolean;
 }
 
 function Notes(props: {
@@ -597,6 +598,7 @@ function Notes(props: {
         meaning: t.meaning_zh || "",
         explanation: "",
         speak: t.dict_form,
+        study: t.study !== false,
       });
     }
     const seenG = new Set<string>();
@@ -611,6 +613,7 @@ function Notes(props: {
         meaning: g.meaning_zh || "",
         explanation: g.explanation || "",
         speak: "",
+        study: g.study !== false,
       });
     }
     return out;
@@ -618,8 +621,12 @@ function Notes(props: {
 
   if (items.length === 0) return null;
 
-  const visibleItems = items.filter((it) => getFam(it.type, it.key) < 5 || highlightKey === famKey(it.type, it.key));
-  const masteredItems = items.filter((it) => getFam(it.type, it.key) >= 5 && highlightKey !== famKey(it.type, it.key));
+  const visibleItems = items.filter(
+    (it) => !it.study || getFam(it.type, it.key) < 5 || highlightKey === famKey(it.type, it.key)
+  );
+  const masteredItems = items.filter(
+    (it) => it.study && getFam(it.type, it.key) >= 5 && highlightKey !== famKey(it.type, it.key)
+  );
 
   return (
     <details className="notes" ref={detailsRef} open={defaultOpen}>
@@ -709,14 +716,22 @@ function NoteRow(props: {
             🔊
           </button>
         )}
-        <button
-          className="plus-btn"
-          title="熟悉度 +1"
-          onClick={() => setFam(item.type, item.key, fam + 1)}
-        >
-          ＋1
-        </button>
-        <Rating type={item.type} itemKey={item.key} fam={fam} setFam={setFam} />
+        {item.study ? (
+          <>
+            <button
+              className="plus-btn"
+              title="熟悉度 +1"
+              onClick={() => setFam(item.type, item.key, fam + 1)}
+            >
+              ＋1
+            </button>
+            <Rating type={item.type} itemKey={item.key} fam={fam} setFam={setFam} />
+          </>
+        ) : (
+          <span className="note-skip" title="不在预置词表/语法表中，不计入熟悉度">
+            不学习
+          </span>
+        )}
       </div>
     </div>
   );

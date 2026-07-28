@@ -4,6 +4,7 @@ export interface Token {
   reading?: string;
   pos?: string;
   meaning_zh?: string;
+  study?: boolean;
   start: number;
   end: number;
 }
@@ -13,6 +14,7 @@ export interface GrammarRef {
   display_form?: string;
   meaning_zh?: string;
   explanation?: string;
+  study?: boolean;
 }
 
 export interface Sentence {
