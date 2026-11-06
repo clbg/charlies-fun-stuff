@@ -562,12 +562,18 @@ struct CLI {
         let connection = NWConnection(to: endpoint, using: .tcp)
 
         return await withCheckedContinuation { continuation in
+            // Resume exactly once: a late .failed/timeout after the response used to resume a second time
+            // ("SWIFT TASK CONTINUATION MISUSE" crash).
+            let once = ResumeOnce()
+            let finish: @Sendable (String?) -> Void = { value in
+                if once.claim() { continuation.resume(returning: value) }
+            }
             connection.stateUpdateHandler = { state in
                 switch state {
                 case .ready:
                     guard let data = message.data(using: .utf8) else {
                         connection.cancel()
-                        continuation.resume(returning: nil)
+                        finish(nil)
                         return
                     }
                     connection.send(
@@ -578,7 +584,7 @@ struct CLI {
                             if let error {
                                 fputs("Error sending: \(error)\n", stderr)
                                 connection.cancel()
-                                continuation.resume(returning: nil)
+                                finish(nil)
                                 return
                             }
 
@@ -591,26 +597,25 @@ struct CLI {
 
                                 if let recvError {
                                     fputs("Error receiving: \(recvError)\n", stderr)
-                                    continuation.resume(returning: nil)
+                                    finish(nil)
                                     return
                                 }
 
                                 if let responseData,
                                    let text = String(data: responseData, encoding: .utf8) {
-                                    continuation.resume(
-                                        returning: text.trimmingCharacters(in: .whitespacesAndNewlines)
-                                    )
+                                    finish(text.trimmingCharacters(in: .whitespacesAndNewlines))
                                 } else {
-                                    continuation.resume(returning: nil)
+                                    finish(nil)
                                 }
                             }
                         }
                     )
 
                 case .failed(let error):
+                    guard !once.isDone else { return }   // response already delivered
                     fputs("Error: could not connect to CharlieWidget (\(error))\n", stderr)
                     connection.cancel()
-                    continuation.resume(returning: nil)
+                    finish(nil)
                     Foundation.exit(1)
 
                 case .cancelled:
@@ -624,14 +629,22 @@ struct CLI {
             connection.start(queue: .global())
 
             DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
-                if connection.state != .cancelled {
+                if connection.state != .cancelled, !once.isDone {
                     fputs("Error: connection timed out\n", stderr)
                     connection.cancel()
-                    continuation.resume(returning: nil)
+                    finish(nil)
                     Foundation.exit(1)
                 }
             }
         }
+    }
+
+    /// One-shot flag shared by the connection callbacks.
+    private final class ResumeOnce: @unchecked Sendable {
+        private let lock = NSLock()
+        private var done = false
+        var isDone: Bool { lock.withLock { done } }
+        func claim() -> Bool { lock.withLock { if done { return false }; done = true; return true } }
     }
 
     // MARK: - Usage
