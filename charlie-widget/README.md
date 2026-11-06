@@ -310,6 +310,12 @@ make run-app       # run app in debug mode
 make clean         # clean build artifacts
 ```
 
+> In Swift async code use the throwing `FileHandle` APIs (`write(contentsOf:)`, `seekToEnd()`), never the legacy
+> `write(_:)` / `seekToEndOfFile()`: their ObjC exceptions corrupt the concurrency runtime and the crash surfaces
+> somewhere unrelated (seen as a segfault in `BubbleOverlayBindingView`). To find memory bugs:
+> `SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk swift build --disable-sandbox --sanitize=address --product CharlieWidgetApp`,
+> stop the installed app, and run `.build/debug/CharlieWidgetApp` directly.
+
 ## Uninstall
 
 ```bash
