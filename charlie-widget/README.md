@@ -210,6 +210,31 @@ charlie-widget sunset location 35.68 139.65   # set lat/lon (default Tokyo)
 - **T-5 min** → warm 🌇 bubble on the Bubble overlay (shown even if session bubbles are off; disappears at sunset or on hover/click) + 10s of a random `calm_*bach*.wav` from the vault `agent-operator/` audio folder via `afplay -t 10`
 - Each event fires once per day; if the Mac was asleep and the event is >2 min late, it's skipped instead of firing late
 
+## LLM providers
+
+`Sources/CharlieLLM` is a small streaming LLM client shared by app features (no third-party deps: Foundation, CryptoKit, Security). Entry point: `LLM.provider(for: LLMConfig) -> any LLMProvider`, then `stream(_:)` yields `.text` deltas and a final `.done(ttftMs:totalMs:)`; cancelling the consuming Task cancels the HTTP request.
+
+| Kind | Endpoint | Auth |
+|---|---|---|
+| `bedrock` (default) | `bedrock-runtime.{region}.amazonaws.com/model/{id}/invoke-with-response-stream`, AWS event-stream response | SigV4 with creds from `aws configure export-credentials --profile <awsProfile>` (default `claude-code`), cached until 5 min before expiry. Expired → run `mwinit` / ada. |
+| `anthropic` | `{baseURL}/v1/messages` (SSE) | Keychain API key |
+| `openAICompatible` | `{baseURL}/chat/completions` (SSE), e.g. `https://api.deepseek.com/v1` | Keychain API key (optional) |
+
+- API keys: Keychain generic passwords, service `com.charlie.widget.llm`, account = kind (`LLMKeychain.setAPIKey(_:for:)`). `llm-smoke` also reads `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`.
+- Presets for the Settings dropdown: `LLMPresets.all` (us/global Sonnet 5.5, jp Haiku 4.5, us Haiku 5.5, Anthropic API, OpenAI-compatible). Sonnet 5.5 rejects `thinking: disabled` (use `between_tools`); Haiku 4.5 rejects `effort`.
+- `aws` is looked up in /opt/homebrew/bin, /usr/local/bin, ~/.local/bin, ~/.aki/bin, ~/.toolbox/bin, then a login shell, since GUI apps get a minimal PATH.
+- Debug logs to stderr with `CHARLIE_LLM_DEBUG=1` (never includes credentials or keys).
+
+```bash
+swift run -c release llm-smoke --list                                   # presets
+swift run -c release llm-smoke --preset bedrock-jp-haiku-4-5 "質問"       # stream text, print ttft/total
+swift run -c release llm-smoke --preset bedrock-us-sonnet-5-5 --image sub.png "图里的字幕是什么？"
+swift run -c release llm-smoke --preset bedrock-jp-haiku-4-5 --cancel-after-first "1から300まで数えて"
+swift run -c release llm-smoke --bench --presets bedrock-jp-haiku-4-5,bedrock-us-sonnet-5-5 --n 6
+swift run -c release llm-smoke --selftest                               # offline parser/signer checks
+```
+(Run `swift run` with `SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk` like the Makefile does.)
+
 ## How it works
 
 - Menu bar shows "charlie" text with unread badge grid + session status dots
