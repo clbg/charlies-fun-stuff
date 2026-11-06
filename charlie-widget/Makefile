@@ -1,5 +1,11 @@
 .PHONY: build release dev install uninstall test-toast test test-recorder clean icon _deploy
 
+# CLT's default SDK 27 makes SwiftUI @State a macro whose plugin CLT doesn't ship; pin 26.5 while it exists.
+SDK_26_5 = /Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk
+ifneq ($(wildcard $(SDK_26_5)),)
+export SDKROOT ?= $(SDK_26_5)
+endif
+
 APP_NAME = CharlieWidget
 APP_BUNDLE = $(APP_NAME).app
 APP_INSTALL_DIR = /Applications

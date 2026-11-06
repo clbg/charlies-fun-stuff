@@ -149,7 +149,8 @@ final class AudioCaptureManager: @unchecked Sendable {
         }
 
         // Set device name
-        if let uid = inputNode.auAudioUnit.deviceID as? AudioDeviceID, uid != 0 {
+        let uid: AudioDeviceID = inputNode.auAudioUnit.deviceID
+        if uid != 0 {
             captureDeviceName = Self.deviceName(for: uid) ?? "Microphone"
         } else {
             captureDeviceName = "Default Microphone"
@@ -175,17 +176,7 @@ final class AudioCaptureManager: @unchecked Sendable {
                   let converted = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: frameCapacity)
             else { return }
 
-            var consumed = false
-            var error: NSError?
-            converter.convert(to: converted, error: &error) { _, outStatus in
-                if consumed {
-                    outStatus.pointee = .noDataNow
-                    return nil
-                }
-                consumed = true
-                outStatus.pointee = .haveData
-                return buffer
-            }
+            let error = converter.convertOnce(buffer, to: converted)
             guard error == nil, converted.frameLength > 0 else { return }
             outputBuffer = converted
         } else {
@@ -316,17 +307,7 @@ final class AudioCaptureManager: @unchecked Sendable {
             guard frameCapacity > 0,
                   let converted = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: frameCapacity)
             else { return }
-            var consumed = false
-            var error: NSError?
-            converter.convert(to: converted, error: &error) { _, outStatus in
-                if consumed {
-                    outStatus.pointee = .noDataNow
-                    return nil
-                }
-                consumed = true
-                outStatus.pointee = .haveData
-                return buffer
-            }
+            let error = converter.convertOnce(buffer, to: converted)
             guard error == nil, converted.frameLength > 0 else { return }
             sourceBuffer = converted
         } else {
@@ -341,17 +322,7 @@ final class AudioCaptureManager: @unchecked Sendable {
               let outBuffer = AVAudioPCMBuffer(pcmFormat: whisperFormat, frameCapacity: outFrames)
         else { return }
 
-        var consumed = false
-        var error: NSError?
-        whisperConv.convert(to: outBuffer, error: &error) { _, outStatus in
-            if consumed {
-                outStatus.pointee = .noDataNow
-                return nil
-            }
-            consumed = true
-            outStatus.pointee = .haveData
-            return sourceBuffer
-        }
+        let error = whisperConv.convertOnce(sourceBuffer, to: outBuffer)
         guard error == nil, outBuffer.frameLength > 0,
               let floatData = outBuffer.floatChannelData?[0]
         else { return }
@@ -397,17 +368,7 @@ final class AudioCaptureManager: @unchecked Sendable {
         else { return }
 
         let sysConverter = AVAudioConverter(from: srcFormat, to: whisperFormat)!
-        var consumed = false
-        var error: NSError?
-        sysConverter.convert(to: outBuffer, error: &error) { _, outStatus in
-            if consumed {
-                outStatus.pointee = .noDataNow
-                return nil
-            }
-            consumed = true
-            outStatus.pointee = .haveData
-            return srcBuffer
-        }
+        let error = sysConverter.convertOnce(srcBuffer, to: outBuffer)
         guard error == nil, outBuffer.frameLength > 0,
               let floatData = outBuffer.floatChannelData?[0]
         else { return }
@@ -419,6 +380,8 @@ final class AudioCaptureManager: @unchecked Sendable {
     // MARK: - Append Audio to AVAssetWriter
 
     private func appendSystemAudio(_ sampleBuffer: CMSampleBuffer) {
+        // CMSampleBuffer isn't Sendable; it's handed off to writerQueue and not touched here again.
+        nonisolated(unsafe) let sampleBuffer = sampleBuffer
         writerQueue.async { [weak self] in
             self?.appendToAssetWriter(sampleBuffer)
         }
@@ -472,15 +435,17 @@ final class AudioCaptureManager: @unchecked Sendable {
     }
 
     private static func deviceName(for deviceID: AudioDeviceID) -> String? {
-        var name = "" as CFString
-        var size = UInt32(MemoryLayout<CFString>.size)
+        var name: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
         var addr = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyDeviceNameCFString,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
         let status = AudioObjectGetPropertyData(deviceID, &addr, 0, nil, &size, &name)
-        return status == noErr ? name as String : nil
+        guard status == noErr, let name else { return nil }
+        // DeviceNameCFString follows the Copy rule: caller owns the returned string.
+        return name.takeRetainedValue() as String
     }
 }
 

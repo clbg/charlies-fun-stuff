@@ -46,6 +46,7 @@ final class SocketServer: Sendable {
     var onMusicOn: (@MainActor @Sendable (NWConnection) -> Void)?
     var onMusicOff: (@MainActor @Sendable (NWConnection) -> Void)?
     var onMusicStatus: (@MainActor @Sendable (NWConnection) -> Void)?
+    var onSunset: (@MainActor @Sendable ([String: Any], NWConnection) -> Void)?  // json["action"]: on|off|status|test|location
 
     // MARK: - Private state
 
@@ -290,6 +291,9 @@ final class SocketServer: Sendable {
 
         case "music_status":
             onMusicStatus?(connection)
+
+        case "sunset":
+            onSunset?(json, connection)
 
         default:
             send("{\"error\":\"unknown command: \(command)\"}\n", to: connection)

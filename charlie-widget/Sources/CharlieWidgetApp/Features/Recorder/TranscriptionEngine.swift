@@ -312,8 +312,7 @@ final class TranscriptionEngine {
     func transcribeMultiTrack(audioURL: URL, language: String? = nil) async throws -> [TranscriptSegment] {
         try await ensureLoaded()
 
-        let asset = AVURLAsset(url: audioURL)
-        let tracks = asset.tracks(withMediaType: .audio)
+        let tracks = try await AVURLAsset(url: audioURL).loadTracks(withMediaType: .audio)
 
         guard tracks.count >= 2 else {
             // Fallback to single-track transcription
@@ -345,17 +344,18 @@ final class TranscriptionEngine {
     private nonisolated func extractTrack(
         trackIndex: Int, from sourceURL: URL, to outputURL: URL
     ) async throws {
+        let asset = AVURLAsset(url: sourceURL)
+        let tracks = try await asset.loadTracks(withMediaType: .audio)
+        guard trackIndex < tracks.count else {
+            throw RecorderError.assetWriterFailed("track \(trackIndex) not found")
+        }
+        // AVAssetTrack isn't Sendable; it's only read on the extract queue below.
+        nonisolated(unsafe) let track = tracks[trackIndex]
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
             DispatchQueue(label: "track-extract").async {
                 do {
                     try? FileManager.default.removeItem(at: outputURL)
 
-                    let asset = AVURLAsset(url: sourceURL)
-                    let tracks = asset.tracks(withMediaType: .audio)
-                    guard trackIndex < tracks.count else {
-                        continuation.resume(throwing: RecorderError.assetWriterFailed("track \(trackIndex) not found"))
-                        return
-                    }
 
                     // Read as 16kHz mono float32 — AVAudioFile writes float PCM cleanly
                     let reader = try AVAssetReader(asset: asset)
@@ -367,7 +367,7 @@ final class TranscriptionEngine {
                         AVLinearPCMIsFloatKey: true,
                         AVLinearPCMIsBigEndianKey: false,
                     ]
-                    let readerOutput = AVAssetReaderTrackOutput(track: tracks[trackIndex], outputSettings: readSettings)
+                    let readerOutput = AVAssetReaderTrackOutput(track: track, outputSettings: readSettings)
                     reader.add(readerOutput)
                     reader.startReading()
 

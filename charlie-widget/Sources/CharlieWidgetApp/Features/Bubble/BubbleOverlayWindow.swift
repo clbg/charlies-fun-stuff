@@ -10,6 +10,8 @@ final class BubbleOverlayController {
 
     private(set) var bubbles: [Bubble] = []
     private(set) var dismissedIds: Set<String> = []
+    /// Bubbles not tied to a session (e.g. sunset); sync leaves them alone until they expire.
+    private var transientIds: Set<String> = []
     var isEnabled: Bool = UserDefaults.standard.object(forKey: "CharlieWidget.bubbleEnabled") as? Bool ?? true {
         didSet {
             UserDefaults.standard.set(isEnabled, forKey: Self.enabledKey)
@@ -58,6 +60,30 @@ final class BubbleOverlayController {
         }
     }
 
+    /// Shows a non-session bubble until `until`, even when the session overlay is disabled.
+    func showTransientBubble(id: String, letter: String, until: Date) {
+        transientIds.insert(id)
+        dismissedIds.remove(id)
+        bubbles.removeAll { $0.id == id }
+        if !isEnabled {
+            showWindow()
+            startAnimation()
+        }
+        addBubble(sessionId: id, agentLetter: letter, isWarm: true)
+
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(max(until.timeIntervalSinceNow, 1)))
+            guard let self else { return }
+            self.transientIds.remove(id)
+            self.bubbles.removeAll { $0.id == id }
+            self.dismissedIds.remove(id)
+            if !self.isEnabled && self.transientIds.isEmpty {
+                self.stopAnimation()
+                self.hideWindow()
+            }
+        }
+    }
+
     func dismissBubble(id: String) {
         bubbles.removeAll { $0.id == id }
         dismissedIds.insert(id)
@@ -97,11 +123,11 @@ final class BubbleOverlayController {
         }
 
         let sessionIds = Set(sessions.map(\.sessionId))
-        for id in dismissedIds where !sessionIds.contains(id) {
+        for id in dismissedIds where !sessionIds.contains(id) && !transientIds.contains(id) {
             dismissedIds.remove(id)
         }
 
-        bubbles.removeAll { !desiredIds.contains($0.id) }
+        bubbles.removeAll { !desiredIds.contains($0.id) && !transientIds.contains($0.id) }
     }
 
     private func addBubble(sessionId: String, agentLetter: String, isWarm: Bool) {

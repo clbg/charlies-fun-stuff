@@ -28,6 +28,8 @@ struct CLI {
             await handleBubble(Array(args.dropFirst()))
         case "music":
             await handleMusic(Array(args.dropFirst()))
+        case "sunset":
+            await handleSunset(Array(args.dropFirst()))
         default:
             fputs("Unknown command: \(subcommand)\n", stderr)
             printUsage()
@@ -471,6 +473,28 @@ struct CLI {
         }
     }
 
+    // MARK: - Sunset subcommand
+
+    private static func handleSunset(_ args: [String]) async {
+        let usage = "Usage: charlie-widget sunset <on|off|status|test|location <lat> <lon>>\n"
+        let action = args.first ?? "status"
+
+        switch action {
+        case "on", "off", "status", "test":
+            await sendAndPrintResponse("{\"command\":\"sunset\",\"action\":\"\(action)\"}\n")
+        case "location":
+            guard args.count == 3, let lat = Double(args[1]), let lon = Double(args[2]) else {
+                fputs(usage, stderr)
+                exit(1)
+            }
+            await sendAndPrintResponse("{\"command\":\"sunset\",\"action\":\"location\",\"latitude\":\(lat),\"longitude\":\(lon)}\n")
+        default:
+            fputs("Unknown sunset action: \(action)\n", stderr)
+            fputs(usage, stderr)
+            exit(1)
+        }
+    }
+
     // MARK: - Socket communication
 
     private static func sendAndExpectOK(_ message: String) async {
@@ -611,6 +635,10 @@ struct CLI {
           charlie-widget music on              Enable session music cues
           charlie-widget music off             Disable session music cues
           charlie-widget music status          Show music status and script path
+          charlie-widget sunset [status]       Show today's sunset time and reminder state
+          charlie-widget sunset on|off         Enable/disable daily sunset reminder
+          charlie-widget sunset test           Fire the toast + bubble + Bach now
+          charlie-widget sunset location <lat> <lon>  Set location (default Tokyo)
           charlie-widget voice start           Start voice command recording
           charlie-widget voice stop            Stop, transcribe, send to iTerm
           charlie-widget voice status          Current voice command state

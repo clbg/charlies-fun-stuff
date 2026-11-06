@@ -110,9 +110,12 @@ final class ToastWindow {
             ctx.duration = 0.2
             panel.animator().alphaValue = 0
         }, completionHandler: {
-            panel.orderOut(nil)
-            activeWindows.removeAll { $0 === panel }
-            repositionWindows()
+            // AppKit calls animation completion handlers on the main thread.
+            MainActor.assumeIsolated {
+                panel.orderOut(nil)
+                activeWindows.removeAll { $0 === panel }
+                repositionWindows()
+            }
         })
     }
 

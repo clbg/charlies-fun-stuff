@@ -386,17 +386,7 @@ final class VoiceMicRecorder: @unchecked Sendable {
               let converted = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCapacity)
         else { return }
 
-        var consumed = false
-        var error: NSError?
-        conv.convert(to: converted, error: &error) { _, outStatus in
-            if consumed {
-                outStatus.pointee = .noDataNow
-                return nil
-            }
-            consumed = true
-            outStatus.pointee = .haveData
-            return buffer
-        }
+        let error = conv.convertOnce(buffer, to: converted)
         guard error == nil, converted.frameLength > 0 else { return }
 
         writeQueue.async { [weak self] in

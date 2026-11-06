@@ -14,6 +14,7 @@ struct CharlieWidgetApp: App {
     @State private var liveTranscriptWindow = LiveTranscriptWindowController()
     @State private var bubbleController = BubbleOverlayController()
     @State private var musicController = MusicController()
+    @State private var sunsetReminder = SunsetReminder()
     private let server = SocketServer()
 
     var body: some Scene {
@@ -341,7 +342,42 @@ struct CharlieWidgetApp: App {
             musicController.play(mood: mood)
         }
 
+        let sunsetReminder = self.sunsetReminder
+
+        sunsetReminder.onWarn = { title, body in
+            store.addMessage(title: title, body: body, level: .warning)
+            // Explicitly requested reminder — shown even when agent toasts are muted.
+            ToastWindow.show(title: title, body: body, level: .warning)
+        }
+
+        sunsetReminder.onBubble = { sunset in
+            bubbleController.showTransientBubble(id: SunsetReminder.bubbleId, letter: "🌇", until: sunset)
+        }
+
+        server.onSunset = { json, connection in
+            switch json["action"] as? String ?? "status" {
+            case "on":
+                sunsetReminder.isEnabled = true
+            case "off":
+                sunsetReminder.isEnabled = false
+            case "test":
+                sunsetReminder.runTest()
+            case "location":
+                guard let lat = json["latitude"] as? Double, let lon = json["longitude"] as? Double,
+                      (-90...90).contains(lat), (-180...180).contains(lon) else {
+                    server.send("{\"error\":\"invalid latitude/longitude\"}\n", to: connection)
+                    return
+                }
+                sunsetReminder.latitude = lat
+                sunsetReminder.longitude = lon
+            default:
+                break
+            }
+            server.send(sunsetReminder.statusJSON() + "\n", to: connection)
+        }
+
         server.start()
+        sunsetReminder.start()
 
         bubbleController.observeSessions(sessionStore)
 

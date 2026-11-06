@@ -195,6 +195,21 @@ charlie-widget music status   # show music status and script path
 - Runs external `play-random.sh` script (configurable)
 - Enabled by default, persisted to UserDefaults
 
+## Sunset Reminder
+
+Daily reminder before sunset, computed locally (NOAA almanac algorithm, no network).
+
+```bash
+charlie-widget sunset                    # status: today's sunset time, location, fired events (JSON)
+charlie-widget sunset on|off             # enable/disable (default on, persisted)
+charlie-widget sunset test               # fire toast + bubble + Bach right now
+charlie-widget sunset location 35.68 139.65   # set lat/lon (default Tokyo)
+```
+
+- **T-10 min** → warning toast "快日落了" (also saved to Messages; shown even when toasts are muted)
+- **T-5 min** → warm 🌇 bubble on the Bubble overlay (shown even if session bubbles are off; disappears at sunset or on hover/click) + 10s of a random `calm_*bach*.wav` from the vault `agent-operator/` audio folder via `afplay -t 10`
+- Each event fires once per day; if the Mac was asleep and the event is >2 min late, it's skipped instead of firing late
+
 ## How it works
 
 - Menu bar shows "charlie" text with unread badge grid + session status dots
