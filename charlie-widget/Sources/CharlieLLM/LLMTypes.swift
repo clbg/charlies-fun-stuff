@@ -41,14 +41,15 @@ public struct LLMConfig: Codable, Equatable, Sendable {
         self.effort = effort
     }
 
+    /// Bedrock Tokyo Sonnet 4.6: fastest first token measured from Tokyo, accurate enough for subtitle notes.
     public static let `default` = LLMConfig(
         kind: .bedrock,
-        model: "us.anthropic.claude-sonnet-5-5",
+        model: "jp.anthropic.claude-sonnet-4-6",
         awsProfile: "claude-code",
-        awsRegion: "us-west-2",
+        awsRegion: "ap-northeast-1",
         baseURL: "",
-        thinking: "between_tools",
-        effort: "low"
+        thinking: nil,
+        effort: nil
     )
 
     // Tolerant decoding: missing keys fall back to defaults so saved settings survive schema growth.

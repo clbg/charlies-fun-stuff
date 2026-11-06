@@ -233,6 +233,8 @@ Or **Settings → Subtitle Tutor** (toggle, re-select region, put the panel back
   rewatching shows it instantly (measured median 94 ms vs ~1.1 s uncached).
 - Data: `~/Library/Application Support/CharlieWidget/SubtitleTutor/` (`cache.jsonl`, `logs/session-*.jsonl`);
   region and panel placement in UserDefaults. `CHARLIE_SUBTITLE_HOME` overrides the data dir for tests.
+- Default model: Bedrock Tokyo `jp.anthropic.claude-sonnet-4-6` (measured from Tokyo: 534 ms median first
+  token vs 633 ms jp Haiku 4.5, 819 ms us Sonnet 5.5; Sonnet 5.5 has no Tokyo profile). Switch in Settings → Model.
 - Needs Screen Recording permission (requested on first launch).
 
 Testing (`scripts/subtitle-tutor/`): `synthetic.html` shows 12 timed subtitles over a moving background
