@@ -140,7 +140,7 @@ struct OpenAICompatibleProvider: LLMProvider {
     func stream(_ request: LLMRequest) -> AsyncThrowingStream<LLMEvent, Error> {
         let config = self.config
         return LLMStreamRunner.run(label: "openai \(config.model)") { emit in
-            let req = try Self.makeRequest(request, config: config, apiKey: LLMKeychain.resolvedKeyOrNil(for: .openAICompatible))
+            let req = try Self.makeRequest(request, config: config, apiKey: LLMKeychain.resolvedKeyOrNil(for: config.kind))
             let bytes = try await LLMHTTP.open(req)
             var sse = SSEParser()
             for try await b in bytes {
@@ -156,10 +156,24 @@ struct OpenAICompatibleProvider: LLMProvider {
     }
 
     func warmUp() async {
-        guard !config.baseURL.isEmpty, !config.model.isEmpty else { return }
+        guard !Self.baseURL(config).isEmpty, !config.model.isEmpty else { return }
         do { for try await _ in stream(.warmUp) {} } catch {
             LLMDebug.log("openai warmUp failed: \(error.localizedDescription)")
         }
+    }
+
+    static func baseURL(_ config: LLMConfig) -> String {
+        config.baseURL.isEmpty ? config.kind.defaultBaseURL : config.baseURL
+    }
+
+    /// Provider-specific knobs to keep first-token latency low:
+    /// - DeepSeek: thinking is on by default → `thinking: {"type": "disabled"}` (config.thinking).
+    /// - Gemini / generic: `reasoning_effort` (config.effort); Gemini 3 can't disable thinking, "minimal" is lowest.
+    static func extras(_ config: LLMConfig) -> [String: Any] {
+        var x: [String: Any] = [:]
+        if config.kind == .deepseek, let t = config.thinking { x["thinking"] = ["type": t] }
+        if config.kind != .deepseek, let e = config.effort { x["reasoning_effort"] = e }
+        return x
     }
 
     static func body(_ request: LLMRequest, model: String) -> [String: Any] {
@@ -184,13 +198,16 @@ struct OpenAICompatibleProvider: LLMProvider {
     }
 
     static func makeRequest(_ request: LLMRequest, config: LLMConfig, apiKey: String?) throws -> URLRequest {
-        guard !config.baseURL.isEmpty, let url = URL(string: config.baseURL.trimmingSuffix("/") + "/chat/completions") else {
-            throw LLMError.invalidConfig("OpenAI-compatible base URL is empty or invalid")
+        let base = baseURL(config)
+        guard !base.isEmpty, let url = URL(string: base.trimmingSuffix("/") + "/chat/completions") else {
+            throw LLMError.invalidConfig("\(config.kind.displayName) base URL is empty or invalid")
         }
-        guard !config.model.isEmpty else { throw LLMError.invalidConfig("OpenAI-compatible model is empty") }
+        guard !config.model.isEmpty else { throw LLMError.invalidConfig("\(config.kind.displayName) model is empty") }
+        if config.kind != .openAICompatible, apiKey?.isEmpty ?? true { throw LLMError.missingAPIKey(config.kind) }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
-        req.httpBody = try JSONSerialization.data(withJSONObject: body(request, model: config.model))
+        req.httpBody = try JSONSerialization.data(
+            withJSONObject: body(request, model: config.model).merging(extras(config)) { a, _ in a })
         req.setValue("application/json", forHTTPHeaderField: "content-type")
         req.setValue("text/event-stream", forHTTPHeaderField: "accept")
         if let apiKey, !apiKey.isEmpty { req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "authorization") }

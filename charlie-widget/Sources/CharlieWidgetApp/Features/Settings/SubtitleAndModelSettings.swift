@@ -43,17 +43,24 @@ struct SubtitleAndModelSettings<HotkeyButton: View>: View {
                     get: { llm.matchingPresetId ?? "custom" },
                     set: { id in if let p = llm.presets.first(where: { $0.id == id }) { llm.apply(p); apiKeyDraft = llm.apiKey } }
                 )) {
-                    ForEach(llm.presets) { p in Text(p.note.isEmpty ? p.label : "\(p.label) · \(p.note)").tag(p.id) }
+                    ForEach(llm.presets) { p in
+                        Text([p.label, p.note, p.multimodal ? "" : "不支持图片"].filter { !$0.isEmpty }.joined(separator: " · ")).tag(p.id)
+                    }
                     if llm.matchingPresetId == nil { Text("Custom").tag("custom") }
                 }
                 .pickerStyle(.menu).controlSize(.small).frame(maxWidth: 190)
             }
             divider
             row("Provider", "server.rack") {
-                Picker("", selection: $llm.config.kind) {
-                    Text("AWS Bedrock").tag(LLMProviderKind.bedrock)
-                    Text("Anthropic API").tag(LLMProviderKind.anthropic)
-                    Text("OpenAI-compatible").tag(LLMProviderKind.openAICompatible)
+                Picker("", selection: Binding(
+                    get: { llm.config.kind },
+                    set: { kind in
+                        // Jump to that provider's first preset (model, base URL, thinking knobs) instead of
+                        // keeping a model id that belongs to the previous provider.
+                        if let p = llm.presets.first(where: { $0.config.kind == kind }) { llm.apply(p) } else { llm.config.kind = kind }
+                    }
+                )) {
+                    ForEach(LLMProviderKind.allCases, id: \.self) { Text($0.displayName).tag($0) }
                 }
                 .pickerStyle(.menu).controlSize(.small).frame(maxWidth: 190)
             }
@@ -67,7 +74,7 @@ struct SubtitleAndModelSettings<HotkeyButton: View>: View {
             } else {
                 divider
                 field("Base URL", "link", text: $llm.config.baseURL,
-                      placeholder: llm.config.kind == .anthropic ? "https://api.anthropic.com" : "https://…/v1")
+                      placeholder: llm.config.kind.defaultBaseURL.isEmpty ? "https://…/v1" : llm.config.kind.defaultBaseURL)
                 divider
                 row("API Key", "key") {
                     SecureField("stored in Keychain", text: $apiKeyDraft)

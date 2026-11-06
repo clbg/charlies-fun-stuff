@@ -250,7 +250,13 @@ timestamps. Score a run with `python3 scripts/subtitle-tutor/eval.py <session.js
 |---|---|---|
 | `bedrock` (default) | `bedrock-runtime.{region}.amazonaws.com/model/{id}/invoke-with-response-stream`, AWS event-stream response | SigV4 with creds from `aws configure export-credentials --profile <awsProfile>` (default `claude-code`), cached until 5 min before expiry. Expired → run `mwinit` / ada. |
 | `anthropic` | `{baseURL}/v1/messages` (SSE) | Keychain API key |
-| `openAICompatible` | `{baseURL}/chat/completions` (SSE), e.g. `https://api.deepseek.com/v1` | Keychain API key (optional) |
+| `openAICompatible` | `{baseURL}/chat/completions` (SSE), any OpenAI-compatible server | Keychain API key (optional) |
+| `gemini` | `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions` (Gemini's OpenAI-compatible endpoint); preset `gemini-3.8-flash` with `reasoning_effort: minimal` (Gemini 3 can't disable thinking) | Keychain key (Google AI Studio) |
+| `deepseek` | `https://api.deepseek.com/chat/completions`; preset `deepseek-flash` with `thinking: {type: disabled}` (on by default otherwise) | Keychain key |
+
+Presets are multimodal only (Subtitle Tutor's image fallback needs image input): for DeepSeek that means
+`deepseek-flash` — `deepseek-v4-pro` is text-only and isn't offered. Each provider kind has its own Keychain item;
+llm-smoke also reads `GEMINI_API_KEY` / `DEEPSEEK_API_KEY` from the environment.
 
 - API keys: Keychain generic passwords, service `com.charlie.widget.llm`, account = kind (`LLMKeychain.setAPIKey(_:for:)`). `llm-smoke` also reads `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`.
 - Presets for the Settings dropdown: `LLMPresets.all` (us/global Sonnet 5.5, jp Haiku 4.5, us Haiku 5.5, Anthropic API, OpenAI-compatible). Sonnet 5.5 rejects `thinking: disabled` (use `between_tools`); Haiku 4.5 rejects `effort`.

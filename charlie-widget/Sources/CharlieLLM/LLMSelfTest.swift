@@ -163,13 +163,13 @@ public enum LLMSelfTest {
             let okURL = req.url!.absoluteString == "https://bedrock-runtime.ap-northeast-1.amazonaws.com/model/jp.anthropic.claude-haiku-4-5-20251001-v1%3A0/invoke-with-response-stream"
             let okBody = body["anthropic_version"] as? String == "bedrock-2023-05-31" && body["model"] == nil && body["stream"] == nil
                 && body["thinking"] == nil && body["output_config"] == nil
-            cfg = LLMConfig.default
+            cfg = LLMPresets.preset(id: "bedrock-us-sonnet-5-5")!.config   // a preset that sets both knobs
             let req2 = try BedrockProvider.makeRequest(sampleRequest, config: cfg, credentials: creds)
             let body2 = try JSONSerialization.jsonObject(with: req2.httpBody!) as! [String: Any]
             let okBody2 = (body2["thinking"] as? [String: String]) == ["type": "between_tools"]
                 && (body2["output_config"] as? [String: String]) == ["effort": "low"]
             let okAuth = auth.contains("SignedHeaders=accept;content-type;host;x-amz-date;x-amz-security-token")
-            return (okURL && okBody && okBody2 && okAuth, "url=\(okURL) body=\(okBody) body(default)=\(okBody2) signedHeaders=\(okAuth)")
+            return (okURL && okBody && okBody2 && okAuth, "url=\(okURL) body=\(okBody) body(us-sonnet-5-5)=\(okBody2) signedHeaders=\(okAuth)")
         }
         check("bedrock: image block is base64 PNG source") {
             let blk = AnthropicBody.block(.imagePNG(Data([0x89, 0x50])))
@@ -203,6 +203,35 @@ public enum LLMSelfTest {
                 && msgs[0]["role"] as? String == "system" && body["stream"] as? Bool == true
                 && parts[1]["type"] as? String == "image_url" && url == "data:image/png;base64,AQID"
             return (ok, "url=\(req.url!.absoluteString) image=\(url ?? "nil")")
+        }
+        check("gemini preset: default base URL, reasoning_effort minimal, image part") {
+            let cfg = LLMPresets.preset(id: "gemini-3-8-flash")!.config
+            var r = sampleRequest
+            r.messages = [LLMMessage(role: "user", content: [.imagePNG(Data([1])), .text("字幕")])]
+            let req = try OpenAICompatibleProvider.makeRequest(r, config: cfg, apiKey: "g")
+            let body = try JSONSerialization.jsonObject(with: req.httpBody!) as! [String: Any]
+            let ok = req.url!.absoluteString == "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+                && req.value(forHTTPHeaderField: "authorization") == "Bearer g"
+                && body["model"] as? String == "gemini-3.8-flash" && body["reasoning_effort"] as? String == "minimal"
+                && body["thinking"] == nil
+            return (ok, "url=\(req.url!.absoluteString) body=\(body.keys.sorted())")
+        }
+        check("deepseek preset: default base URL, thinking disabled, no reasoning_effort") {
+            let cfg = LLMPresets.preset(id: "deepseek-flash")!.config
+            let req = try OpenAICompatibleProvider.makeRequest(sampleRequest, config: cfg, apiKey: "d")
+            let body = try JSONSerialization.jsonObject(with: req.httpBody!) as! [String: Any]
+            let ok = req.url!.absoluteString == "https://api.deepseek.com/chat/completions"
+                && (body["thinking"] as? [String: String]) == ["type": "disabled"]
+                && body["reasoning_effort"] == nil && body["model"] as? String == "deepseek-flash"
+            return (ok, "url=\(req.url!.absoluteString) body=\(body.keys.sorted())")
+        }
+        check("gemini/deepseek without a key: clear missingAPIKey error") {
+            do {
+                _ = try OpenAICompatibleProvider.makeRequest(sampleRequest, config: LLMPresets.preset(id: "deepseek-flash")!.config, apiKey: nil)
+                return (false, "no error")
+            } catch let e as LLMError {
+                return ((e.errorDescription ?? "").contains("deepseek"), e.errorDescription ?? "")
+            }
         }
         check("config: tolerant Codable round trip") {
             let data = try JSONEncoder().encode(LLMConfig.default)

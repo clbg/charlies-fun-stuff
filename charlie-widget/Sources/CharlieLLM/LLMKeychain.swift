@@ -35,13 +35,16 @@ public enum LLMKeychain {
         SecItemAdd(add as CFDictionary, nil)
     }
 
-    /// Keychain first, then env (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY`) — the env fallback is for llm-smoke.
+    /// Keychain first, then env (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` / `DEEPSEEK_API_KEY`)
+    /// — the env fallback is for llm-smoke.
     static func resolvedKeyOrNil(for kind: LLMProviderKind) -> String? {
         if let k = apiKey(for: kind) { return k }
         let env = ProcessInfo.processInfo.environment
         switch kind {
         case .anthropic: return env["ANTHROPIC_API_KEY"].flatMap { $0.isEmpty ? nil : $0 }
         case .openAICompatible: return env["OPENAI_API_KEY"].flatMap { $0.isEmpty ? nil : $0 }
+        case .gemini: return env["GEMINI_API_KEY"].flatMap { $0.isEmpty ? nil : $0 }
+        case .deepseek: return env["DEEPSEEK_API_KEY"].flatMap { $0.isEmpty ? nil : $0 }
         case .bedrock: return nil
         }
     }

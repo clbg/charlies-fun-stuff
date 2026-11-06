@@ -5,12 +5,15 @@ public struct LLMPreset: Sendable, Identifiable {
     public let label: String
     public let note: String
     public let config: LLMConfig
+    /// Accepts image input (Subtitle Tutor sends the frame when OCR can't read it).
+    public let multimodal: Bool
 
-    public init(id: String, label: String, note: String, config: LLMConfig) {
+    public init(id: String, label: String, note: String, config: LLMConfig, multimodal: Bool = true) {
         self.id = id
         self.label = label
         self.note = note
         self.config = config
+        self.multimodal = multimodal
     }
 }
 
@@ -42,8 +45,15 @@ public enum LLMPresets {
         LLMPreset(id: "anthropic-haiku-4-5", label: "Anthropic API Haiku 4.5", note: "需 API key",
                   config: LLMConfig(kind: .anthropic, model: "claude-haiku-4-5",
                                     baseURL: "https://api.anthropic.com", thinking: nil, effort: nil)),
+        // Multimodal only (image input works). Gemini 3 can't turn thinking off — "minimal" is the floor.
+        // DeepSeek: only deepseek-flash takes images (deepseek-v4-pro is text-only, so not offered).
+        LLMPreset(id: "gemini-3-8-flash", label: "Gemini 3.8 Flash", note: "需 Gemini key",
+                  config: LLMConfig(kind: .gemini, model: "gemini-3.8-flash", thinking: nil, effort: "minimal")),
+        LLMPreset(id: "deepseek-flash", label: "DeepSeek Flash", note: "需 DeepSeek key",
+                  config: LLMConfig(kind: .deepseek, model: "deepseek-flash", thinking: "disabled", effort: nil)),
         LLMPreset(id: "openai-custom", label: "OpenAI 兼容（自定义）", note: "自己填地址和模型",
-                  config: LLMConfig(kind: .openAICompatible, model: "", baseURL: "", thinking: nil, effort: nil)),
+                  config: LLMConfig(kind: .openAICompatible, model: "", baseURL: "", thinking: nil, effort: nil),
+                  multimodal: false),
     ]
 
     public static func preset(id: String) -> LLMPreset? { all.first { $0.id == id } }

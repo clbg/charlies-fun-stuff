@@ -3,7 +3,30 @@ import Foundation
 // MARK: - Configuration
 
 public enum LLMProviderKind: String, Codable, CaseIterable, Sendable {
-    case bedrock, anthropic, openAICompatible
+    case bedrock, anthropic, openAICompatible, gemini, deepseek
+
+    public var displayName: String {
+        switch self {
+        case .bedrock: "AWS Bedrock"
+        case .anthropic: "Anthropic API"
+        case .openAICompatible: "OpenAI-compatible"
+        case .gemini: "Google Gemini"
+        case .deepseek: "DeepSeek"
+        }
+    }
+
+    /// Used when LLMConfig.baseURL is empty. Gemini and DeepSeek speak the OpenAI chat-completions protocol.
+    public var defaultBaseURL: String {
+        switch self {
+        case .anthropic: "https://api.anthropic.com"
+        case .gemini: "https://generativelanguage.googleapis.com/v1beta/openai"
+        case .deepseek: "https://api.deepseek.com"
+        case .bedrock, .openAICompatible: ""
+        }
+    }
+
+    /// Kinds whose request goes through OpenAICompatibleProvider.
+    var isOpenAIProtocol: Bool { self == .openAICompatible || self == .gemini || self == .deepseek }
 }
 
 public struct LLMConfig: Codable, Equatable, Sendable {
@@ -117,7 +140,7 @@ public enum LLM {
         switch config.kind {
         case .bedrock: return BedrockProvider(config: config)
         case .anthropic: return AnthropicProvider(config: config)
-        case .openAICompatible: return OpenAICompatibleProvider(config: config)
+        case .openAICompatible, .gemini, .deepseek: return OpenAICompatibleProvider(config: config)
         }
     }
 }
