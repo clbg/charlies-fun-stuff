@@ -92,8 +92,10 @@ final class ExplanationCache {
         byKey[k] = it
         guard let d = try? JSONEncoder().encode(it) else { return }
         let line = d + Data("\n".utf8)
+        // Throwing FileHandle APIs only: the legacy write(_:)/seekToEndOfFile() raise ObjC exceptions, which
+        // unwinding through Swift async code corrupts the concurrency runtime.
         if let h = try? FileHandle(forWritingTo: url) {
-            h.seekToEndOfFile(); h.write(line); try? h.close()
+            _ = try? h.seekToEnd(); try? h.write(contentsOf: line); try? h.close()
         } else {
             try? line.write(to: url)
         }
@@ -126,9 +128,12 @@ final class SubtitleEventLog {
         obj["ev"] = ev
         obj["t_ms"] = (SubtitleClock.nowMs() - t0).rounded()
         obj["wall"] = Date().timeIntervalSince1970
-        guard let data = try? JSONSerialization.data(withJSONObject: obj, options: [.sortedKeys]) else { return }
-        handle?.write(data + Data("\n".utf8))
+        guard !closed, let data = try? JSONSerialization.data(withJSONObject: obj, options: [.sortedKeys]) else { return }
+        try? handle?.write(contentsOf: data + Data("\n".utf8))
     }
 
-    func close() { try? handle?.close() }
+    /// Late events (warm-up finishing, the last frame) can arrive after stop(); they are dropped, not written to
+    /// a closed handle (which raised an ObjC exception through Swift async code).
+    func close() { closed = true; try? handle?.close() }
+    private var closed = false
 }

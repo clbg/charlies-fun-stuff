@@ -67,7 +67,18 @@ final class SubtitleOverlayPanel: NSObject, NSWindowDelegate {
     }
 
     func show() { panel.orderFrontRegardless() }
-    func close() { panel.orderOut(nil) }
+    /// NSWindow.delegate is not retained: detach it (and the view callbacks that capture self) before this object
+    /// goes away, or AppKit later messages a freed delegate — that corrupted memory and crashed the app elsewhere
+    /// (BubbleOverlayBindingView) right after Subtitle Tutor was stopped.
+    func close() {
+        panel.delegate = nil
+        if let bg = panel.contentView as? SubtitleDragView {
+            bg.onDrag = nil; bg.onDragEnd = nil; bg.onRightClick = nil
+        }
+        onClose = nil
+        onPickRegion = nil
+        panel.orderOut(nil)
+    }
 
     func setBand(_ region: CGRect) {
         band = ScreenCoords.toAppKit(region)

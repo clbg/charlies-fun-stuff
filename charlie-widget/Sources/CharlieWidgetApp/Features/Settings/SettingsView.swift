@@ -14,6 +14,7 @@ struct SettingsView: View {
     enum HotkeyTarget: Hashable {
         case voiceCommand
         case recorder(AudioSource)
+        case subtitle
     }
 
     @State private var recordingTarget: HotkeyTarget?
@@ -37,7 +38,9 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                SubtitleAndModelSettings(subtitleTutor: subtitleTutor, llm: llmSettings)
+                SubtitleAndModelSettings(subtitleTutor: subtitleTutor, llm: llmSettings) {
+                    hotkeyRecorderButton(target: .subtitle, displayName: subtitleTutor.hotkeyDisplayName)
+                }
 
                 sectionHeader("Features")
 
@@ -370,6 +373,8 @@ struct SettingsView: View {
             voiceCommandService.updateHotkey(keyCode: kc, modifiers: mods)
         case .recorder(let source):
             recorderHotkeyService.updateHotkey(for: source, keyCode: kc, modifiers: mods)
+        case .subtitle:
+            subtitleTutor.updateHotkey(keyCode: kc, modifiers: mods)
         case nil:
             break
         }

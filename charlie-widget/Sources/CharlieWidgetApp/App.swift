@@ -210,6 +210,7 @@ struct CharlieWidgetApp: App {
         let hotkeyManager = self.hotkeyManager
         let recorderHotkeyService = self.recorderHotkeyService
 
+        subtitleTutor.setupHotkey(hotkeyManager)
         recorderHotkeyService.setup(
             recorderStore: recorderStore,
             messageStore: store,

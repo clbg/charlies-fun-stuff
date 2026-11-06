@@ -2,9 +2,11 @@ import CharlieLLM
 import SwiftUI
 
 /// "Subtitle Tutor" and "Model" sections of the Settings tab.
-struct SubtitleAndModelSettings: View {
+struct SubtitleAndModelSettings<HotkeyButton: View>: View {
     var subtitleTutor: SubtitleTutorController
     @Bindable var llm: LLMSettingsStore
+    /// SettingsView's shared "Type shortcut…" recorder button for the on/off hotkey.
+    @ViewBuilder var hotkeyButton: () -> HotkeyButton
     @State private var apiKeyDraft = ""
 
     var body: some View {
@@ -14,6 +16,8 @@ struct SubtitleAndModelSettings: View {
                 Toggle("", isOn: Binding(get: { subtitleTutor.isRunning }, set: { $0 ? subtitleTutor.start() : subtitleTutor.stop() }))
                     .toggleStyle(.switch).controlSize(.small)
             }
+            divider
+            row("On/Off Hotkey", "keyboard") { hotkeyButton() }
             divider
             row("Subtitle Region", "rectangle.dashed") {
                 Button(subtitleTutor.region == nil ? "Select…" : "Reselect…") { subtitleTutor.pickRegion() }

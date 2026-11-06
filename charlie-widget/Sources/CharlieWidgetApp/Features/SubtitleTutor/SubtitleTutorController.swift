@@ -49,6 +49,46 @@ final class SubtitleTutorController {
         provider = LLM.provider(for: llm.config)
     }
 
+    // MARK: - Global hotkey (toggle on/off)
+
+    private static let hotkeyId: UInt32 = 20
+    private static let hotkeyKeyCodeKey = "CharlieWidget.subtitle.hotkey.keyCode"
+    private static let hotkeyModifiersKey = "CharlieWidget.subtitle.hotkey.modifiers"
+    @ObservationIgnored private var hotkeyManager: HotkeyManager?
+    /// Default ⌃⌥S (keyCode 0x01; Carbon modifiers control 0x1000 | option 0x0800).
+    private(set) var hotkeyKeyCode: UInt32 = UInt32(UserDefaults.standard.object(forKey: hotkeyKeyCodeKey) as? Int ?? 0x01)
+    private(set) var hotkeyModifiers: UInt32 = UInt32(UserDefaults.standard.object(forKey: hotkeyModifiersKey) as? Int ?? 0x1800)
+
+    func setupHotkey(_ manager: HotkeyManager) {
+        hotkeyManager = manager
+        registerHotkey()
+    }
+
+    func updateHotkey(keyCode: UInt32, modifiers: UInt32) {
+        hotkeyKeyCode = keyCode
+        hotkeyModifiers = modifiers
+        UserDefaults.standard.set(Int(keyCode), forKey: Self.hotkeyKeyCodeKey)
+        UserDefaults.standard.set(Int(modifiers), forKey: Self.hotkeyModifiersKey)
+        registerHotkey()
+    }
+
+    var hotkeyDisplayName: String {
+        var s = ""
+        if hotkeyModifiers & 0x1000 != 0 { s += "\u{2303}" } // ⌃
+        if hotkeyModifiers & 0x0800 != 0 { s += "\u{2325}" } // ⌥
+        if hotkeyModifiers & 0x0200 != 0 { s += "\u{21E7}" } // ⇧
+        if hotkeyModifiers & 0x0100 != 0 { s += "\u{2318}" } // ⌘
+        return s + VoiceCommandService.keyName(hotkeyKeyCode)
+    }
+
+    private func registerHotkey() {
+        hotkeyManager?.register(id: Self.hotkeyId, keyCode: hotkeyKeyCode, modifiers: hotkeyModifiers) { [weak self] in
+            guard let self else { return }
+            self.toggle()
+            ToastWindow.show(title: "Subtitle Tutor", body: self.isRunning ? "字幕讲解已开启" : "字幕讲解已关闭")
+        }
+    }
+
     // MARK: - Control
 
     /// Starts watching `region` (or the saved one; with neither, asks the user to draw it).
