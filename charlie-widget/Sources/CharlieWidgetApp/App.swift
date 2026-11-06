@@ -15,11 +15,13 @@ struct CharlieWidgetApp: App {
     @State private var bubbleController = BubbleOverlayController()
     @State private var musicController = MusicController()
     @State private var sunsetReminder = SunsetReminder()
+    @State private var llmSettings: LLMSettingsStore
+    @State private var subtitleTutor: SubtitleTutorController
     private let server = SocketServer()
 
     var body: some Scene {
         MenuBarExtra {
-            HistoryView(store: store, sessionStore: sessionStore, recorderStore: recorderStore, voiceCommandService: voiceCommandService, recorderHotkeyService: recorderHotkeyService, liveTranscriptWindow: liveTranscriptWindow, bubbleController: bubbleController, musicController: musicController)
+            HistoryView(store: store, sessionStore: sessionStore, recorderStore: recorderStore, voiceCommandService: voiceCommandService, recorderHotkeyService: recorderHotkeyService, liveTranscriptWindow: liveTranscriptWindow, bubbleController: bubbleController, musicController: musicController, subtitleTutor: subtitleTutor, llmSettings: llmSettings)
                 .onAppear {
                     NSApp?.setActivationPolicy(.accessory)
                 }
@@ -37,6 +39,11 @@ struct CharlieWidgetApp: App {
     }
 
     init() {
+        let llmSettings = LLMSettingsStore()
+        _llmSettings = State(initialValue: llmSettings)
+        let subtitleTutor = SubtitleTutorController(llm: llmSettings)
+        _subtitleTutor = State(initialValue: subtitleTutor)
+
         // Request Screen Recording permission on first launch (persists with stable code signing)
         if !CGPreflightScreenCaptureAccess() {
             CGRequestScreenCaptureAccess()
@@ -378,6 +385,23 @@ struct CharlieWidgetApp: App {
 
         server.start()
         sunsetReminder.start()
+
+        // charlie-widget subtitle start [--region x,y,w,h] [--duration s] | stop | toggle | pick | reset-panel | clear-cache | status
+        server.onSubtitle = { json, connection in
+            switch json["action"] as? String ?? "status" {
+            case "start":
+                var region: CGRect?
+                if let r = json["region"] as? [Double], r.count == 4 { region = CGRect(x: r[0], y: r[1], width: r[2], height: r[3]) }
+                subtitleTutor.start(region: region, duration: json["duration"] as? Double)
+            case "stop": subtitleTutor.stop()
+            case "toggle": subtitleTutor.toggle()
+            case "pick": subtitleTutor.pickRegion()
+            case "reset-panel": subtitleTutor.resetPanel()
+            case "clear-cache": subtitleTutor.clearCache()
+            default: break
+            }
+            server.send(subtitleTutor.statusJSON() + "\n", to: connection)
+        }
 
         bubbleController.observeSessions(sessionStore)
 

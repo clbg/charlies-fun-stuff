@@ -18,6 +18,8 @@ struct HistoryView: View {
     var liveTranscriptWindow: LiveTranscriptWindowController
     var bubbleController: BubbleOverlayController
     var musicController: MusicController
+    var subtitleTutor: SubtitleTutorController
+    var llmSettings: LLMSettingsStore
     @State private var selectedTab: DropdownTab = .messages
     @State private var selectedMessageID: UUID?
     @State private var copiedMessageID: UUID?
@@ -38,7 +40,7 @@ struct HistoryView: View {
             case .recorder:
                 RecorderView(recorderStore: recorderStore, liveTranscriptWindow: liveTranscriptWindow)
             case .settings:
-                SettingsView(voiceCommandService: voiceCommandService, recorderHotkeyService: recorderHotkeyService, recorderStore: recorderStore, bubbleController: bubbleController, musicController: musicController)
+                SettingsView(voiceCommandService: voiceCommandService, recorderHotkeyService: recorderHotkeyService, recorderStore: recorderStore, bubbleController: bubbleController, musicController: musicController, subtitleTutor: subtitleTutor, llmSettings: llmSettings)
             }
 
             Divider()

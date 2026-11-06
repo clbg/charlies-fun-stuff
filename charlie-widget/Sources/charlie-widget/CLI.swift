@@ -30,6 +30,8 @@ struct CLI {
             await handleMusic(Array(args.dropFirst()))
         case "sunset":
             await handleSunset(Array(args.dropFirst()))
+        case "subtitle":
+            await handleSubtitle(Array(args.dropFirst()))
         default:
             fputs("Unknown command: \(subcommand)\n", stderr)
             printUsage()
@@ -495,6 +497,42 @@ struct CLI {
         }
     }
 
+    // MARK: - Subtitle subcommand
+
+    private static func handleSubtitle(_ args: [String]) async {
+        let usage = "Usage: charlie-widget subtitle <start [--region x,y,w,h] [--duration s]|stop|toggle|pick|reset-panel|clear-cache|status>\n"
+        let action = args.first ?? "status"
+        switch action {
+        case "start":
+            var obj: [String: Any] = ["command": "subtitle", "action": "start"]
+            var rest = Array(args.dropFirst())
+            while !rest.isEmpty {
+                let flag = rest.removeFirst()
+                guard let value = rest.first else { fputs(usage, stderr); exit(1) }
+                rest.removeFirst()
+                switch flag {
+                case "--region":
+                    let p = value.split(separator: ",").compactMap { Double($0) }
+                    guard p.count == 4 else { fputs(usage, stderr); exit(1) }
+                    obj["region"] = p
+                case "--duration":
+                    guard let d = Double(value) else { fputs(usage, stderr); exit(1) }
+                    obj["duration"] = d
+                default:
+                    fputs(usage, stderr); exit(1)
+                }
+            }
+            let data = try! JSONSerialization.data(withJSONObject: obj)
+            await sendAndPrintResponse(String(decoding: data, as: UTF8.self) + "\n")
+        case "stop", "toggle", "pick", "reset-panel", "clear-cache", "status":
+            await sendAndPrintResponse("{\"command\":\"subtitle\",\"action\":\"\(action)\"}\n")
+        default:
+            fputs("Unknown subtitle action: \(action)\n", stderr)
+            fputs(usage, stderr)
+            exit(1)
+        }
+    }
+
     // MARK: - Socket communication
 
     private static func sendAndExpectOK(_ message: String) async {
@@ -639,6 +677,8 @@ struct CLI {
           charlie-widget sunset on|off         Enable/disable daily sunset reminder
           charlie-widget sunset test           Fire the toast + bubble + Bach now
           charlie-widget sunset location <lat> <lon>  Set location (default Tokyo)
+          charlie-widget subtitle start [--region x,y,w,h] [--duration s]  Explain on-screen Japanese subtitles
+          charlie-widget subtitle stop|toggle|pick|reset-panel|clear-cache|status
           charlie-widget voice start           Start voice command recording
           charlie-widget voice stop            Stop, transcribe, send to iTerm
           charlie-widget voice status          Current voice command state

@@ -210,6 +210,36 @@ charlie-widget sunset location 35.68 139.65   # set lat/lon (default Tokyo)
 - **T-5 min** → warm 🌇 bubble on the Bubble overlay (shown even if session bubbles are off; disappears at sunset or on hover/click) + 10s of a random `calm_*bach*.wav` from the vault `agent-operator/` audio folder via `afplay -t 10`
 - Each event fires once per day; if the Mac was asleep and the event is >2 min late, it's skipped instead of firing late
 
+## Subtitle Tutor
+
+Watches the subtitle band of a video (YouTube CC or burned-in Japanese subtitles), OCRs each new line, and
+streams a Chinese translation + grammar notes into a panel floating right above the subtitle.
+
+```bash
+charlie-widget subtitle start                          # uses the saved region; first time: drag a box around the subtitles
+charlie-widget subtitle start --region 120,790,1130,150 # x,y,w,h in screen points, top-left origin
+charlie-widget subtitle stop | toggle | pick | reset-panel | clear-cache | status
+```
+
+Or **Settings → Subtitle Tutor** (toggle, re-select region, put the panel back, clear cache) and
+**Settings → Model** (preset, provider, model, AWS profile/region or Base URL + API key, latency test).
+
+- Pipeline: ScreenCaptureKit every 200 ms → Apple Vision OCR (`.accurate`, ja; ~40–90 ms) → on a new line,
+  cache lookup or a streamed model call (CharlieLLM). If OCR is unsure twice in a row, the frame image is sent to
+  the model instead (~3.7 s).
+- Non-Japanese lines (player timestamps, logos, Chinese UI text) are dropped: a kept line needs ≥ 1 kana.
+- Panel: drag to move, drag an edge to resize; placement is remembered and reset when the region changes.
+- Cache: every finished explanation is stored by normalized subtitle text (fuzzy ≥ 0.9). Seeking back or
+  rewatching shows it instantly (measured median 94 ms vs ~1.1 s uncached).
+- Data: `~/Library/Application Support/CharlieWidget/SubtitleTutor/` (`cache.jsonl`, `logs/session-*.jsonl`);
+  region and panel placement in UserDefaults. `CHARLIE_SUBTITLE_HOME` overrides the data dir for tests.
+- Needs Screen Recording permission (requested on first launch).
+
+Testing (`scripts/subtitle-tutor/`): `synthetic.html` shows 12 timed subtitles over a moving background
+(ground truth in `window.__gt`); for YouTube, record the rendered caption DOM (`.caption-visual-line`) with
+timestamps. Score a run with `python3 scripts/subtitle-tutor/eval.py <session.jsonl> --gt gt.json`.
+`mouse_drag.swift` synthesizes drags for panel move/resize tests.
+
 ## LLM providers
 
 `Sources/CharlieLLM` is a small streaming LLM client shared by app features (no third-party deps: Foundation, CryptoKit, Security). Entry point: `LLM.provider(for: LLMConfig) -> any LLMProvider`, then `stream(_:)` yields `.text` deltas and a final `.done(ttftMs:totalMs:)`; cancelling the consuming Task cancels the HTTP request.

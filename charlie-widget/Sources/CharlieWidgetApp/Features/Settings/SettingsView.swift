@@ -8,6 +8,8 @@ struct SettingsView: View {
     var recorderStore: RecorderStore
     var bubbleController: BubbleOverlayController
     var musicController: MusicController
+    var subtitleTutor: SubtitleTutorController
+    var llmSettings: LLMSettingsStore
 
     enum HotkeyTarget: Hashable {
         case voiceCommand
@@ -35,6 +37,8 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
+                SubtitleAndModelSettings(subtitleTutor: subtitleTutor, llm: llmSettings)
+
                 sectionHeader("Features")
 
                 bubbleToggleRow

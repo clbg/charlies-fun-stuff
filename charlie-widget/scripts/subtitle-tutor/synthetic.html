@@ -1,0 +1,40 @@
+<!doctype html><meta charset="utf-8"><title>ST synthetic</title>
+<style>
+ body{margin:0;background:#000;overflow:hidden}
+ canvas{position:fixed;inset:0;width:100vw;height:100vh}
+ #sub{position:fixed;left:0;right:0;bottom:8vh;text-align:center;font:600 44px "Hiragino Sans";color:#fff;
+      -webkit-text-stroke:1.5px #000;text-shadow:0 0 6px #000;white-space:pre-line;line-height:1.35}
+</style>
+<canvas id=c></canvas><div id=sub></div>
+<script>
+// Ground truth subtitles. Shown 3s each with a 0.6s gap; background keeps moving like video.
+const LINES = new URLSearchParams(location.search).get('lines')?.split('|') || [
+ "もう二度と会えないかもしれないけど、忘れないでね。",
+ "お前が来るのを\n待ってたんだよ",
+ "ちょっと待って、それどういう意味？",
+ "雨が降りそうだから、傘を持って行ったほうがいいよ。",
+ "君のせいじゃないって、何度も言ったでしょう。",
+ "明日までに終わらせなければならない。",
+ "そんなに急がなくてもいいじゃない。",
+ "彼が来るとは思わなかった。",
+ "せっかく作ったのに、誰も食べてくれなかった。",
+ "行けば行くほど、道が分からなくなる。",
+ "本当のことを言ったら、怒られるに決まってる。",
+ "ここまで来たら、もう引き返せないよ。"];
+const c=document.getElementById('c'),x=c.getContext('2d');
+function bg(t){c.width=innerWidth;c.height=innerHeight;
+ const g=x.createLinearGradient(0,0,c.width,c.height);
+ g.addColorStop(0,`hsl(${(t/40)%360},60%,45%)`);g.addColorStop(1,`hsl(${(t/40+120)%360},60%,30%)`);
+ x.fillStyle=g;x.fillRect(0,0,c.width,c.height);
+ for(let i=0;i<14;i++){x.fillStyle=`hsla(${i*25+t/20},80%,70%,.5)`;x.beginPath();
+  x.arc((Math.sin(t/900+i)*.5+.5)*c.width,(Math.cos(t/700+i*1.3)*.5+.5)*c.height,60+i*6,0,7);x.fill()}
+ requestAnimationFrame(bg)}
+requestAnimationFrame(bg);
+window.__gt=[];const sub=document.getElementById('sub');
+async function run(){await new Promise(r=>setTimeout(r,+(new URLSearchParams(location.search).get('delay')||3000)));
+ for(const l of LINES){sub.textContent=l;__gt.push({text:l,shown:Date.now()/1000});
+  await new Promise(r=>setTimeout(r,3000));sub.textContent='';__gt[__gt.length-1].hidden=Date.now()/1000;
+  await new Promise(r=>setTimeout(r,600));}
+ window.__done=true}
+run();
+</script>
